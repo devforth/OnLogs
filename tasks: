@@ -1,0 +1,17 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      
+      {
+        "label": "Run front",
+        "type": "shell",
+        "command": "cd frontend && npm run dev",
+        "presentation": {
+          "reveal": "always",
+          "panel": "new",
+          "group": "develop"
+        },
+        "runOptions": { "runOn": "folderOpen" }
+      }
+    ]
+  }
