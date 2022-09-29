@@ -4,7 +4,7 @@
     {
       "label": "Run front",
       "type": "shell",
-      "command": "cd ../ && npm run dev",
+      "command": "cd frontend && npm run dev",
       "presentation": {
         "reveal": "always",
         "panel": "new",
