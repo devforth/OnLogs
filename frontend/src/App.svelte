@@ -1,10 +1,5 @@
 <script>
- 
- const test = [1,2,3]
+  import Button from "./lib/Button/Button.svelte";
 </script>
 
-
-
-<style>
-  
-</style>
+<Button title={'12345'} />

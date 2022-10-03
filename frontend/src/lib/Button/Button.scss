@@ -1,0 +1,24 @@
+.button{
+    font-family: 'Ubuntu', sans-serif;
+
+    background-color: $btn-primary-color;
+    border-radius: $main-border-radius;
+    
+    font-size: $main-font-s;
+    color:$text-dark-color;
+    font-weight: 400;
+   
+
+    &.highlighted{
+        background-color:$active-color;
+        color:$text-onactive-color;
+    }
+     &.border{
+         box-shadow:$main-shadow;
+
+       
+        
+    }
+
+
+}
