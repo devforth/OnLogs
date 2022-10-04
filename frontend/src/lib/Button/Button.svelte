@@ -13,15 +13,23 @@
   export let title=null;
   export let border=true;
   export let highlighted =false;
-  export let width=90;
-  export let height=32;
+  export let minWidth=0;
+  export let minHeight=0;
   export let icon='';
-  
+ 
+  export let iconHeight=12;
+
 </script>
 
 
-<button style:width={`${width}px`} style:height={`${height}px`}  class="button block {highlighted?'highlighted':''} {border?'border':''}" >{title}
-  <i class="{icon?`${icon}`:'log log-Arrow'}"></i>
+<button style:min-width={`${minWidth}px`} style:min-height={`${minHeight}px`}  class="button block {highlighted?'highlighted':''} {border?'border':''}" >
+   <i style:font-size={`${iconHeight}px`}
+  class="{icon?`${icon}`:''}"
+  class:iconWidthText={title&&icon}
+  
+  
+  ></i>{title}
+ 
 </button>
 
 

@@ -30,20 +30,9 @@ Default.args = {
   title: "Text",
   border: true,
   highlighted: false,
-  width: 90,
-  height: 32,
+  minWidth: 90,
+  minHeight: 32,
   icon: "",
   state: "BUTTON_TEXT",
-};
-export const BtnTextWithIcon = Template.bind({});
-BtnTextWithIcon.args = {
-  ...Default.args.task,
-  state: "BUTTON_TEXT_WITH_ICON",
-};
-
-export const BtnIcon = Template.bind({});
-BtnIcon.args = {
-  ...Default.args.task,
-  state: "BUTTON_ICON",
-  title: "",
+  iconHeight:12,
 };
