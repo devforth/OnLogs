@@ -26,10 +26,12 @@
 // shadows
 
 $main-shadow: 1px 1px 10px rgba(0, 0, 0, 0.15);
+$container-shadow: 1px 1px 30px rgba(5, 39, 70, 0.1);
 
 //border-radius
 
 $main-border-radius: 10px;
+$large-border-radius: 20px;
 
 //fonts
 $main-font-xs:12px;
@@ -42,4 +44,6 @@ $main-font-xl:28px;
 $line-height:2.5;
 
 //paddings
-$normal-padding:12px
+$normal-padding:12px;
+$container-padding:20px;
+$container-vertical-padding:16px
