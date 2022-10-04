@@ -15,14 +15,15 @@
   export let highlighted =false;
   export let width=90;
   export let height=32;
-  export let icon=null;
+  export let icon='';
   
 </script>
 
 
 <button style:width={`${width}px`} style:height={`${height}px`}  class="button block {highlighted?'highlighted':''} {border?'border':''}" >{title}
+  <i class="{icon?`${icon}`:'log log-Arrow'}"></i>
 </button>
-<i class="log log-Arrow"></i>
+
 
 
 

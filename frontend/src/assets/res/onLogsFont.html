@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>onLogsFont</title>
+	<style>
+		body {
+			font-family: sans-serif;
+			margin: 0;
+			padding: 10px 20px;
+		}
+
+		.preview {
+			line-height: 2em;
+		}
+
+		.preview__icon {
+			display: inline-block;
+			width: 32px;
+			text-align: center;
+		}
+
+		.log {
+			display: inline-block;
+			font-size: 16px;
+		}
+
+		@font-face {
+	font-family: "onLogsFont";
+	src: url("onLogsFont.eot?ca034ac56c9c9ef1afa9a219a1d3bba5?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?ca034ac56c9c9ef1afa9a219a1d3bba5") format("woff2"),
+url("onLogsFont.woff?ca034ac56c9c9ef1afa9a219a1d3bba5") format("woff"),
+url("onLogsFont.ttf?ca034ac56c9c9ef1afa9a219a1d3bba5") format("truetype"),
+url("onLogsFont.svg?ca034ac56c9c9ef1afa9a219a1d3bba5#onLogsFont") format("svg");
+	font-weight: normal;
+    font-style: normal;
+}
+
+.log {
+}
+
+.log:before {
+	font-family: onLogsFont !important;
+	font-style: normal !important;
+	font-weight: normal !important;
+	font-variant: normal !important;
+	text-transform: none !important;
+	speak: none;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.log-Arrow:before {
+	content: "\f101";
+}
+
+	</style>
+</head>
+<body>
+	<h1>onLogsFont</h1>
+	<div class="preview">
+		<span class="preview__icon">
+			<span class="log log-Arrow"></span>
+		</span>
+		<span>Arrow</span>
+	</div>
+</body>
+</html>

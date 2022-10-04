@@ -3,13 +3,13 @@ import fs from "fs";
 
 fs.readdir("src/assets/res/font", function (err, items) {
   if (err) {
-    
     console.log("cant read res directory");
   }
   const files = items
     .filter((i) => i.toLowerCase().endsWith(".svg"))
-    .map((i) => { return `src/assets/res/font/${i}` });
- 
+    .map((i) => {
+      return `src/assets/res/font/${i}`;
+    });
 
   webfontsGenerator(
     {
@@ -19,7 +19,7 @@ fs.readdir("src/assets/res/font", function (err, items) {
 
       // https://github.com/nfroidure/svgicons2svgfont options
       normalize: true,
-
+      html: true,
       cssTemplate: "src/assets/res/font/font-css.hbs",
       templateOptions: {
         classPrefix: "log-",
