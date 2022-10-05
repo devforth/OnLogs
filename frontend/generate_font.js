@@ -16,6 +16,7 @@ fs.readdir("src/assets/res/font", function (err, items) {
       files: files,
       dest: "src/assets/res",
       fontName: "onLogsFont",
+      
 
       // https://github.com/nfroidure/svgicons2svgfont options
       normalize: true,

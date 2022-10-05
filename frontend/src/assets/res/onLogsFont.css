@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?d1e341409158619427913ecfaeeec4f6?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?d1e341409158619427913ecfaeeec4f6") format("woff2"),
-url("onLogsFont.woff?d1e341409158619427913ecfaeeec4f6") format("woff"),
-url("onLogsFont.ttf?d1e341409158619427913ecfaeeec4f6") format("truetype"),
-url("onLogsFont.svg?d1e341409158619427913ecfaeeec4f6#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?27f27e8b8aa5eb59be10ba9a19de3583?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?27f27e8b8aa5eb59be10ba9a19de3583") format("woff2"),
+url("onLogsFont.woff?27f27e8b8aa5eb59be10ba9a19de3583") format("woff"),
+url("onLogsFont.ttf?27f27e8b8aa5eb59be10ba9a19de3583") format("truetype"),
+url("onLogsFont.svg?27f27e8b8aa5eb59be10ba9a19de3583#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -23,6 +23,60 @@ url("onLogsFont.svg?d1e341409158619427913ecfaeeec4f6#onLogsFont") format("svg");
 	-moz-osx-font-smoothing: grayscale;
 }
 
-.log-Arrow:before {
+.log-Alert:before {
 	content: "\f101";
+}
+.log-ArrowRight:before {
+	content: "\f102";
+}
+.log-Clean:before {
+	content: "\f103";
+}
+.log-Colums:before {
+	content: "\f104";
+}
+.log-Combine:before {
+	content: "\f105";
+}
+.log-Cut:before {
+	content: "\f106";
+}
+.log-Data:before {
+	content: "\f107";
+}
+.log-Eye:before {
+	content: "\f108";
+}
+.log-Filter:before {
+	content: "\f109";
+}
+.log-Group:before {
+	content: "\f10a";
+}
+.log-Info:before {
+	content: "\f10b";
+}
+.log-Last:before {
+	content: "\f10c";
+}
+.log-Moon:before {
+	content: "\f10d";
+}
+.log-Pencil:before {
+	content: "\f10e";
+}
+.log-Plus:before {
+	content: "\f10f";
+}
+.log-Refresh:before {
+	content: "\f110";
+}
+.log-Search:before {
+	content: "\f111";
+}
+.log-User:before {
+	content: "\f112";
+}
+.log-Wheel:before {
+	content: "\f113";
 }
