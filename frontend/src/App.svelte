@@ -1,12 +1,7 @@
 <script>
-  import Button from "./lib/Button/Button.svelte";
+ import View from "./Views/View.svelte";
   
 </script>
-<div class="contentContainer">
-  <div class='leftContainer'></div>
-  <div class='middleContainer'></div>
-  <div class='rightContainer'></div>
-  
 
-</div>
 
+<View></View>
