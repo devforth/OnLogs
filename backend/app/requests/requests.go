@@ -1,4 +1,4 @@
-package main
+package requests
 
 import (
 	"encoding/json"
@@ -31,7 +31,7 @@ func makeSocketRequest(path string) []byte {
 }
 
 // returns list of names of docker containers from docker daemon
-func getContainersList() []string {
+func GetContainersList() []string {
 	body := makeSocketRequest("containers/json")
 	var result []map[string]any
 	json.Unmarshal(body, &result)
@@ -50,7 +50,7 @@ func getContainersList() []string {
 }
 
 // returns log of a container
-func getContainerLogs(containerName string) string {
+func GetContainerLogs(containerName string, limit int, offset int) string {
 	body := makeSocketRequest("containers/" + containerName + "/logs?stdout=true&stderr=true&timestamps=true")
 	return string(body)
 }

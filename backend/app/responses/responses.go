@@ -1,4 +1,4 @@
-package main
+package responses
 
 type Container struct {
 	Id      string   `json:"Id"`

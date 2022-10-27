@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	routes "github.com/devforth/OnLogs/app/routes"
+	util "github.com/devforth/OnLogs/app/util"
 	"github.com/tv42/httpunix"
 )
 
@@ -44,10 +46,10 @@ func get_containers_names_list(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	storeLogs() // store logs from all containers before getting started
+	util.StoreLogs() // store logs from all containers before getting started
 
-	http.HandleFunc("api/v1/getHost", routeGetHost)
-	http.HandleFunc("api/v1/getLogs", routeGetContainerLogs)
+	http.HandleFunc("api/v1/getHost", routes.RouteGetHost)
+	http.HandleFunc("api/v1/getLogs", routes.RouteGetContainerLogs)
 
 	http.ListenAndServe(":2874", nil)
 }

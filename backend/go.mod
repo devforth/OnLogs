@@ -1,12 +1,17 @@
-module devforth/onlogs
+module github.com/devforth/OnLogs
 
 go 1.19
+
+require (
+	github.com/blevesearch/bleve v1.0.14
+	github.com/devforth/libsrchx v0.0.0-20221026123702-4e0a74e09617
+	github.com/tv42/httpunix v0.0.0-20191220191345-2ba4b9c3382c
+)
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
 	github.com/RoaringBitmap/roaring v0.9.4 // indirect
 	github.com/bits-and-blooms/bitset v1.2.0 // indirect
-	github.com/blevesearch/bleve v1.0.14 // indirect
 	github.com/blevesearch/bleve/v2 v2.3.4 // indirect
 	github.com/blevesearch/bleve_index_api v1.0.3 // indirect
 	github.com/blevesearch/geo v0.1.13 // indirect
@@ -23,7 +28,6 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/couchbase/vellum v1.0.2 // indirect
 	github.com/devforth/bbadger v0.0.0-20221018124520-a6ec780324e8 // indirect
-	github.com/devforth/libsrchx v0.0.0-20221026123702-4e0a74e09617 // indirect
 	github.com/dgraph-io/badger v1.6.2 // indirect
 	github.com/dgraph-io/ristretto v0.0.2 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
@@ -40,7 +44,6 @@ require (
 	github.com/steveyen/gtreap v0.1.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tinylib/msgp v1.1.0 // indirect
-	github.com/tv42/httpunix v0.0.0-20191220191345-2ba4b9c3382c // indirect
 	github.com/willf/bitset v1.1.10 // indirect
 	go.etcd.io/bbolt v1.3.5 // indirect
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859 // indirect

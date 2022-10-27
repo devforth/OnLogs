@@ -1,4 +1,4 @@
-package main
+package db
 
 import (
 	"strconv"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/blevesearch/bleve"
+	vars "github.com/devforth/OnLogs/app/vars"
 )
 
 type Store struct {
@@ -16,18 +17,18 @@ type Store struct {
 }
 
 type LogItem struct {
-	datetime string
-	message  string
+	Datetime string
+	Message  string
 }
 
-func storeItem(container string, item *LogItem) {
-	datetime, _ := time.Parse(time.RFC3339Nano, item.datetime)
+func StoreItem(container string, item *LogItem) {
+	datetime, _ := time.Parse(time.RFC3339Nano, item.Datetime)
 	timestamp := strconv.Itoa(int(datetime.UnixNano()))
 	doc := map[string]interface{}{
 		"id":      "",
-		timestamp: item.message,
+		timestamp: item.Message,
 	}
 	ndx, typ := container, "logs"
-	index, _ := store.GetIndex(ndx + "/" + typ)
+	index, _ := vars.Store.GetIndex(ndx + "/" + typ)
 	doc, _ = index.Put(doc)
 }
