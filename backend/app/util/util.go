@@ -15,7 +15,7 @@ func StoreLogs() {
 		for _, logLine := range logs {
 			logItem := &db.LogItem{
 				Datetime: logLine[:30],
-				Message:  logLine[31:],
+				Message:  logLine[31 : len(logLine)-1],
 			}
 			db.StoreItem(container, logItem)
 		}
