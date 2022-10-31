@@ -1,7 +1,6 @@
 package db
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -48,59 +47,27 @@ func StoreItem(container string, item *LogItem) {
 	index.Put(doc)
 }
 
-func GetLogs(container string, limit int, offset int) []string {
-	var input struct {
-		QueryString string `json:"query"`
-
-		srchx.Query
-
-		Join []struct {
-			From string `json:"from"`
-
-			*srchx.Join
-		} `json:"join"`
-	}
-	input.Sort = append(input.Sort, "-timestamp")
-
+func GetLogs(container string, message string, limit int, offset int) []string {
 	var q query.Query
-
-	ndx, typ := container, "logs"
-	index, err := vars.Store.GetIndex(ndx + "/" + typ)
-	if err != nil {
-		fmt.Println(err)
+	if message == "" {
+		q = query.Query(bleve.NewMatchAllQuery())
+	} else {
+		q = query.Query(bleve.NewMatchPhraseQuery(message))
 	}
 
-	q = query.Query(bleve.NewMatchAllQuery())
-
-	joins := []*srchx.Join{}
-	for _, join := range input.Join {
-		if join.From != "" {
-			ndx, e := vars.Store.GetIndex(join.From)
-			if e != nil {
-				fmt.Println(err)
-			}
-			join.Join.Src = ndx
-			joins = append(joins, join.Join)
-		}
-	}
-
-	req := &srchx.Query{
-		Query:  q,
-		Offset: input.Offset,
-		Size:   input.Size,
-		Sort:   input.Sort,
-		Join:   joins,
-	}
-
-	res, err := index.Search(req)
-
-	if err != nil {
-		fmt.Println(err)
-	}
+	index, _ := vars.Store.GetIndex(container + "/logs")
+	res, _ := index.Search(
+		&srchx.Query{
+			Query:  q,
+			Offset: offset,
+			Size:   limit,
+			Sort:   []string{"-timestamp"},
+		},
+	)
 
 	to_return := []string{}
-	for _, item := range res.Docs {
-		to_return = append(to_return, item["message"].(string))
+	for _, log_item := range res.Docs {
+		to_return = append(to_return, log_item["message"].(string))
 	}
 	return to_return
 }
