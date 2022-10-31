@@ -3,14 +3,14 @@ package util
 import (
 	"strings"
 
+	daemon "github.com/devforth/OnLogs/app/daemon"
 	db "github.com/devforth/OnLogs/app/db"
-	requests "github.com/devforth/OnLogs/app/requests"
 )
 
 func StoreLogs() {
-	containers := requests.GetContainersList()
+	containers := daemon.GetContainersList()
 	for _, container := range containers {
-		logs := strings.Split(requests.GetContainerLogs(container, 0, 0), "\n")
+		logs := strings.Split(daemon.GetAllContainerLogs(container), "\n")
 		logs = logs[:len(logs)-1]
 		for _, logLine := range logs {
 			logItem := &db.LogItem{

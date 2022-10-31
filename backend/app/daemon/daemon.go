@@ -1,4 +1,4 @@
-package requests
+package daemon
 
 import (
 	"encoding/json"
@@ -50,7 +50,7 @@ func GetContainersList() []string {
 }
 
 // returns log of a container
-func GetContainerLogs(containerName string, limit int, offset int) string {
-	body := makeSocketRequest("containers/" + containerName + "/logs?stdout=true&stderr=true&timestamps=true")
-	return string(body)
+func GetAllContainerLogs(containerName string) string {
+	logs := makeSocketRequest("containers/" + containerName + "/logs?stdout=true&stderr=true&timestamps=true")
+	return string(logs)
 }
