@@ -1,14 +1,51 @@
 package daemon
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
+	db "github.com/devforth/OnLogs/app/db"
 	"github.com/tv42/httpunix"
 )
+
+// creates stream that writes logs from every docker container to leveldb
+func CreateLogsStream(containerName string) {
+	unix := &httpunix.Transport{
+		DialTimeout:           100 * time.Millisecond,
+		RequestTimeout:        1 * time.Second,
+		ResponseHeaderTimeout: 1 * time.Second,
+	}
+	unix.RegisterLocation("daemon", "/var/run/docker.sock")
+
+	var client = http.Client{Transport: unix}
+	resp, _ := client.Get(
+		"http+unix://daemon/containers/" + containerName + "/logs?stdout=true&stderr=true&timestamps=true&follow=true",
+	)
+	reader := bufio.NewReader(resp.Body)
+	lastSleep := time.Now().Unix()
+	for {
+		line, _ := reader.ReadBytes('\n')
+		logLine := string(line)
+		if strings.Compare("", logLine) == 0 {
+			continue
+		}
+
+		logItem := &db.LogItem{
+			Datetime: logLine[:30],
+			Message:  logLine[31 : len(logLine)-2],
+		}
+		db.StoreItem(containerName, logItem)
+
+		if time.Now().Unix()-lastSleep > 5 {
+			go time.Sleep(5 * time.Second)
+		}
+	}
+}
 
 // make request to docker socket
 func makeSocketRequest(path string) []byte {
@@ -18,7 +55,6 @@ func makeSocketRequest(path string) []byte {
 		ResponseHeaderTimeout: 1 * time.Second,
 	}
 	unix.RegisterLocation("daemon", "/var/run/docker.sock")
-
 	var client = http.Client{
 		Transport: unix,
 	}
@@ -47,10 +83,4 @@ func GetContainersList() []string {
 		}
 	}
 	return names
-}
-
-// returns log of a container
-func GetAllContainerLogs(containerName string) string {
-	logs := makeSocketRequest("containers/" + containerName + "/logs?stdout=true&stderr=true&timestamps=true")
-	return string(logs)
 }
