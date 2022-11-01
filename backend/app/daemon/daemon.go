@@ -43,6 +43,7 @@ func CreateLogsStream(containerName string) {
 
 		if time.Now().Unix()-lastSleep > 5 {
 			go time.Sleep(5 * time.Second)
+			lastSleep = time.Now().Unix()
 		}
 	}
 }
