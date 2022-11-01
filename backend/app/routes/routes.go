@@ -22,11 +22,6 @@ func RouteGetHost(w http.ResponseWriter, req *http.Request) {
 	w.Write(e)
 }
 
-// func RouteGetContainerLogs(w http.ResponseWriter, req *http.Request) {
-// 	params := req.URL.Query()
-// 	json.NewEncoder(w).Encode(daemon.GetAllContainerLogs(params.Get("id")))
-// }
-
 func RouteGetLogs(w http.ResponseWriter, req *http.Request) {
 	params := req.URL.Query()
 	limit, _ := strconv.Atoi(params.Get("limit"))
