@@ -2,14 +2,15 @@ package main
 
 import (
 	"net/http"
+	"os"
 
 	routes "github.com/devforth/OnLogs/app/routes"
 	util "github.com/devforth/OnLogs/app/util"
 )
 
 func main() {
-	util.StoreLogs() // store logs from all containers before getting started
-	// fmt.Println("a")
+	os.RemoveAll("leveldb")
+	util.StoreLogs()
 
 	http.HandleFunc("/api/v1/getHost", routes.RouteGetHost)
 	http.HandleFunc("/api/v1/getLogs", routes.RouteGetLogs)
