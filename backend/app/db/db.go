@@ -40,7 +40,7 @@ func StoreItem(container string, item *LogItem) {
 	datetime, _ := time.Parse(time.RFC3339Nano, item.Datetime)
 	doc := map[string]interface{}{
 		"id":        "",
-		"timestamp": int(datetime.UnixNano()),
+		"timestamp": float64(datetime.UnixNano()),
 		"message":   item.Message,
 	}
 	index, _ := vars.Store.GetIndex(container + "/logs")
@@ -67,7 +67,8 @@ func GetLogs(container string, message string, limit int, offset int) []string {
 
 	to_return := []string{}
 	for _, log_item := range res.Docs {
-		to_return = append(to_return, log_item["message"].(string))
+		datetime := (time.Unix(0, int64(log_item["timestamp"].(float64)))).UTC().String()
+		to_return = append(to_return, datetime+" "+log_item["message"].(string))
 	}
 	return to_return
 }
