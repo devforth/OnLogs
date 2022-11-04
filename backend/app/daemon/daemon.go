@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
-	db "github.com/devforth/OnLogs/app/db"
 	"github.com/tv42/httpunix"
 )
 
 // creates stream that writes logs from every docker container to leveldb
-func CreateLogsStream(containerName string) {
+func CreateDaemonToLogfileStream(containerName string) {
 	unix := &httpunix.Transport{
 		DialTimeout:           100 * time.Millisecond,
 		RequestTimeout:        1 * time.Second,
@@ -28,21 +29,19 @@ func CreateLogsStream(containerName string) {
 	)
 	reader := bufio.NewReader(resp.Body)
 	lastSleep := time.Now().Unix()
+	var counter int64 = 0
+	os.Mkdir(containerName+"_logs", os.ModePerm)
 	for {
-		line, _ := reader.ReadBytes('\n')
-		logLine := string(line)
+		logLine, _ := reader.ReadString('\n')
 		if strings.Compare("", logLine) == 0 {
 			continue
 		}
-
-		logItem := &db.LogItem{
-			Datetime: logLine[:30],
-			Message:  logLine[31 : len(logLine)-2],
-		}
-		db.StoreItem(containerName, logItem)
+		f, _ := os.Create(containerName + "_logs/" + strconv.Itoa(int(counter)) + "_log")
+		f.WriteString(strconv.Itoa(int(counter)) + " " + logLine)
+		counter += 1
 
 		if time.Now().Unix()-lastSleep > 5 {
-			go time.Sleep(5 * time.Second)
+			time.Sleep(5 * time.Millisecond)
 			lastSleep = time.Now().Unix()
 		}
 	}
