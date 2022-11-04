@@ -1,0 +1,42 @@
+
+.logsString{
+    display: flex;
+    vertical-align: middle;
+    align-items: flex-start;
+    position:relative;
+    padding-bottom: $normal-padding;
+    
+    
+    .error{color:#FF4242}
+    .debug{color:#178F15}
+    .warn{color:#FF8A00}
+    .info{color:$active-color}
+
+    .status{width: 10%;
+    min-width: 75px;
+    vertical-align: middle;
+    padding-right: 1%;
+
+        span{font-size:19px;
+        line-height: 100%;}
+   }
+    .time{width: 17%;
+    min-width: 160px;
+    padding-right: 1%;}
+     
+    .message{width: 71%}
+
+
+ &:after {
+        content: '';
+         width: 100%;
+    border-bottom: solid 1px $lines-color;
+    position: absolute;
+    bottom: 0;
+    
+    z-index: 1;
+
+    }
+
+
+}

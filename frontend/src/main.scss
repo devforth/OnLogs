@@ -1,57 +1,36 @@
- 
 @import "./utils/variables";
 @import "./lib/Button/Button.scss";
 @import "./lib/Container/Container.scss";
 @import "./lib/LogsString/LogsString.scss";
+@import "./Views/Viev.scss";
+@import "./lib/NamedList/NamedList.scss";
+@import "./lib/NamedListItem/NamedListItem.scss";
 
-
-body {font-family: 'Ubuntu', sans-serif;
-  background-color:$background-color;
+body {
+  font-family: "Ubuntu", sans-serif;
+  background-color: $background-color;
   height: 100vh;
   width: 100vw;
   margin: 0;
 }
+h1 {
+  font-size: $main-font-xl;
+  margin: 0;
+}
 
-.contentContainer{
-  padding:1.8vw;
+.contentContainer {
+  padding: 1.8vw;
   box-sizing: border-box;
   height: 100vh;
 }
 
-li{
+li {
   list-style: none;
-  }
-p{margin: 0;}
-
-button{ border-width:0px}
-
-.contentContainer{
-  display:flex;
-  justify-content:space-between ;
-  
+}
+p {
+  margin: 0;
 }
 
-.subContainer{
-   
-    display:flex;
-    flex-direction: column;
-    
-    box-sizing: border-box;
-
-    &Left{ width:19.76vw;
-    justify-content: space-between;}
-    &Right{ width:10.12vw;
-    justify-content: space-between;}
-    &Middle{ width:62.26vw;
-    justify-content: space-between;}
-
-
+button {
+  border-width: 0px;
 }
-
-.subContainerThumb{
-  height:39.72vh ;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-

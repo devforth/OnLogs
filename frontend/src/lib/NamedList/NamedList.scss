@@ -1,0 +1,25 @@
+.namedListHeader {
+  font-size: $main-font-s;
+  line-height: 1.14;
+  font-weight: bold;
+
+  ul {
+    font-weight: 400;
+  }
+  .listName {
+    font-weight: bold;
+  }
+  .icon {
+    display: flex;
+    align-items: center;
+    vertical-align: baseline;
+    position: relative;
+    margin-bottom: 22px;
+  }
+  .log {
+    margin-bottom: 5px;
+    margin-right: 10px;
+    font-size: 16px;
+    line-height: 0.1;
+  }
+}

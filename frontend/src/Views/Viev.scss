@@ -1,0 +1,52 @@
+.contentContainer {
+  display: flex;
+  justify-content: space-between;
+}
+
+.subContainer {
+  display: flex;
+  flex-direction: column;
+
+  box-sizing: border-box;
+
+  &Left {
+    width: 19.76vw;
+    justify-content: space-between;
+  }
+  &Right {
+    width: 10.12vw;
+    justify-content: space-between;
+  }
+  &Middle {
+    width: 62.26vw;
+    justify-content: space-between;
+  }
+}
+
+.subContainerThumb {
+  height: 39.72vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.onLogsPanelHeader {
+  display: flex;
+  justify-content: space-between;
+  justify-items: center;
+  position: relative;
+  i {
+    font-size: 18px;
+    line-height: 1.142;
+    display: flex;
+    justify-content: center;
+    justify-items: center;
+    flex-direction: column-reverse;
+
+    &:before {
+      display: flex;
+      justify-content: center;
+      justify-items: center;
+    }
+  }
+}
