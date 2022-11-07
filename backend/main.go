@@ -10,7 +10,7 @@ import (
 
 func main() {
 	os.RemoveAll("leveldb")
-	util.StreamLogs()
+	go util.StreamLogs()
 
 	http.HandleFunc("/api/v1/getHost", routes.RouteGetHost)
 	http.HandleFunc("/api/v1/getLogs", routes.RouteGetLogs)
