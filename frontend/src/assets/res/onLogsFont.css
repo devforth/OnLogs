@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?27f27e8b8aa5eb59be10ba9a19de3583?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?27f27e8b8aa5eb59be10ba9a19de3583") format("woff2"),
-url("onLogsFont.woff?27f27e8b8aa5eb59be10ba9a19de3583") format("woff"),
-url("onLogsFont.ttf?27f27e8b8aa5eb59be10ba9a19de3583") format("truetype"),
-url("onLogsFont.svg?27f27e8b8aa5eb59be10ba9a19de3583#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?7d4c0d4940459a5f0effb92914c0c66d?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?7d4c0d4940459a5f0effb92914c0c66d") format("woff2"),
+url("onLogsFont.woff?7d4c0d4940459a5f0effb92914c0c66d") format("woff"),
+url("onLogsFont.ttf?7d4c0d4940459a5f0effb92914c0c66d") format("truetype"),
+url("onLogsFont.svg?7d4c0d4940459a5f0effb92914c0c66d#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -74,9 +74,15 @@ url("onLogsFont.svg?27f27e8b8aa5eb59be10ba9a19de3583#onLogsFont") format("svg");
 .log-Search:before {
 	content: "\f111";
 }
-.log-User:before {
+.log-Server:before {
 	content: "\f112";
 }
-.log-Wheel:before {
+.log-User:before {
 	content: "\f113";
+}
+.log-Wheel:before {
+	content: "\f114";
+}
+.log-server:before {
+	content: "\f115";
 }

@@ -27,11 +27,11 @@
 
 		@font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?1215cabc52e08e25641bc60df63c8f32?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?1215cabc52e08e25641bc60df63c8f32") format("woff2"),
-url("onLogsFont.woff?1215cabc52e08e25641bc60df63c8f32") format("woff"),
-url("onLogsFont.ttf?1215cabc52e08e25641bc60df63c8f32") format("truetype"),
-url("onLogsFont.svg?1215cabc52e08e25641bc60df63c8f32#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?18e9484e8dca7c29cd576b757b46c6c1?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?18e9484e8dca7c29cd576b757b46c6c1") format("woff2"),
+url("onLogsFont.woff?18e9484e8dca7c29cd576b757b46c6c1") format("woff"),
+url("onLogsFont.ttf?18e9484e8dca7c29cd576b757b46c6c1") format("truetype"),
+url("onLogsFont.svg?18e9484e8dca7c29cd576b757b46c6c1#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -101,11 +101,17 @@ url("onLogsFont.svg?1215cabc52e08e25641bc60df63c8f32#onLogsFont") format("svg");
 .log-Search:before {
 	content: "\f111";
 }
-.log-User:before {
+.log-Server:before {
 	content: "\f112";
 }
-.log-Wheel:before {
+.log-User:before {
 	content: "\f113";
+}
+.log-Wheel:before {
+	content: "\f114";
+}
+.log-server:before {
+	content: "\f115";
 }
 
 	</style>
@@ -216,6 +222,12 @@ url("onLogsFont.svg?1215cabc52e08e25641bc60df63c8f32#onLogsFont") format("svg");
 	</div>
 	<div class="preview">
 		<span class="preview__icon">
+			<span class="log log-Server"></span>
+		</span>
+		<span>Server</span>
+	</div>
+	<div class="preview">
+		<span class="preview__icon">
 			<span class="log log-User"></span>
 		</span>
 		<span>User</span>
@@ -225,6 +237,12 @@ url("onLogsFont.svg?1215cabc52e08e25641bc60df63c8f32#onLogsFont") format("svg");
 			<span class="log log-Wheel"></span>
 		</span>
 		<span>Wheel</span>
+	</div>
+	<div class="preview">
+		<span class="preview__icon">
+			<span class="log log-server"></span>
+		</span>
+		<span>server</span>
 	</div>
 </body>
 </html>
