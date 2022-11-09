@@ -1,5 +1,5 @@
 // @ts-ignore
-import LogsString from "./NamedListItem.svelte";
+import LogsString from "./HostListItem.svelte";
 import { action } from "@storybook/addon-actions";
 import "../../assets/res/onLogsFont.css";
 
