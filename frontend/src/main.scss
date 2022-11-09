@@ -2,9 +2,9 @@
 @import "./lib/Button/Button.scss";
 @import "./lib/Container/Container.scss";
 @import "./lib/LogsString/LogsString.scss";
-@import "./Views/Viev.scss";
-@import "./lib/NamedList/NamedList.scss";
-@import "./lib/NamedListItem/NamedListItem.scss";
+@import "./Views/View.scss";
+@import "./lib/HostList/HostList.scss";
+@import "./lib/HostListItem/HostListItem.scss";
 
 body {
   font-family: "Ubuntu", sans-serif;
@@ -33,4 +33,9 @@ p {
 
 button {
   border-width: 0px;
+}
+
+ul {
+  padding: 0;
+  margin: 0;
 }
