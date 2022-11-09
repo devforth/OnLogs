@@ -1,8 +1,13 @@
 <script>
   // @ts-ignore
   import Container from "@/lib/Container/Container.svelte";
-  import NamedList from "../lib/NamedList/NamedList.svelte";
+  import HostList from "../lib/HostList/HostList.svelte";
   import Button from "../lib/Button/Button.svelte";
+  import fetchApi from "../utils/fetch";
+
+  async function getHosts() {
+    return await new fetchApi().getHosts();
+  }
   const listMargins = { marginTop: "6.68vh" };
 </script>
 
@@ -12,7 +17,6 @@
       <div class="onLogsPanel">
         <div class="onLogsPanelHeader">
           <h1>onLogs</h1>
-
           <Button
             title=""
             border={false}
@@ -23,10 +27,15 @@
             iconHeight={18}
           />
         </div>
-
-        <NamedList listName={"hostnameA"} {...listMargins} listIco={"Server"} />
-      </div></Container
-    >
+          {#await getHosts()}
+            <p>loading...</p>
+          {:then hosts}
+            {#each hosts as host}
+            <HostList hostName={host["host"]} servicesData={host["services"]} {...listMargins}/>
+            <HostList hostName={host["host"]} servicesData={host["services"]} {...listMargins}/>
+            {/each}
+          {/await}
+      </div></Container>
     <Container minHeightVh={10.97}>1213414</Container>
   </div>
   <div class="subContainerMiddle subContainer">
