@@ -17,3 +17,13 @@ type Container struct {
 		Text string `json:"text"`
 	} `json:"support"`
 }
+
+type HostsList struct {
+	Host     string   `json:"host"`
+	Services []string `json:"services"`
+}
+
+type LoginData struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
+}
