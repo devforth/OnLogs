@@ -48,7 +48,7 @@ func RouteLogin(w http.ResponseWriter, req *http.Request) {
 		}
 		http.SetCookie(w, &http.Cookie{
 			Name:    "onlogs-cookie",
-			Value:   util.CreateJWT(),
+			Value:   util.CreateJWT(loginData.Login),
 			Expires: time.Now().AddDate(0, 0, 2),
 		})
 	}
@@ -66,7 +66,7 @@ func RouteCreateUser(w http.ResponseWriter, req *http.Request) {
 		}
 		http.SetCookie(w, &http.Cookie{
 			Name:    "onlogs-cookie",
-			Value:   util.CreateJWT(),
+			Value:   util.CreateJWT(loginData.Login),
 			Expires: time.Now().AddDate(0, 0, 2),
 		})
 	}
