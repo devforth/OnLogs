@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"time"
 
-	daemon "github.com/devforth/OnLogs/app/daemon"
+	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/srchx_db"
-	vars "github.com/devforth/OnLogs/app/vars"
-	"github.com/golang-jwt/jwt"
+	"github.com/devforth/OnLogs/app/util"
+	"github.com/devforth/OnLogs/app/vars"
 )
 
 func enableCors(w *http.ResponseWriter) {
@@ -19,17 +19,6 @@ func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Credentials", "true")
 	(*w).Header().Set("Access-Control-Allow-Methods", "*")
 	(*w).Header().Set("Access-Control-Allow-Headers", "*")
-}
-
-func createJWT() string {
-	token := jwt.New(jwt.SigningMethodEdDSA)
-	claims := token.Claims.(jwt.MapClaims)
-	claims["exp"] = time.Now().Add(10 * time.Minute)
-	claims["authorized"] = true
-	claims["user"] = "username"
-	tokenString, _ := token.SignedString("srakapopa") // need to store it to env var
-
-	return tokenString
 }
 
 func RouteGetHost(w http.ResponseWriter, req *http.Request) {
@@ -59,7 +48,7 @@ func RouteLogin(w http.ResponseWriter, req *http.Request) {
 		}
 		http.SetCookie(w, &http.Cookie{
 			Name:    "onlogs-cookie",
-			Value:   createJWT(),
+			Value:   util.CreateJWT(),
 			Expires: time.Now().AddDate(0, 0, 2),
 		})
 	}
@@ -77,7 +66,7 @@ func RouteCreateUser(w http.ResponseWriter, req *http.Request) {
 		}
 		http.SetCookie(w, &http.Cookie{
 			Name:    "onlogs-cookie",
-			Value:   createJWT(),
+			Value:   util.CreateJWT(),
 			Expires: time.Now().AddDate(0, 0, 2),
 		})
 	}
