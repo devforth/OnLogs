@@ -6,16 +6,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/nsqio/go-diskqueue"
 	"github.com/tv42/httpunix"
 )
 
 // creates stream that writes logs from every docker container to leveldb
-func CreateDaemonToLogfileStream(containerName string, logDump *leveldb.DB) {
+func CreateDaemonToLogfileStream(containerName string, dq diskqueue.Interface) {
 	unix := &httpunix.Transport{
 		DialTimeout:           100 * time.Millisecond,
 		RequestTimeout:        1 * time.Second,
@@ -35,13 +34,12 @@ func CreateDaemonToLogfileStream(containerName string, logDump *leveldb.DB) {
 		if strings.Compare("", logLine) == 0 {
 			continue
 		}
-		err := logDump.Put([]byte(strconv.FormatUint(counter, 10)), []byte(logLine), nil)
+		err := dq.Put([]byte(logLine))
 		if err != nil {
 			time.Sleep(1 * time.Millisecond)
 			continue
 		}
 		counter += 1
-
 		if time.Now().Unix()-lastSleep > 5 {
 			time.Sleep(5 * time.Millisecond)
 			lastSleep = time.Now().Unix()

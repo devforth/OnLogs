@@ -1,62 +1,51 @@
 package util
 
 import (
-	"strconv"
+	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
 	"time"
 
 	daemon "github.com/devforth/OnLogs/app/daemon"
-	"github.com/devforth/OnLogs/app/db"
-	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/devforth/OnLogs/app/srchx_db"
+	"github.com/nsqio/go-diskqueue"
 )
 
-func StreamLogs() {
-	// for {
-	containers := daemon.GetContainersList()
-	for _, container := range containers {
-		logDump, _ := leveldb.OpenFile("logDump/"+container, nil)
-		go daemon.CreateDaemonToLogfileStream(container, logDump)
-		go CreateLogfileToDBStream(container, logDump)
+func NewAppLogger() diskqueue.AppLogFunc {
+	return func(lvl diskqueue.LogLevel, f string, args ...interface{}) {
+		log.Println(fmt.Sprintf(lvl.String()+": "+f, args...))
 	}
-
-	// new := daemon.GetContainersList()
-	// for reflect.DeepEqual(containers, new) {
-	// 	time.Sleep(15 * time.Second)
-	// 	new = daemon.GetContainersList()
-	// }
-
-	// }
-	// TODO check for containers upd
-	// for {
-	// 	newContainers := daemon.GetContainersList()
-	// 	if !reflect.DeepEqual(containers, newContainers) {
-	// 		for _, container := range containers {
-	// 			daemon.CreateLogsStream(container)
-	// 		}
-	// 		containers = newContainers
-	// 	}
-	// 	fmt.Println(containers, newContainers)
-	// 	time.Sleep(1 * time.Minute)
-	// }
 }
 
-func CreateLogfileToDBStream(containerName string, logDump *leveldb.DB) {
-	var counter uint64 = 0
+func StreamLogs() {
+	os.RemoveAll("/logDump")
+	containers := daemon.GetContainersList()
+	for _, container := range containers {
+		tmpDir, _ := ioutil.TempDir("logDump", container)
+		dq := diskqueue.New(container, tmpDir, 4096, 4, 1<<10, 2500, 2*time.Second, NewAppLogger())
+		defer dq.Close()
+
+		go daemon.CreateDaemonToLogfileStream(container, dq)
+		go CreateLogfileToDBStream(container, dq)
+	}
+}
+
+func CreateLogfileToDBStream(containerName string, dq diskqueue.Interface) {
 	for {
-		content, err := logDump.Get([]byte(strconv.FormatUint(counter, 10)), nil)
-		if err != nil {
+		content := dq.ReadChan()
+		dq.Empty()
+		if content == nil {
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		logLine := string(content)
-		logItem := &db.LogItem{
+		logLine := string(<-content)
+		logItem := &srchx_db.LogItem{
 			Datetime: logLine[:30],
 			Message:  logLine[31 : len(logLine)-1],
 		}
-		db.StoreItem(containerName, logItem)
-		logDump.Delete([]byte(strconv.FormatUint(counter, 10)), nil)
-		logDump.Get([]byte(strconv.FormatUint(counter, 10)), nil)
-		counter += 1
-		// time.Sleep(3 * time.Millisecond)
+		srchx_db.StoreItem(containerName, logItem)
+		time.Sleep(3 * time.Millisecond)
 		continue
 	}
 }
