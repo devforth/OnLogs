@@ -4,12 +4,17 @@ import (
 	"net/http"
 	"os"
 
-	routes "github.com/devforth/OnLogs/app/routes"
+	"github.com/devforth/OnLogs/app/routes"
 	"github.com/devforth/OnLogs/app/streamer"
+	"github.com/devforth/OnLogs/app/util"
+	"github.com/joho/godotenv"
 )
 
 func main() {
 	os.RemoveAll("leveldb")
+	os.RemoveAll("onlogsdb")
+	godotenv.Load(".env")
+	go util.CreateInitUser()
 	go streamer.StreamLogs()
 
 	http.HandleFunc("/api/v1/getHost", routes.RouteGetHost)
