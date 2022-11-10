@@ -5,12 +5,12 @@ import (
 	"os"
 
 	routes "github.com/devforth/OnLogs/app/routes"
-	"github.com/devforth/OnLogs/app/util"
+	"github.com/devforth/OnLogs/app/streamer"
 )
 
 func main() {
 	os.RemoveAll("leveldb")
-	go util.StreamLogs()
+	go streamer.StreamLogs()
 
 	http.HandleFunc("/api/v1/getHost", routes.RouteGetHost)
 	http.HandleFunc("/api/v1/getLogs", routes.RouteGetLogs)
