@@ -17,6 +17,16 @@ func CreateUser(login string, password string) error {
 	return nil
 }
 
+func DeleteUser(login string, password string) error {
+	isExists, _ := vars.UsersDB.Has([]byte(login), nil)
+	if !isExists {
+		return errors.New("No such user")
+	}
+
+	vars.UsersDB.Delete([]byte(login), nil)
+	return nil
+}
+
 func CheckUserPassword(login string, gotPassword string) bool {
 	password, err := vars.UsersDB.Get([]byte(login), nil)
 	if err != nil || strings.Compare(string(password), gotPassword) != 0 {
