@@ -32,7 +32,6 @@
           {:then hosts}
             {#each hosts as host}
             <HostList hostName={host["host"]} servicesData={host["services"]} {...listMargins}/>
-            <HostList hostName={host["host"]} servicesData={host["services"]} {...listMargins}/>
             {/each}
           {/await}
       </div></Container>

@@ -25,12 +25,11 @@
     <ul>
         {#if servicesData != null}
           {#each servicesData as service}
-          <!-- {#if service["isLast"] == true}
+          {#if service["isLast"] == true}
             <li class="selected">{service["serviceName"]}<i class="log log-Wheel"/></li>
-          {:else} -->
+          {:else}
             <li>{service}</li>
-            <li class="selected">{service}</li>
-          <!-- {/if} -->
+          {/if}
           {/each}
         {/if}
     </ul>
