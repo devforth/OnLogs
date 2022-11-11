@@ -45,11 +45,14 @@ func RouteLogin(w http.ResponseWriter, req *http.Request) {
 		isCorrect := db.CheckUserPassword(loginData.Login, loginData.Password)
 		if !isCorrect {
 			json.NewEncoder(w).Encode(map[string]string{"error": "Wrong login or password!"})
+			return
 		}
+
 		http.SetCookie(w, &http.Cookie{
 			Name:    "onlogs-cookie",
 			Value:   util.CreateJWT(loginData.Login),
 			Expires: time.Now().AddDate(0, 0, 2),
+			MaxAge:  int(time.Now().AddDate(0, 0, 2).Unix()),
 		})
 	}
 }
@@ -68,6 +71,20 @@ func RouteCreateUser(w http.ResponseWriter, req *http.Request) {
 			Name:    "onlogs-cookie",
 			Value:   util.CreateJWT(loginData.Login),
 			Expires: time.Now().AddDate(0, 0, 2),
+			MaxAge:  int(time.Now().AddDate(0, 0, 2).Unix()),
 		})
+	}
+}
+
+func RouteDeleteUser(w http.ResponseWriter, req *http.Request) {
+	if req.Method == "POST" {
+		var loginData vars.UserData
+		decoder := json.NewDecoder(req.Body)
+		decoder.Decode(&loginData)
+
+		err := db.DeleteUser(loginData.Login, loginData.Password)
+		if err != nil {
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		}
 	}
 }
