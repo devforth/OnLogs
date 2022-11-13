@@ -5,6 +5,11 @@
   export let marginBottom = "0";
   export let marginLeft = "0";
   export let marginRight = "0";
+
+  let selectedName = ""
+  const selectItem = (serviceName) => {
+    selectedName = serviceName
+  }
 </script>
 
 <div>
@@ -25,11 +30,11 @@
     <ul>
         {#if servicesData != null}
           {#each servicesData as service}
-          {#if service["isLast"] == true}
-            <li class="selected">{service["serviceName"]}<i class="log log-Wheel"/></li>
-          {:else}
-            <li>{service}</li>
-          {/if}
+            {#if selectedName.localeCompare(service) == 0}
+              <li class="selected">{service}<i class="log log-Wheel"/></li>
+            {:else}
+              <li on:click={() => {selectItem(service)}}>{service}</li>
+            {/if}
           {/each}
         {/if}
     </ul>
