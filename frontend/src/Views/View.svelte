@@ -38,6 +38,8 @@ async function getLogs() {
             {#each hosts as host}
             <HostList hostName={host["host"]} servicesData={host["services"]} {...listMargins}/>
             {/each}
+          {:catch}
+            <p style="margin-top: 15px;">Error</p>
           {/await}
       </div></Container>
     <Container minHeightVh={10.97}>1213414</Container>
@@ -49,6 +51,8 @@ async function getLogs() {
         <p>loading...</p>
       {:then logs}
         <LogsView logsData={logs}></LogsView>
+      {:catch}
+        <p>Error</p>
       {/await}
     </Container>
   </div>
