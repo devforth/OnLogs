@@ -6,7 +6,7 @@
   export let marginLeft = "0";
   export let marginRight = "0";
 
-  let selectedName = ""
+  export let selectedName = ""
   const selectItem = (serviceName) => {
     selectedName = serviceName
   }

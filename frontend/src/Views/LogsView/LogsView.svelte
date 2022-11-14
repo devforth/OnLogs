@@ -1,8 +1,15 @@
 <script>
     import "../../lib/LogsString/LogsString.svelte"
     import LogsString from "../../lib/LogsString/LogsString.svelte";
+    import fetchApi from "../../utils/fetch";
 
-    export let logsData = [];
+    export let serviceName = "";
+    let searchText = "";
+
+    async function getLogs(service="", search="") {
+        console.log(search)
+        return await new fetchApi().getLogs(service, search)
+    }
 </script>
 
 <div>
@@ -16,12 +23,18 @@
     </button>
     <div class="header search">
         <i class={"log log-Search"} />
-        <input type="text">
+        <input type="text" bind:value={searchText}>
     </div>
 </div>
 <div class="logs">
-    {#each logsData as logItem}
-    <!-- TODO  svelte scroll-->
+    {#await getLogs(serviceName, searchText)}
+      <p>loading...</p>
+    {:then logs}
+        {#each logs as logItem}
+        <!-- TODO  svelte scroll-->
         <LogsString time={logItem.slice(0,39)} message={logItem.slice(40)}></LogsString> 
-    {/each}
+        {/each}
+    {:catch}
+      <p>Error</p>
+    {/await}
 </div>

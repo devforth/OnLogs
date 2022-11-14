@@ -6,18 +6,16 @@
   import Button from "../lib/Button/Button.svelte";
   import fetchApi from "../utils/fetch";
 
-async function getHosts() {
-  return await new fetchApi().getHosts();
-}
+const listMargins = { marginTop: "6.68vh" }
 
-async function getLogs() {
-  return await new fetchApi().getLogs();
+$: selectedService = ""
+async function getHosts() {
+  return await new fetchApi().getHosts()
 }
-  const listMargins = { marginTop: "6.68vh" };
 </script>
 
 <div class="contentContainer">
-  <div class="subContainerLeft  subContainer">
+  <div class="subContainerLeft subContainer">
     <Container highlighted minHeightVh={79.3}>
       <div class="onLogsPanel">
         <div class="onLogsPanelHeader">
@@ -36,7 +34,7 @@ async function getLogs() {
             <p>loading...</p>
           {:then hosts}
             {#each hosts as host}
-            <HostList hostName={host["host"]} servicesData={host["services"]} {...listMargins}/>
+            <HostList bind:selectedName={selectedService} hostName={host["host"]} servicesData={host["services"]} {...listMargins}/>
             {/each}
           {:catch}
             <p style="margin-top: 15px;">Error</p>
@@ -46,14 +44,8 @@ async function getLogs() {
   </div>
   <div class="subContainerMiddle subContainer">
     <Container minHeightVh={17.36}>1213414</Container>
-    <Container minHeightVh={72.77}>
-      {#await getLogs()}
-        <p>loading...</p>
-      {:then logs}
-        <LogsView logsData={logs}></LogsView>
-      {:catch}
-        <p>Error</p>
-      {/await}
+    <Container class="logsView" minHeightVh={72.77}>
+      <LogsView bind:serviceName={selectedService}/>
     </Container>
   </div>
   <div class="subContainerRight  subContainer">
