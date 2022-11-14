@@ -26,7 +26,7 @@ class fetchApi {
         return await response.json();
     }
 
-    async getHosts() { // TODO works only with cookie
+    async getHosts() { // TODO should work only with cookie
         let path = `${this.BASE_LOCAL_URL}getHost`;
         const response = await fetch(path, {
             method: "GET",
@@ -44,6 +44,27 @@ class fetchApi {
         const hosts = []
         hosts.push(await response.json())
         return hosts
+    }
+
+    async getLogs() { // TODO should work only with cookie
+        let path = `${this.BASE_LOCAL_URL}getLogs?limit=50`;
+        const response = await fetch(path, {
+            method: "GET",
+            headers: {
+                    Accept: "application/json",
+                    "Content-Type": "application/json",
+                },
+            credentials: "same-origin",
+        });
+
+        // if (response.status === 401) { // TODO logout when status 401
+            // methods.logOut();
+        // }
+
+        const logs = []
+        logs.push(await response.json())
+        console.log(logs)
+        return logs
     }
 }
 

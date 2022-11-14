@@ -2,12 +2,17 @@
   // @ts-ignore
   import Container from "@/lib/Container/Container.svelte";
   import HostList from "../lib/HostList/HostList.svelte";
+  import LogsView from "../Views/LogsView/LogsView.svelte";
   import Button from "../lib/Button/Button.svelte";
   import fetchApi from "../utils/fetch";
 
-  async function getHosts() {
-    return await new fetchApi().getHosts();
-  }
+async function getHosts() {
+  return await new fetchApi().getHosts();
+}
+
+async function getLogs() {
+  return await new fetchApi().getLogs();
+}
   const listMargins = { marginTop: "6.68vh" };
 </script>
 
@@ -39,7 +44,13 @@
   </div>
   <div class="subContainerMiddle subContainer">
     <Container minHeightVh={17.36}>1213414</Container>
-    <Container minHeightVh={72.77}>1213414</Container>
+    <Container minHeightVh={72.77}>
+      {#await getLogs()}
+        <p>loading...</p>
+      {:then logs}
+        <LogsView logsData={logs}></LogsView>
+      {/await}
+    </Container>
   </div>
   <div class="subContainerRight  subContainer">
     <Container minHeightVh={24.44}>1213414</Container>

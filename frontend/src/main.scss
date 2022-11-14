@@ -3,6 +3,7 @@
 @import "./lib/Container/Container.scss";
 @import "./lib/LogsString/LogsString.scss";
 @import "./Views/View.scss";
+@import "./Views/LogsView/LogsView.scss";
 @import "./lib/HostList/HostList.scss";
 @import "./lib/HostListItem/HostListItem.scss";
 
@@ -38,4 +39,13 @@ button {
 ul {
   padding: 0;
   margin: 0;
+}
+
+h2 {
+  padding: 0;
+  margin: 0;
+}
+
+input {
+  border: 0;
 }

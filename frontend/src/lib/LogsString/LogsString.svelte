@@ -1,13 +1,7 @@
 <script>
-
-   
-   
- 
   export let status="debug";
   export let time="";
   export let message=""
-  
-
 </script>
 
 
