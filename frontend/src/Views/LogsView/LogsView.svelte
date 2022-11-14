@@ -6,6 +6,7 @@
 </script>
 
 <div>
+    <!-- TODO -->
     <h2 class="header">Service logs</h2>
     <p class="header">recent at bottom</p>
     <button class="header hto">
@@ -20,6 +21,7 @@
 </div>
 <div class="logs">
     {#each logsData as logItem}
-        <LogsString message={logItem} time="TIME"></LogsString>
+    <!-- TODO  svelte scroll-->
+        <LogsString time={logItem.slice(0,39)} message={logItem.slice(40)}></LogsString> 
     {/each}
 </div>

@@ -47,7 +47,7 @@ class fetchApi {
     }
 
     async getLogs() { // TODO should work only with cookie
-        let path = `${this.BASE_LOCAL_URL}getLogs?limit=50`;
+        let path = `${this.BASE_LOCAL_URL}getLogs?id=test12122&limit=30`;
         const response = await fetch(path, {
             method: "GET",
             headers: {
@@ -61,10 +61,7 @@ class fetchApi {
             // methods.logOut();
         // }
 
-        const logs = []
-        logs.push(await response.json())
-        console.log(logs)
-        return logs
+        return (await response.json())
     }
 }
 
