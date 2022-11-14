@@ -24,7 +24,7 @@ func StreamLogs() {
 	for _, container := range containers {
 		tmpDir, _ := ioutil.TempDir("logDump", container)
 		dq := diskqueue.New(container, tmpDir, 4096, 4, 1<<10, 2500, 2*time.Second, NewAppLogger())
-		defer dq.Close()
+		// defer dq.Close()
 
 		go daemon.CreateDaemonToLogfileStream(container, dq)
 		go CreateLogfileToDBStream(container, dq)

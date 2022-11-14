@@ -30,6 +30,7 @@ func RouteGetHost(w http.ResponseWriter, req *http.Request) {
 }
 
 func RouteGetLogs(w http.ResponseWriter, req *http.Request) {
+	enableCors(&w)
 	params := req.URL.Query()
 	limit, _ := strconv.Atoi(params.Get("limit"))
 	offset, _ := strconv.Atoi(params.Get("offset"))
