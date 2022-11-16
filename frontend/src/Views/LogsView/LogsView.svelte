@@ -5,14 +5,17 @@
     import { afterUpdate } from "svelte";
 
     export let serviceName = "";
+
     let searchText = "";
-    let api = new fetchApi();
+    let lineWidth = "0";
+    const api = new fetchApi();
     $: updElement = undefined;
+
 
     afterUpdate(() => {
         const el = document.getElementById("logs");
-        console.log(el.scrollHeight);
         el.scroll({ top: el.scrollHeight });
+        lineWidth = el.scrollWidth.toString();
     });
 
     async function getLogs(service = "", search = "", limit = 30, offset = 0) {
@@ -40,8 +43,9 @@
         {#each logs as logItem}
             <LogsString
                 bind:this={updElement}
-                time={logItem.slice(0, 39)}
-                message={logItem.slice(40)}
+                time={logItem.split(".", 2)[0]}
+                message={logItem.split("UTC ", 2)[1]}
+                width={lineWidth}
             />
         {/each}
     {:catch}
