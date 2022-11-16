@@ -11,6 +11,15 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
+func RemoveOldFiles() {
+	os.RemoveAll("leveldb")
+	os.RemoveAll("onlogsdb")
+	files, _ := os.ReadDir("logDump")
+	for _, name := range files {
+		os.RemoveAll("logDump/" + name.Name())
+	}
+}
+
 func CreateInitUser() {
 	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
 }

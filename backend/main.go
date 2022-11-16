@@ -2,7 +2,6 @@ package main
 
 import (
 	"net/http"
-	"os"
 
 	"github.com/devforth/OnLogs/app/routes"
 	"github.com/devforth/OnLogs/app/streamer"
@@ -11,10 +10,9 @@ import (
 )
 
 func main() {
-	os.RemoveAll("leveldb")
-	os.RemoveAll("onlogsdb")
+	util.RemoveOldFiles()
 	godotenv.Load(".env")
-	go util.CreateInitUser()
+	util.CreateInitUser()
 	go streamer.StreamLogs()
 
 	http.HandleFunc("/api/v1/getHost", routes.RouteGetHost)
