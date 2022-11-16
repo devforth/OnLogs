@@ -34,7 +34,7 @@ func StreamLogs() {
 func CreateLogfileToDBStream(containerName string, dq diskqueue.Interface) {
 	for {
 		content := dq.ReadChan()
-		dq.Empty()
+		// dq.Empty()
 		if content == nil {
 			time.Sleep(1 * time.Second)
 			continue
