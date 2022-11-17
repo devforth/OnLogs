@@ -48,7 +48,6 @@ class fetchApi {
 
     async getLogs(containerName="", search="", limit=30, offset=0) { // TODO should work only with cookie
         let path = `${this.BASE_LOCAL_URL}getLogs?id=${containerName}&search=${search}&limit=${limit}&offset=${offset}`;
-        console.log(path)
         const response = await fetch(path, {
             method: "GET",
             headers: {
