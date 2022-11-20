@@ -66,7 +66,7 @@ func GetLogs(container string, message string, limit int, offset int) []string {
 	)
 	to_return := []string{}
 	for _, log_item := range res.Docs {
-		datetime := (time.Unix(0, int64(log_item["timestamp"].(float64)))).UTC().String()
+		datetime := (time.Unix(0, int64(log_item["timestamp"].(float64)))).String()
 		to_return = append(to_return, datetime+" "+log_item["message"].(string))
 	}
 	return to_return

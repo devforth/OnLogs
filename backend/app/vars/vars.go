@@ -2,12 +2,14 @@ package vars
 
 import (
 	srchx "github.com/devforth/libsrchx"
+	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
 var (
-	Store, _   = srchx.NewStore("srchxdb", ".")
-	UsersDB, _ = leveldb.OpenFile("onlogsdb", nil) // should i ever close it?
+	Store, _    = srchx.NewStore("srchxdb", ".")
+	UsersDB, _  = leveldb.OpenFile("onlogsdb", nil) // should i ever close it?
+	Connections = map[string][]websocket.Conn{}
 )
 
 type Container struct {

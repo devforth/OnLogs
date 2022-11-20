@@ -2,9 +2,11 @@ package routes
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
@@ -12,6 +14,7 @@ import (
 	"github.com/devforth/OnLogs/app/srchx_db"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
+	"github.com/gorilla/websocket"
 )
 
 func enableCors(w *http.ResponseWriter) {
@@ -21,12 +24,52 @@ func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Headers", "*")
 }
 
+func listener(conn *websocket.Conn) {
+	for {
+		messageType, message, err := conn.ReadMessage()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		fmt.Println(string(message))
+
+		if err := conn.WriteMessage(messageType, message); err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+}
+
 func RouteGetHost(w http.ResponseWriter, req *http.Request) {
 	enableCors(&w)
 	host, _ := os.Hostname()
 	to_return := &vars.HostsList{Host: host, Services: daemon.GetContainersList()}
 	e, _ := json.Marshal(to_return)
 	w.Write(e)
+}
+
+func RouteGetLogsStream(w http.ResponseWriter, req *http.Request) {
+	var upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+	}
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+
+	ws, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("Client Connected")
+
+	container := req.URL.Query().Get("id")
+	if strings.Compare(container, "") == 0 {
+		return
+	}
+	vars.Connections[container] = append(vars.Connections[container], *ws)
+	// err = ws.WriteMessage(1, []byte("Hi "+container))
+
+	listener(ws)
 }
 
 func RouteGetLogs(w http.ResponseWriter, req *http.Request) {
