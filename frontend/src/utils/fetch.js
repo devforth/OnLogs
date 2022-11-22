@@ -1,7 +1,6 @@
 class fetchApi {
     constructor() {
       this.BASE_LOCAL_URL = "http://localhost:2874/api/v1/";
-      this.BASE_PROD_URL = "/api/v1";
     //   this.path =
     //     document.location.host === "coposter.me" ||
     //     document.location.host === "dev.coposter.me"
