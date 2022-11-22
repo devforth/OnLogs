@@ -1,16 +1,21 @@
-.header {
-    display: inline-block;
-    margin-right: 3%;
+
+
+#top-line {
+    display: flex;
+    align-items: center;
+    gap: 20px
 }
 
-.hto {
-    // margin-top: 5px;
+.show {
     box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.15);
     border-radius: 10px;
     background-color: rgba(0, 0, 0, 0);
-    height: 40px;
-    width: 50px;
-    margin-bottom: 5%;
+    height: 42px;
+    width: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
 
     .icon {
         display: flex;
@@ -18,8 +23,6 @@
         vertical-align: bottom;
 
         .log.log-Eye::before {
-            padding-left: 30%;
-            line-height: 0.1;
             font-size: 25px;
         }
     }
@@ -43,18 +46,17 @@
 }
 
 .logs {
-    max-height: 85%;
     overflow-y: scroll;
+    padding-right: 16px;
 }
 
 .logs::-webkit-scrollbar {
     width: 10px;
-    height: 7px;
-    background-color: rgba(0, 0, 0, 0);
+    height: 10px;
+    background-color: #00000000;
   }
 
 .logs::-webkit-scrollbar-thumb {
-    // box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
     background-color: #0000002a;
     border-radius: 10px;
   }
