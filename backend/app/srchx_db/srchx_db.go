@@ -1,6 +1,7 @@
 package srchx_db
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -66,7 +67,10 @@ func GetLogs(container string, message string, limit int, offset int) []string {
 	)
 	to_return := []string{}
 	for _, log_item := range res.Docs {
-		datetime := (time.Unix(0, int64(log_item["timestamp"].(float64)))).String()
+		datetime := strings.Split(time.Unix(0, int64(log_item["timestamp"].(float64))).Local().UTC().String(), " +")[0]
+		if len(datetime) < 29 {
+			datetime = datetime + strings.Repeat("0", 29-len(datetime))
+		}
 		to_return = append(to_return, datetime+" "+log_item["message"].(string))
 	}
 	return to_return
