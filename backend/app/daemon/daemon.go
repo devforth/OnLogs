@@ -34,7 +34,14 @@ func CreateDaemonToLogfileStream(containerName string, dq diskqueue.Interface) {
 		if strings.Compare("", logLine) == 0 {
 			continue
 		}
-		err := dq.Put([]byte(logLine))
+
+		var err error
+		if []byte(logLine)[0] == 1 { // is it ok?
+			err = dq.Put([]byte(logLine)[8:])
+		} else {
+			err = dq.Put([]byte(logLine))
+		}
+
 		if err != nil {
 			time.Sleep(1 * time.Millisecond)
 			continue
