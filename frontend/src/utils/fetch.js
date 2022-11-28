@@ -3,9 +3,9 @@ class fetchApi {
       this.BASE_LOCAL_URL = "http://localhost:2874/api/v1/";
     }
 
-    async doFetch(path, body = null) {
+    async doFetch(method, path, body = null) {
         const response = await fetch(path, {
-            method: "POST",
+            method: method,
             headers: {
                     Accept: "application/json",
                     "Content-Type" : "application/json",
@@ -23,7 +23,7 @@ class fetchApi {
     }
 
     async login(login="admin", password="aboba") {
-        return await this.doFetch(`${this.BASE_LOCAL_URL}login`, {
+        return await this.doFetch("POST", `${this.BASE_LOCAL_URL}login`, {
             "login": login,
             "password": password
         })
@@ -31,11 +31,11 @@ class fetchApi {
 
     async getHosts() {
         await this.login()  // REMOVE
-        return await this.doFetch(`${this.BASE_LOCAL_URL}getHost`)
+        return await this.doFetch("GET", `${this.BASE_LOCAL_URL}getHost`)
     }
 
     async getLogs(containerName="", search="", limit=30, offset=0) {
-        return await this.doFetch(
+        return await this.doFetch("GET",
             `${this.BASE_LOCAL_URL}getLogs?
             id=${containerName}&
             search=${search}&
