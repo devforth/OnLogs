@@ -37,6 +37,10 @@ func CreateJWT(login string) string {
 
 func GetUserFromJWT(req http.Request) (string, error) {
 	c, _ := req.Cookie("onlogs-cookie")
+	if c == nil {
+		return "", errors.New("401 - Unauthorized!")
+	}
+
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(c.Value, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(os.Getenv("JWT_SECRET")), nil
