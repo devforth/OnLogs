@@ -1,66 +1,47 @@
 class fetchApi {
     constructor() {
       this.BASE_LOCAL_URL = "http://localhost:2874/api/v1/";
-    //   this.path =
-    //     document.location.host === "coposter.me" ||
-    //     document.location.host === "dev.coposter.me"
-    //       ? this.BASE_PROD_URL
-    //       : this.BASE_LOCAL_URL;
     }
-    async login(login, password) {
-        let path = `${this.BASE_LOCAL_URL}login`;
+
+    async doFetch(path, body = null) {
         const response = await fetch(path, {
-            method: "GET",
+            method: "POST",
             headers: {
                     Accept: "application/json",
-                    "Content-Type": "application/json",
+                    "Content-Type" : "application/json",
                 },
             credentials: "include",
-            body: JSON.stringify({
-                "login": login,
-                "password": password
-            }),
+            body: JSON.stringify(body),
         });
+
+        if (response.status === 401) { // TODO logout when status 401
+            console.log("sraka")
+            return null
+        }
 
         return await response.json();
     }
 
-    async getHosts() { // TODO should work only with cookie
-        let path = `${this.BASE_LOCAL_URL}getHost`;
-        const response = await fetch(path, {
-            method: "GET",
-            headers: {
-                    Accept: "application/json",
-                    "Content-Type": "application/json",
-                },
-            credentials: "same-origin",
-        });
-
-        // if (response.status === 401) { // TODO logout when status 401
-            // methods.logOut();
-        // }
-
-        const hosts = []
-        hosts.push(await response.json())
-        return hosts
+    async login(login="admin", password="aboba") {
+        return await this.doFetch(`${this.BASE_LOCAL_URL}login`, {
+            "login": login,
+            "password": password
+        })
     }
 
-    async getLogs(containerName="", search="", limit=30, offset=0) { // TODO should work only with cookie
-        let path = `${this.BASE_LOCAL_URL}getLogs?id=${containerName}&search=${search}&limit=${limit}&offset=${offset}`;
-        const response = await fetch(path, {
-            method: "GET",
-            headers: {
-                    Accept: "application/json",
-                    "Content-Type": "application/json",
-                },
-            credentials: "same-origin",
-        });
+    async getHosts() {
+        await this.login()  // REMOVE
+        return await this.doFetch(`${this.BASE_LOCAL_URL}getHost`)
+    }
 
-        // if (response.status === 401) { // TODO logout when status 401
-            // methods.logOut();
-        // }
-
-        return (await response.json())
+    async getLogs(containerName="", search="", limit=30, offset=0) {
+        return await this.doFetch(
+            `${this.BASE_LOCAL_URL}getLogs?
+            id=${containerName}&
+            search=${search}&
+            limit=${limit}&
+            offset=${offset}`
+        )
     }
 }
 
