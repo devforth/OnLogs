@@ -10,7 +10,7 @@
     let offset = 0, logLinesCount = 30, oldScrollHeight = 0;
     let allLogs = [], tmpLogs = allLogs;
     let webSocket = undefined;
-    let isLogsUpdating = false;
+    let isLogsUpdating = false, isUploading = false;
 
     const api = new fetchApi();
     $: logString = undefined;
@@ -19,6 +19,15 @@
     afterUpdate(() => {
         scrollToBottom();
     });
+
+    function getLogLineStatus(logLine="") {
+        const statuses = ["error", "debug", "warn", "info"]
+        const status = logLine.slice(30).split(" ", 1)[0]
+        if (statuses.includes(status.toLowerCase())) {
+            return status
+        }
+        return "debug"
+    }
 
     function scrollToBottom() {
         const logsCont = document.querySelector('#logs');
@@ -33,7 +42,10 @@
     }
 
     async function getLogs(service="", search="", limit=logLinesCount, offset=0) {
+        isUploading = true;
         const newLogs = (await api.getLogs(service, search, limit, offset)).reverse()
+        offset += newLogs.length;
+        isUploading = false;
         allLogs = [...newLogs, ...allLogs];
         return newLogs;
     }
@@ -48,8 +60,8 @@
         if (webSocket != undefined) {
             webSocket.close()
         }
-
-        await getLogs(service, "", logLinesCount, offset)
+        const newLogs = await getLogs(serviceName, "", logLinesCount, offset);
+        offset += newLogs.length;
         tmpLogs = allLogs;
         webSocket = new WebSocket("ws://localhost:2874/api/v1/getLogsStream?id="+service);
         webSocket.onmessage = (event) => {
@@ -64,11 +76,11 @@
 <div id="top-line">
     <h2 class="header">Service logs</h2>
     <p class="header">recent at bottom</p>
-    <button class="header show">
+    <!-- <button class="header show">
         <div class="icon">
             <i class={"log log-Eye"} />
         </div>
-    </button>
+    </button> -->
     <div class="header search">
         <i class={"log log-Search"} />
         <input type="text" bind:value={searchText} />
@@ -79,13 +91,13 @@
     class="logs"
     bind:this={logsDiv}
     on:scroll={async () => {
-        const scrolledPercent = logsDiv.scrollTop/logsDiv.scrollHeight*100
-        if (logsDiv.scrollTop > 1 && scrolledPercent < 0.5 && !isLogsUpdating) {
+        // const scrolledPercent = logsDiv.scrollTop/logsDiv.scrollHeight*100
+        if (logsDiv.scrollTop > 1 && logsDiv.scrollTop < 30 && !isLogsUpdating) {
             isLogsUpdating = true;
-            offset += logLinesCount;
             oldScrollHeight = logsDiv.scrollHeight;
             tmpLogs=allLogs;
-            await getLogs(serviceName, "", logLinesCount, offset);
+            const newLogs = await getLogs(serviceName, "", logLinesCount, offset);
+            offset += newLogs.length;
             setTimeout(() => {
                 logsDiv.scrollTop = (logsDiv.scrollHeight - oldScrollHeight); //- logsDiv.scrollTop;
                 isLogsUpdating = false;
@@ -98,11 +110,15 @@
         {#await getLogsStream(serviceName)}
             <p>loading...</p>
         {:then}
+            {#if isUploading}
+            <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
+            {/if}
             {#each tmpLogs as logItem}
                 <LogsString
                     bind:this={logString}
                     time={logItem.slice(0, 19).replace("T", " ")}
                     message={logItem.slice(30)}
+                    status={getLogLineStatus(logItem)}
                 />
             {/each}
         {/await}
@@ -115,6 +131,7 @@
                     bind:this={logString}
                     time={logItem.slice(0, 19).replace("T", " ")}
                     message={logItem.slice(30)}
+                    status={getLogLineStatus(logItem)}
                 />
             {/each}
         {/await}
