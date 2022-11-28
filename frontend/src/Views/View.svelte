@@ -41,7 +41,7 @@
             <p style="margin-top: 15px;">Error</p>
           {/await}
       </div></Container>
-    <Container minHeightVh={10.97}>1213414</Container>
+    <!-- <Container minHeightVh={10.97}>1213414</Container> -->
   </div>
   <div class="subContainerMiddle subContainer">
     <!-- <Container minHeightVh={17.36}>1213414</Container> -->
@@ -50,10 +50,10 @@
     </Container>
   </div>
   <div class="subContainerRight  subContainer">
-    <Container minHeightVh={24.44}>1213414</Container>
+    <!-- <Container minHeightVh={24.44}>1213414</Container> -->
     <!-- <Container minHeightVh={21.52}>1213414</Container> -->
     <div class="subContainerThumb">
-      <Container minHeightVh={17.36}>1213414</Container>
+      <!-- <Container minHeightVh={17.36}>1213414</Container> -->
       <!-- <Container minHeightVh={12.91} highlighted>1213414</Container> -->
     </div>
   </div>
