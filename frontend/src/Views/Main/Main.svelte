@@ -1,17 +1,19 @@
 <script>
   // @ts-ignore
   import Container from "@/lib/Container/Container.svelte";
-  import HostList from "../lib/HostList/HostList.svelte";
-  import LogsView from "../Views/LogsView/LogsView.svelte";
-  import Button from "../lib/Button/Button.svelte";
-  import fetchApi from "../utils/fetch";
+  import HostList from "../../lib/HostList/HostList.svelte";
+  import LogsView from "../Logs/LogsView.svelte";
+  import Button from "../../lib/Button/Button.svelte";
+  import fetchApi from "../../utils/fetch";
 
   const listMargins = { marginTop: "6.68vh" }
   let api = new fetchApi()
 
   $: selectedService = ""
   async function getHosts() {
-    return await api.getHosts()
+    let hostList = [await api.getHosts()]  // TODO remove [] when backend will be able to send array of hosts
+    selectedService = hostList[0]["services"][0]  // TODO pick the last choosen service
+    return  hostList
   }
 </script>
 
@@ -26,16 +28,16 @@
             border={false}
             highlighted
             minWidth={0}
-            minHeight={0}
-            icon="log log-Plus"
-            iconHeight={18}
+            minHeight={0} 
           />
+          <!-- icon="log log-Plus"
+          iconHeight={18} -->
         </div>
           {#await getHosts()}
             <p>loading...</p>
           {:then hosts}
             {#each hosts as host}
-            <HostList bind:selectedName={selectedService} hostName={host["host"]} servicesData={host["services"]} {...listMargins}/>
+              <HostList bind:selectedName={selectedService} hostName={host["host"]} servicesData={host["services"]} {...listMargins}/>
             {/each}
           {:catch}
             <p style="margin-top: 15px;">Error</p>

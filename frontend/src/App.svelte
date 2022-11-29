@@ -1,6 +1,6 @@
 <script>
- import View from "./Views/View.svelte";
+ import MainView from "./Views/Main/Main.svelte";
 </script>
 
 
-<View></View>
+<MainView></MainView>
