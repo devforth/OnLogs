@@ -1,9 +1,13 @@
 class fetchApi {
     constructor() {
       this.BASE_LOCAL_URL = "http://localhost:2874/api/v1/";
+      this.isAuthorized = false;
     }
 
     async doFetch(method, path, body = null) {
+        if (body != null) {
+            body = JSON.stringify(body)
+        }
         const response = await fetch(path, {
             method: method,
             headers: {
@@ -11,14 +15,15 @@ class fetchApi {
                     "Content-Type" : "application/json",
                 },
             credentials: "include",
-            body: JSON.stringify(body),
+            body: body,
         });
 
-        if (response.status === 401) { // TODO logout when status 401
-            console.log("sraka")
-            return null
+        if (response.status === 401) {
+            this.isAuthorized = false;
+            return "401 - Unauthorized!"
         }
 
+        this.isAuthorized = true;
         return await response.json();
     }
 
@@ -30,17 +35,12 @@ class fetchApi {
     }
 
     async getHosts() {
-        await this.login()  // REMOVE
         return await this.doFetch("GET", `${this.BASE_LOCAL_URL}getHost`)
     }
 
     async getLogs(containerName="", search="", limit=30, offset=0) {
         return await this.doFetch("GET",
-            `${this.BASE_LOCAL_URL}getLogs?
-            id=${containerName}&
-            search=${search}&
-            limit=${limit}&
-            offset=${offset}`
+            `${this.BASE_LOCAL_URL}getLogs?id=${containerName}&search=${search}&limit=${limit}&offset=${offset}`
         )
     }
 }
