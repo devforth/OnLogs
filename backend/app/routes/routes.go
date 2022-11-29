@@ -66,6 +66,10 @@ func RouteGetLogs(w http.ResponseWriter, req *http.Request) {
 }
 
 func RouteGetLogsStream(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
