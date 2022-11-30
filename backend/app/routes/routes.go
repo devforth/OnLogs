@@ -127,6 +127,21 @@ func RouteLogin(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
+func RouteLogout(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     "onlogs-cookie",
+		Value:    "toDelete",
+		Expires:  time.Now().AddDate(-5, -5, -5),
+		MaxAge:   0,
+		SameSite: http.SameSiteLaxMode,
+		Path:     "/",
+	})
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+}
+
 func RouteCreateUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return

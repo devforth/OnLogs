@@ -20,6 +20,7 @@ func main() {
 	http.HandleFunc("/api/v1/getHost", routes.RouteGetHost)
 	http.HandleFunc("/api/v1/getLogs", routes.RouteGetLogs)
 	http.HandleFunc("/api/v1/login", routes.RouteLogin)
+	http.HandleFunc("/api/v1/logout", routes.RouteLogout)
 	http.HandleFunc("/api/v1/createUser", routes.RouteCreateUser)
 	http.HandleFunc("/api/v1/deleteUser", routes.RouteDeleteUser)
 
