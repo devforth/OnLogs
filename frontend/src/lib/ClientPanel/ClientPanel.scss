@@ -1,0 +1,17 @@
+div.clientPanel {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 35px 0 35px;
+
+    i {
+        cursor: pointer;
+        visibility: hidden;
+        font-size: 35px;
+    }
+
+    i.log-User {
+        visibility: initial;
+    }
+}

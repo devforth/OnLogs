@@ -5,6 +5,7 @@
   import LogsView from "../Logs/LogsView.svelte";
   import Button from "../../lib/Button/Button.svelte";
   import fetchApi from "../../utils/fetch";
+    import ClientPanel from "../../lib/ClientPanel/ClientPanel.svelte";
 
   const listMargins = { marginTop: "6.68vh" }
   let api = new fetchApi()
@@ -43,7 +44,9 @@
             <p style="margin-top: 15px;">Error</p>
           {/await}
       </div></Container>
-    <Container minHeightVh={10.97}>1213414</Container>
+    <Container minHeightVh={10.97}>
+      <ClientPanel/>
+    </Container>
   </div>
   <div class="subContainerMiddle subContainer">
     <!-- <Container minHeightVh={17.36}>1213414</Container> -->
