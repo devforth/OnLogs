@@ -29,20 +29,23 @@
 }
 
 .search {
-    height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 5px 0 5px;
+  height: 35px;
+  background-color: #F8FAFB;
+  border: 1px solid #A3A3B9;
+  border-radius: 10px;
+  vertical-align: baseline;
+  input {
+    font-family: 'Ubuntu', sans-serif;
     background-color: #F8FAFB;
-    border: 1px solid #A3A3B9;
     border-radius: 10px;
-    padding-top: 10px;
-    padding: 10px 0 0 5px;
-    vertical-align: baseline;
-    input {
-        background-color: #F8FAFB;
-        border-radius: 10px;
-    }
-    input:focus {
-        outline: none;
-    }
+  }
+  input:focus {
+    outline: none;
+  }
 }
 
 .logs {
