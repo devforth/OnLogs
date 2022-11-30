@@ -45,6 +45,10 @@ class fetchApi {
         return false
     }
 
+    async logout() {
+        return await this.doFetch("GET", `${this.BASE_LOCAL_URL}logout`)
+    }
+
     async getHosts() {
         return await this.doFetch("GET", `${this.BASE_LOCAL_URL}getHost`)
     }
