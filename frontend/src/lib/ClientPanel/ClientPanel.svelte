@@ -12,6 +12,6 @@
 
 <div class="clientPanel">
     <i class="log log-User" on:click={ async() => {await logout()}}/>
-    <i class="log log-Wheel"/>
-    <i class="log log-Moon"/>
+    <!-- <i class="log log-Wheel"/>
+    <i class="log log-Moon"/> -->
 </div>

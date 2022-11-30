@@ -19,7 +19,7 @@
         width: 10%;
         min-width: 75px;
         vertical-align: middle;
-        padding-right: 1%;
+        // padding-right: 1%;
 
         span {
             font-size: 19px;
@@ -30,7 +30,7 @@
     .time {
         width: 17%;
         min-width: 160px;
-        padding-right: 1%;
+        // padding-right: 1%;
     }
 
     .message {width: 70%}
@@ -43,6 +43,4 @@
 
         z-index: 1;
     }
-
-
 }
