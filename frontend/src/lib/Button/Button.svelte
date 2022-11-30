@@ -7,8 +7,6 @@
   function clickButton() {
     dispatch('onClickButton');
   }
-
-   
  
   export let title=null;
   export let border=true;
@@ -22,7 +20,7 @@
 </script>
 
 
-<button style:min-width={`${minWidth}px`} style:min-height={`${minHeight}px`}  class="button block {highlighted?'highlighted':''} {border?'border':''}" >
+<button on:click={() => {clickButton()} } style:min-width={`${minWidth}px`} style:min-height={`${minHeight}px`}  class="button block {highlighted?'highlighted':''} {border?'border':''}" >
    <i style:font-size={`${iconHeight}px`}
   class="{icon?`${icon}`:''}"
   class:iconWidthText={title&&icon}

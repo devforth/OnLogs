@@ -10,6 +10,7 @@
     line-height:$line-height;
     padding-left:$normal-padding;
     padding-right:$normal-padding;
+    cursor: pointer;
    
 
     &.highlighted{
@@ -18,17 +19,10 @@
     }
      &.border{
          box-shadow:$main-shadow;
-
-       
-        
     }
 
     .iconWidthText{
         padding-right: $normal-padding;
-        
-        
-        
-
     }
 
 
