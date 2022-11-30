@@ -27,6 +27,7 @@
     "vite": "^3.1.0"
   },
   "dependencies": {
-    "@vusion/webfonts-generator": "^0.8.0"
+    "@vusion/webfonts-generator": "^0.8.0",
+    "svelte-spa-router": "^3.3.0"
   }
 }
