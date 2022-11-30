@@ -3,10 +3,24 @@
     import fetchApi from "../../utils/fetch";
     import Container from "../../lib/Container/Container.svelte";
     import Button from "../../lib/Button/Button.svelte";
+    import { replace } from "svelte-spa-router";
 
     let api = new fetchApi();
     let result = true;
     let wrong = "", message = "";
+    let cookies = document.cookie.split(";")
+
+    for (const cookie of cookies) {
+        let c = cookie.trim()
+        if (c.startsWith("onlogs-cookie=")) {
+            (async () => {
+                if ((await api.checkCookie())["error"] == null ) {
+                    replace("/view")
+                }
+            })();
+        }
+    }
+
     async function confirm() {
         const login = document.getElementById("login").value
         const password = document.getElementById("password").value

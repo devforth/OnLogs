@@ -25,8 +25,11 @@ class fetchApi {
             replace("/login")
             return null
         }
-
         return await response.json()
+    }
+
+    async checkCookie() {
+        return await this.doFetch("GET", `${this.BASE_LOCAL_URL}checkCookie`)
     }
 
     async login(login="", password="") {
