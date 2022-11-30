@@ -1,7 +1,9 @@
+import {replace} from "svelte-spa-router"
+
 class fetchApi {
     constructor() {
       this.BASE_LOCAL_URL = "http://localhost:2874/api/v1/";
-      this.isAuthorized = false;
+      this.authorized = true;
     }
 
     async doFetch(method, path, body = null) {
@@ -19,19 +21,25 @@ class fetchApi {
         });
 
         if (response.status === 401) {
-            this.isAuthorized = false;
-            return "401 - Unauthorized!"
+            this.authorized = false
+            replace("/login")
+            return null
         }
 
-        this.isAuthorized = true;
-        return await response.json();
+        return await response.json()
     }
 
-    async login(login="admin", password="aboba") {
-        return await this.doFetch("POST", `${this.BASE_LOCAL_URL}login`, {
+    async login(login="", password="") {
+        const result = await this.doFetch("POST", `${this.BASE_LOCAL_URL}login`, {
             "login": login,
             "password": password
         })
+        if (result["error"] == null) {
+            this.authorized = true
+            replace("/view")
+            return true
+        }
+        return false
     }
 
     async getHosts() {
