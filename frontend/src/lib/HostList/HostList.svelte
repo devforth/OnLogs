@@ -31,7 +31,7 @@
         {#if servicesData != null}
           {#each servicesData as service}
             {#if selectedName.localeCompare(service) == 0}
-              <li class="selected">{service}<i class="log log-Wheel"/></li>
+              <li class="selected">{service}</li> <!-- <i class="log log-Wheel"/> -->
             {:else}
               <li on:click={() => {selectItem(service)}}>{service}</li>
             {/if}

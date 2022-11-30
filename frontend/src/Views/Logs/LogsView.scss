@@ -63,6 +63,8 @@
 
   .lds-ellipsis {
     display: flex;
+    align-self: center;
+    justify-content: center;
     position:relative;
     height: 10px;
   }

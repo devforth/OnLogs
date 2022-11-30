@@ -86,20 +86,22 @@
         <input type="text" bind:value={searchText} />
     </div>
 </div>
+{#if isUploading}
+    <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
+{/if}
 <div
     id="logs"
     class="logs"
     bind:this={logsDiv}
     on:scroll={async () => {
-        // const scrolledPercent = logsDiv.scrollTop/logsDiv.scrollHeight*100
-        if (logsDiv.scrollTop > 1 && logsDiv.scrollTop < 30 && !isLogsUpdating) {
+        if (logsDiv.scrollTop > 0 && logsDiv.scrollTop < 30 && !isLogsUpdating) {
             isLogsUpdating = true;
             oldScrollHeight = logsDiv.scrollHeight;
             tmpLogs=allLogs;
             const newLogs = await getLogs(serviceName, "", logLinesCount, offset);
             offset += newLogs.length;
             setTimeout(() => {
-                logsDiv.scrollTop = (logsDiv.scrollHeight - oldScrollHeight); //- logsDiv.scrollTop;
+                logsDiv.scrollTop = (logsDiv.scrollHeight - oldScrollHeight);
                 isLogsUpdating = false;
             })
             tmpLogs = allLogs;
@@ -107,12 +109,9 @@
     }}
     >
     {#if searchText.length == 0}
+        <!-- svelte-ignore empty-block -->
         {#await getLogsStream(serviceName)}
-            <p>loading...</p>
         {:then}
-            {#if isUploading}
-            <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
-            {/if}
             {#each tmpLogs as logItem}
                 <LogsString
                     bind:this={logString}
@@ -123,8 +122,8 @@
             {/each}
         {/await}
     {:else}
+        <!-- svelte-ignore empty-block -->
         {#await getLogs(serviceName, searchText, logLinesCount, 0)}
-            <p>loading...</p>
         {:then logs}
             {#each logs as logItem}
                 <LogsString
