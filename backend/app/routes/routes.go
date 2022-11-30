@@ -28,7 +28,7 @@ func verifyUser(w *http.ResponseWriter, req *http.Request) bool {
 	_, err := util.GetUserFromJWT(*req)
 	if err != nil {
 		(*w).WriteHeader(http.StatusUnauthorized)
-		(*w).Write([]byte(err.Error()))
+		json.NewEncoder(*w).Encode(map[string]string{"error": err.Error()})
 		return false
 	}
 	return true
@@ -41,6 +41,13 @@ func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
 		return true
 	}
 	return false
+}
+
+func RouteCheckCookie(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
 func RouteGetHost(w http.ResponseWriter, req *http.Request) {

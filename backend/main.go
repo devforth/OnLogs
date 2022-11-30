@@ -15,6 +15,7 @@ func main() {
 	util.CreateInitUser()
 	go streamer.StreamLogs()
 
+	http.HandleFunc("/api/v1/checkCookie", routes.RouteCheckCookie)
 	http.HandleFunc("/api/v1/getLogsStream", routes.RouteGetLogsStream)
 	http.HandleFunc("/api/v1/getHost", routes.RouteGetHost)
 	http.HandleFunc("/api/v1/getLogs", routes.RouteGetLogs)
