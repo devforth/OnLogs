@@ -4,7 +4,7 @@
     import Login from "./Views/Login/Login.svelte";
 
     let routes = {
-        "/*": Main,
+        "/": Main,
         "/view": Main,
         "/login": Login,
     }
