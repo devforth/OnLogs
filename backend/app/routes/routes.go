@@ -1,10 +1,14 @@
 package routes
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -41,6 +45,31 @@ func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
 		return true
 	}
 	return false
+}
+
+func RouteFrontend(w http.ResponseWriter, req *http.Request) {
+	requestedPath := req.URL.String()
+	dirPath, fileName := filepath.Split(requestedPath)
+	if fileName == "" {
+		fileName = "index.html"
+	}
+
+	fileName = strings.Split(fileName, "?")[0]
+	dir := http.Dir("dist" + dirPath)
+	file, err := dir.Open(fileName)
+	if err != nil {
+		dir = http.Dir("dist")
+		file, err = dir.Open("index.html")
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(fileName)))
+
+	stat, _ := file.Stat()
+	content := make([]byte, stat.Size())
+	io.ReadFull(file, content)
+	http.ServeContent(w, req, requestedPath, stat.ModTime(), bytes.NewReader(content))
+	defer file.Close()
 }
 
 func RouteCheckCookie(w http.ResponseWriter, req *http.Request) {
