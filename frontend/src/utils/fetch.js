@@ -2,7 +2,7 @@ import {replace} from "svelte-spa-router"
 
 class fetchApi {
     constructor() {
-        this.url = "api/v1/";
+        this.url = document.location.host.includes("localhost") ? "http://localhost:2874/api/v1/" : "/api/v1/";
         this.authorized = true;
     }
     async doFetch(method, path, body = null) {
