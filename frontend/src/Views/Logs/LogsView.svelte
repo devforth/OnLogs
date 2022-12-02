@@ -97,7 +97,7 @@
     class="logs"
     bind:this={logsDiv}
     on:scroll={async () => {
-        if (logsDiv.scrollTop > 0 && logsDiv.scrollTop < 30 && !isLogsUpdating) {
+        if (logsDiv.scrollTop > 0 && logsDiv.scrollTop < 5 && !isLogsUpdating) {
             isLogsUpdating = true;
             oldScrollHeight = logsDiv.scrollHeight;
             tmpLogs=allLogs;
