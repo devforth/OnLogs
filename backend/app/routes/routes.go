@@ -90,7 +90,14 @@ func RouteGetHost(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	host, _ := os.Hostname()
+	var host string
+	hostname, err := os.ReadFile("/etc/hostname")
+	if err != nil {
+		host, _ = os.Hostname()
+	} else {
+		host = string(hostname)
+	}
+
 	to_return := &vars.HostsList{Host: host, Services: daemon.GetContainersList()}
 	e, _ := json.Marshal(to_return)
 	w.Write(e)
