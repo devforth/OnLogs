@@ -22,7 +22,13 @@ import (
 )
 
 func enableCors(w *http.ResponseWriter) {
-	(*w).Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
+	var origin string
+	if os.Getenv("ENV_NAME") == "local" {
+		origin = "http://localhost:5173"
+	} else {
+		origin = ""
+	}
+	(*w).Header().Set("Access-Control-Allow-Origin", origin)
 	(*w).Header().Set("Access-Control-Allow-Credentials", "true")
 	(*w).Header().Set("Access-Control-Allow-Methods", "*")
 	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type")
