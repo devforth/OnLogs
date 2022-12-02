@@ -50,7 +50,7 @@
   </div>
   <div class="subContainerMiddle subContainer">
     <!-- <Container minHeightVh={17.36}>1213414</Container> -->
-    <Container minHeightVh={72.77}>
+    <Container minHeightVh={92.6}>
       <LogsView bind:serviceName={selectedService}/>
     </Container>
   </div>

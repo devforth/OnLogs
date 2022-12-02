@@ -86,6 +86,9 @@
         <input type="text" bind:value={searchText} />
     </div>
 </div>
+{#if allLogs.length == 0}
+    <h2 class="noLogsMessage">No logs written yet</h2>
+{/if}
 {#if isUploading}
     <div class="lds-ellipsis"><div></div><div></div><div></div><div></div></div>
 {/if}

@@ -10,6 +10,14 @@
   }
 }
 
+h2.noLogsMessage {
+  display: flex;
+  height: 100%;
+  margin-top: 25%;
+  place-self:center;
+  color: #A3A3B9;
+}
+
 .show {
     box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.15);
     border-radius: 10px;
