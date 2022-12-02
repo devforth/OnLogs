@@ -22,6 +22,7 @@ func NewAppLogger() diskqueue.AppLogFunc {
 
 func StreamLogs() {
 	os.RemoveAll("/logDump")
+	os.Mkdir("logDump", 0755)
 	containers := daemon.GetContainersList()
 	for _, container := range containers {
 		vars.Connections[container] = []websocket.Conn{}
@@ -37,7 +38,6 @@ func StreamLogs() {
 func CreateLogfileToDBStream(containerName string, dq diskqueue.Interface) {
 	for {
 		content := dq.ReadChan()
-		// dq.Empty()
 		if content == nil {
 			time.Sleep(1 * time.Second)
 			continue
