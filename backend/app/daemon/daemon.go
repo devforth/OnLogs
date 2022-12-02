@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,8 +24,9 @@ func CreateDaemonToLogfileStream(containerName string, dq diskqueue.Interface) {
 	unix.RegisterLocation("daemon", "/var/run/docker.sock")
 
 	var client = http.Client{Transport: unix}
+	curTime := strconv.FormatInt(time.Now().Unix(), 10)
 	resp, _ := client.Get(
-		"http+unix://daemon/containers/" + containerName + "/logs?stdout=true&stderr=true&timestamps=true&follow=true",
+		"http+unix://daemon/containers/" + containerName + "/logs?stdout=true&stderr=true&timestamps=true&follow=true&since=" + curTime,
 	)
 	reader := bufio.NewReader(resp.Body)
 	lastSleep := time.Now().Unix()
