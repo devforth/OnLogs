@@ -1,9 +1,13 @@
 
 
 #top-line {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+
+  i {
     display: flex;
-    align-items: center;
-    gap: 20px
+  }
 }
 
 .show {
