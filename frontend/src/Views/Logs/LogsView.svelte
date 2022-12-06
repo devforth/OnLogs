@@ -21,12 +21,24 @@
     });
 
     function getLogLineStatus(logLine="") {
-        const statuses = ["error", "debug", "warn", "info"]
-        const status = logLine.slice(30).split(" ", 1)[0]
-        if (statuses.includes(status.toLowerCase())) {
-            return status
+        const statuses_errors = ["ERROR", "ERR", "Error", "Err"]
+        const statuses_warnings = ["WARN", "WARNING"]
+        const statuses_other = ["DEBUG", "INFO"]
+        const logLineItems = logLine.slice(30).split(" ")
+        var i;
+        for (i = 0; i < logLineItems.length; i++)
+        {
+            if (statuses_errors.includes(logLineItems[i])) {
+                return "error"
+            }
+            if (statuses_warnings.includes(logLineItems[i])) {
+                return "debug"
+            }
+            if (statuses_other.includes(logLineItems[i])) {
+                return logLineItems[i].toLowerCase()
+            }
         }
-        return "debug"
+        return ""
     }
 
     function scrollToBottom() {

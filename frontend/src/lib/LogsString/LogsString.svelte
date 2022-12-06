@@ -7,7 +7,9 @@
 
 
 <div class="logsString" style="width: {width}px">
-  <div class="status {status}"><p> <span> ◉ </span>{status.toUpperCase()}</p></div>
+  {#if status != ""}
+    <div class="status {status}"><p> <span> ◉ </span>{status.toUpperCase()}</p></div>
+  {/if}
   <div class="time"><p>{time}</p></div>
   <div class="message"><p>{message}</p></div>
 </div>
