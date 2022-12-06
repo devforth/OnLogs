@@ -15,3 +15,4 @@
       - "traefik.http.services.coposter_onlogs.loadbalancer.server.port=2874"
     volumes:
      - /var/run/docker.sock:/var/run/docker.sock
+     - /etc/hostname:/etc/hostname
