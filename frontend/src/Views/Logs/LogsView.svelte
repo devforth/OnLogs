@@ -25,17 +25,27 @@
         const statuses_warnings = ["WARN", "WARNING"]
         const statuses_other = ["DEBUG", "INFO"]
         const logLineItems = logLine.slice(30).split(" ")
-        var i;
+        var i, j;
+
         for (i = 0; i < logLineItems.length; i++)
         {
-            if (statuses_errors.includes(logLineItems[i])) {
-                return "error"
+            for (j = 0; j < logLineItems.length; j++)
+            {
+                if (logLineItems[i].includes(statuses_errors[j])) {
+                    return "error"
+                }
             }
-            if (statuses_warnings.includes(logLineItems[i])) {
-                return "debug"
+            for (j = 0; j < logLineItems.length; j++)
+            {
+                if (logLineItems[i].includes(statuses_warnings[j])) {
+                    return "warn"
+                }
             }
-            if (statuses_other.includes(logLineItems[i])) {
-                return logLineItems[i].toLowerCase()
+            for (j = 0; j < logLineItems.length; j++)
+            {
+                if (logLineItems[i].includes(statuses_other[j])) {
+                    return statuses_other[j].toLowerCase()
+                }
             }
         }
         return ""
