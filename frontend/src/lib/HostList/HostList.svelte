@@ -12,7 +12,7 @@
   }
 </script>
 
-<div>
+<div class="hostList">
   <div
     class="hostListHeader"
     style:margin-top={`${marginTop}`}
@@ -26,7 +26,7 @@
     </div>
   </div>
 
-  <div>
+  <div class="hosts">
     <ul>
         {#if servicesData != null}
           {#each servicesData as service}

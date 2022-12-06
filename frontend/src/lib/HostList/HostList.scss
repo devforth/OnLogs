@@ -44,3 +44,21 @@ li {
     float: right;
   }
 }
+
+.hosts {
+  overflow-x: hidden;
+  overflow-y: scroll;
+  padding-right: 16px;
+  height: 560px;
+}
+
+.hosts::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  background-color: #00000000;
+}
+
+.hosts::-webkit-scrollbar-thumb {
+  background-color: #ffffff4a;
+  border-radius: 10px;
+}
