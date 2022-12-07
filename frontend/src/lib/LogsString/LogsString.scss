@@ -6,6 +6,8 @@
     padding-bottom: 5px;
     padding-top: 5px;
     border-top: solid 1px $lines-color;
+   
+    
 
     .error {color: #FF4242}
 
@@ -16,10 +18,10 @@
     .info {color: $active-color}
 
     .status {
-        width: 10%;
+       
         min-width: 75px;
         vertical-align: middle;
-        // padding-right: 1%;
+        margin-right: 12px;
 
         span {
             font-size: 19px;
@@ -28,12 +30,12 @@
     }
 
     .time {
-        width: 17%;
+       
         min-width: 160px;
-        // padding-right: 1%;
+        margin-right: 12px;
     }
 
-    .message {width: 70%}
+    
 
     &:after {
         content: '';
@@ -43,4 +45,11 @@
 
         z-index: 1;
     }
+    .hidden {
+        opacity: 0;
+    }
+   
+}
+.emptiLogsString {
+    border-top: none;
 }

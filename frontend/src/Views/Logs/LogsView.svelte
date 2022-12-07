@@ -1,5 +1,5 @@
 <script>
-    import "../../lib/LogsString/LogsString.svelte";
+    
     import LogsString from "../../lib/LogsString/LogsString.svelte";
     import fetchApi from "../../utils/fetch";
     import { afterUpdate } from "svelte";
@@ -19,6 +19,10 @@
     afterUpdate(() => {
         scrollToBottom();
     });
+
+    function getLongestStringWidth (){
+        
+    }
 
     function getLogLineStatus(logLine="") {
         const statuses_errors = ["ERROR", "ERR", "Error", "Err"]
@@ -133,6 +137,7 @@
         }
     }}
     >
+    <table>
     {#if searchText.length == 0}
         <!-- svelte-ignore empty-block -->
         {#await getLogsStream(serviceName)}
@@ -160,4 +165,5 @@
             {/each}
         {/await}
     {/if}
+</table>
 </div>

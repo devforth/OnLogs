@@ -3,16 +3,17 @@
   export let time="";
   export let message=""
   export let width=""
+  console.log()
 </script>
 
 
-<div class="logsString" style="width: {width}px">
-  {#if status != ""}
-    <div class="status {status}"><p> <span> ◉ </span>{status.toUpperCase()}</p></div>
-  {/if}
-  <div class="time"><p>{time}</p></div>
-  <div class="message"><p>{message}</p></div>
-</div>
+<tr class="logsString {message.trim().length===0?"emptiLogsString":""}" style="width: {width}px">
+  
+    <td class="status {status?status:"hidden"}"><p> <span> ◉ </span>{status.toUpperCase()}</p></td>
+  
+  <td class="time"><p>{message.trim().length>0?time:""}</p></td>
+  <td class="message"><p>{message}</p></td>
+</tr>
 
 
 
