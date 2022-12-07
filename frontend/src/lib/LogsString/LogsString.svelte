@@ -1,5 +1,5 @@
 <script>
-  export let status="debug";
+  export let status="";
   export let time="";
   export let message=""
   export let width=""
