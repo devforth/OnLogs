@@ -137,7 +137,7 @@
         }
     }}
     >
-    <table>
+    <table class="logsTable">
     {#if searchText.length == 0}
         <!-- svelte-ignore empty-block -->
         {#await getLogsStream(serviceName)}
