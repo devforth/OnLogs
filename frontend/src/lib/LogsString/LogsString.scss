@@ -3,6 +3,7 @@
     vertical-align: middle;
     align-items: flex-start;
     position: relative;
+    gap: 10px;
     padding-bottom: 5px;
     padding-top: 5px;
     border-top: solid 1px $lines-color;
@@ -16,10 +17,8 @@
     .info {color: $active-color}
 
     .status {
-        width: 10%;
-        min-width: 75px;
+        width: 75px;
         vertical-align: middle;
-        // padding-right: 1%;
 
         span {
             font-size: 19px;
@@ -28,9 +27,7 @@
     }
 
     .time {
-        width: 17%;
         min-width: 160px;
-        // padding-right: 1%;
     }
 
     .message {width: 70%}
