@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/srchx_db"
 	"github.com/devforth/OnLogs/app/util"
@@ -98,7 +97,7 @@ func RouteGetHost(w http.ResponseWriter, req *http.Request) {
 		host = string(hostname)
 	}
 
-	to_return := &vars.HostsList{Host: host, Services: daemon.GetContainersList()}
+	to_return := &vars.HostsList{Host: host, Services: vars.All_Containers}
 	e, _ := json.Marshal(to_return)
 	w.Write(e)
 }
