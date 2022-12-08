@@ -3,6 +3,7 @@ import {replace} from "svelte-spa-router"
 class fetchApi {
     constructor() {
         this.url = document.location.host.includes("localhost") ? "http://localhost:2874/api/v1/" : "/api/v1/";
+        this.wsUrl = document.location.host.includes("localhost") ? "wss://localhost:2874/api/v1/" : `wss://${document.location.host}/api/v1/`;
         this.authorized = true;
     }
     async doFetch(method, path, body = null) {

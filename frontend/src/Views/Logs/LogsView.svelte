@@ -88,7 +88,7 @@
         const newLogs = await getLogs(serviceName, "", logLinesCount, offset);
         offset += newLogs.length;
         tmpLogs = allLogs;
-        webSocket = new WebSocket("ws://localhost:2874/api/v1/getLogsStream?id="+service);
+        webSocket = new WebSocket(`${api.wsUrl}getLogsStream?id=${service}`); // maybe should move to fetch
         webSocket.onmessage = (event) => {
             offset++;
             allLogs.push(event.data);

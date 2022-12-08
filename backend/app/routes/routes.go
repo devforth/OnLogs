@@ -123,7 +123,7 @@ func RouteGetLogsStream(w http.ResponseWriter, req *http.Request) {
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
-	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true } // verify req here?
 
 	ws, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
