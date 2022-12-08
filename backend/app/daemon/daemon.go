@@ -34,11 +34,11 @@ func CreateDaemonToLogfileStream(containerName string, dq diskqueue.Interface) {
 		logLine, get_string_error := reader.ReadString('\n')
 		if get_string_error != nil {
 			if strings.Compare(get_string_error.Error(), "EOF") == 0 {
-				datetime := strings.Split(time.Now().UTC().String(), " +")[0]
+				datetime := strings.Replace(strings.Split(time.Now().UTC().String(), " +")[0], " ", "T", 1)
 				if len(datetime) < 29 {
 					datetime = datetime + strings.Repeat("0", 29-len(datetime))
 				}
-				dq.Put([]byte(datetime + " WARN: OnLogs: " + containerName + " - container stopped!"))
+				dq.Put([]byte(datetime + "Z ONLOGS: " + containerName + " - container stopped!"))
 			}
 			return
 		}
