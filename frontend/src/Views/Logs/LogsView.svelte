@@ -3,6 +3,7 @@
     import LogsString from "../../lib/LogsString/LogsString.svelte";
     import fetchApi from "../../utils/fetch";
     import { afterUpdate } from "svelte";
+    import LogsViewHeder from './LogsViewHeder/LogsViewHeder.svelte'
 
     export let serviceName;
 
@@ -20,9 +21,7 @@
         scrollToBottom();
     });
 
-    function getLongestStringWidth (){
-        
-    }
+    
 
     function getLogLineStatus(logLine="") {
         const statuses_errors = ["ERROR", "ERR", "Error", "Err"]
@@ -99,20 +98,8 @@
     }
 </script>
 
-<div id="top-line">
-    <h2 class="header">Service logs</h2>
-    <p class="header">recent at bottom</p>
-    <!-- <button class="header show">
-        <div class="icon">
-            <i class={"log log-Eye"} />
-        </div>
-    </button> -->
-    <div class="header search">
-        <i class={"log log-Search"} />
-        <input type="text" bind:value={searchText} />
-    </div>
-</div>
-{#if allLogs.length == 0}
+<LogsViewHeder bind:searchText={searchText}></LogsViewHeder>
+{#if allLogs.length === 0}
     <h2 class="noLogsMessage">No logs written yet</h2>
 {/if}
 {#if isUploading}
@@ -138,7 +125,7 @@
     }}
     >
     <table class="logsTable">
-    {#if searchText.length == 0}
+    {#if searchText.length === 0}
         <!-- svelte-ignore empty-block -->
         {#await getLogsStream(serviceName)}
         {:then}

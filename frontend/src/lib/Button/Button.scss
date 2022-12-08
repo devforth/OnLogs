@@ -1,8 +1,10 @@
 .button{
     font-family: 'Ubuntu', sans-serif;
+    line-height: 1;
 
     background-color: $btn-primary-color;
     border-radius: $main-border-radius;
+
     
     font-size: $main-font-s;
     color:$text-dark-color;
@@ -10,6 +12,9 @@
     line-height:$line-height;
     padding-left:$normal-padding;
     padding-right:$normal-padding;
+    display: flex;
+    justify-content: center;
+    align-items:center ;
     cursor: pointer;
    
 

@@ -49,6 +49,10 @@
     .hidden {
         opacity: 0;
     }
+    &:last-child {
+        border-bottom: solid 1px $lines-color;
+
+    }
    
 }
 .emptiLogsString {
