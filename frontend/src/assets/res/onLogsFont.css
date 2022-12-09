@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?7d4c0d4940459a5f0effb92914c0c66d?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?7d4c0d4940459a5f0effb92914c0c66d") format("woff2"),
-url("onLogsFont.woff?7d4c0d4940459a5f0effb92914c0c66d") format("woff"),
-url("onLogsFont.ttf?7d4c0d4940459a5f0effb92914c0c66d") format("truetype"),
-url("onLogsFont.svg?7d4c0d4940459a5f0effb92914c0c66d#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?72b06ca00f6c31335c5a37228b60a124?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?72b06ca00f6c31335c5a37228b60a124") format("woff2"),
+url("onLogsFont.woff?72b06ca00f6c31335c5a37228b60a124") format("woff"),
+url("onLogsFont.ttf?72b06ca00f6c31335c5a37228b60a124") format("truetype"),
+url("onLogsFont.svg?72b06ca00f6c31335c5a37228b60a124#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -29,60 +29,63 @@ url("onLogsFont.svg?7d4c0d4940459a5f0effb92914c0c66d#onLogsFont") format("svg");
 .log-ArrowRight:before {
 	content: "\f102";
 }
-.log-Clean:before {
+.log-Break:before {
 	content: "\f103";
 }
-.log-Colums:before {
+.log-Clean:before {
 	content: "\f104";
 }
-.log-Combine:before {
+.log-Clock:before {
 	content: "\f105";
 }
-.log-Cut:before {
+.log-Colums:before {
 	content: "\f106";
 }
-.log-Data:before {
+.log-Combine:before {
 	content: "\f107";
 }
-.log-Eye:before {
+.log-Cut:before {
 	content: "\f108";
 }
-.log-Filter:before {
+.log-Data:before {
 	content: "\f109";
 }
-.log-Group:before {
+.log-Eye:before {
 	content: "\f10a";
 }
-.log-Info:before {
+.log-Filter:before {
 	content: "\f10b";
 }
-.log-Last:before {
+.log-Group:before {
 	content: "\f10c";
 }
-.log-Moon:before {
+.log-Info:before {
 	content: "\f10d";
 }
-.log-Pencil:before {
+.log-Last:before {
 	content: "\f10e";
 }
-.log-Plus:before {
+.log-Moon:before {
 	content: "\f10f";
 }
-.log-Refresh:before {
+.log-Pencil:before {
 	content: "\f110";
 }
-.log-Search:before {
+.log-Plus:before {
 	content: "\f111";
 }
-.log-Server:before {
+.log-Refresh:before {
 	content: "\f112";
 }
-.log-User:before {
+.log-Search:before {
 	content: "\f113";
 }
-.log-Wheel:before {
+.log-Server:before {
 	content: "\f114";
 }
-.log-server:before {
+.log-User:before {
 	content: "\f115";
+}
+.log-Wheel:before {
+	content: "\f116";
 }

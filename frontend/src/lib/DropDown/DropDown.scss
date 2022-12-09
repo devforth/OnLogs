@@ -1,6 +1,34 @@
 .dropDownContainer {
-     box-shadow: $main-shadow;
-     border-radius: $main-border-radius;
-     background-color: $background-color;
-     padding: 20px;
+  box-shadow: $main-shadow;
+  border-radius: $main-border-radius;
+  background-color: $background-color;
+  padding: 20px;
+  position: absolute;
+  z-index: 5;
+  width: max-content;
+  right: 50%;
+  top: 110%;
+  transform: translate(50%);
+}
+
+.dropDownRawEl.ico {
+  margin-right: 12px;
+}
+
+.dropDownRawEl.text {
+  margin-right: 26px;
+}
+
+.rowContainer {
+  margin-bottom: 20px;
+}
+
+.rowContainer {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.isLast {
+  margin-bottom: 0;
 }

@@ -1,60 +1,60 @@
 .logsString {
-    display: flex;
+  display: flex;
+  vertical-align: middle;
+  align-items: flex-start;
+  position: relative;
+  gap: 10px;
+  padding-bottom: 5px;
+  padding-top: 5px;
+  border-top: solid 1px $lines-color;
+
+  .error {
+    color: #ff4242;
+  }
+
+  .debug {
+    color: #178f15;
+  }
+
+  .warn {
+    color: #ff8a00;
+  }
+
+  .info {
+    color: $active-color;
+  }
+
+  .status {
+    min-width: 75px;
     vertical-align: middle;
-    align-items: flex-start;
-    position: relative;
-    gap: 10px;
-    padding-bottom: 5px;
-    padding-top: 5px;
-    border-top: solid 1px $lines-color;
-   
-    
+    margin-right: 12px;
 
-    .error {color: #FF4242}
-
-    .debug {color: #178F15}
-
-    .warn {color: #FF8A00}
-
-    .info {color: $active-color}
-
-    .status {
-       
-        min-width: 75px;
-        vertical-align: middle;
-        margin-right: 12px;
-
-        span {
-            font-size: 19px;
-            line-height: 100%;
-        }
+    span {
+      font-size: 19px;
+      line-height: 100%;
     }
+  }
 
-    .time {
-       
-        min-width: 160px;
-        margin-right: 12px;
-    }
+  .time {
+    min-width: 160px;
+    margin-right: 12px;
+  }
 
-    
+  &:after {
+    content: "";
+    width: 100%;
+    position: absolute;
+    bottom: 0;
 
-    &:after {
-        content: '';
-        width: 100%;
-        position: absolute;
-        bottom: 0;
-
-        z-index: 1;
-    }
-    .hidden {
-        opacity: 0;
-    }
-    &:last-child {
-        border-bottom: solid 1px $lines-color;
-
-    }
-   
+    z-index: 1;
+  }
+  .hidden {
+    opacity: 0;
+  }
+  &:last-child {
+    border-bottom: solid 1px $lines-color;
+  }
 }
 .emptiLogsString {
-    border-top: none;
+  border-top: none;
 }

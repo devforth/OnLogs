@@ -54,3 +54,13 @@ h2 {
 input {
   border: 0;
 }
+
+.visuallyHidden {
+  position: absolute;
+  left: -999999px;
+  top: -999999px;
+  width: 1px;
+  height: 1px;
+  display: none;
+  opacity: 0;
+}
