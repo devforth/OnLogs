@@ -15,6 +15,7 @@
   export let icon = "";
   export let CB = () => {};
   export let iconHeight = 12;
+  export let type = "button";
 </script>
 
 <button
