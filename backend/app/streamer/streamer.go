@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
@@ -13,6 +14,15 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/nsqio/go-diskqueue"
 )
+
+func contains(a string, list []string) bool {
+	for _, b := range list {
+		if strings.Compare(b, a) == 0 {
+			return true
+		}
+	}
+	return false
+}
 
 func NewAppLogger() diskqueue.AppLogFunc {
 	return func(lvl diskqueue.LogLevel, f string, args ...interface{}) {
@@ -24,15 +34,32 @@ func StreamLogs() {
 	os.RemoveAll("/logDump")
 	os.Mkdir("logDump", 0755)
 	containers := daemon.GetContainersList()
-	vars.All_Containers = containers
-	for _, container := range containers {
-		vars.Connections[container] = []websocket.Conn{}
-		tmpDir, _ := ioutil.TempDir("logDump", container)
-		dq := diskqueue.New(container, tmpDir, 4096, 4, 1<<10, 2500, 2*time.Second, NewAppLogger())
-		// defer dq.Close()
+	for {
+		for _, container := range containers {
+			containers_with_active_dq := make([]string, 0, len(vars.Active_DQ))
+			for k := range vars.Active_DQ {
+				containers_with_active_dq = append(containers_with_active_dq, k)
+			}
 
-		go daemon.CreateDaemonToLogfileStream(container, dq)
-		go CreateLogfileToDBStream(container, dq)
+			if !contains(container, containers_with_active_dq) {
+				vars.Connections[container] = []websocket.Conn{}
+
+				tmpDir, _ := ioutil.TempDir("logDump", container)
+				dq := diskqueue.New(container, tmpDir, 4096, 4, 1<<10, 2500, 2*time.Second, NewAppLogger())
+				vars.Active_DQ[container] = dq
+
+				vars.All_Containers = append(vars.All_Containers, container)
+
+				go CreateLogfileToDBStream(container, dq)
+			}
+
+			if !contains(container, vars.Active_Daemon_Streams) {
+				vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
+				go daemon.CreateDaemonToLogfileStream(container, vars.Active_DQ[container])
+			}
+		}
+		time.Sleep(1 * time.Second)
+		containers = daemon.GetContainersList()
 	}
 }
 
