@@ -26,7 +26,7 @@ class fetchApi {
 
     if (response.status === 401) {
       this.authorized = false;
-      replace("/login");
+      navigate("/login", { replace: true });
       return null;
     }
     return await response.json();
@@ -43,7 +43,7 @@ class fetchApi {
     });
     if (result["error"] == null) {
       this.authorized = true;
-      replace("/view");
+      navigate("/view", { replace: true });
       return true;
     }
     return false;

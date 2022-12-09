@@ -1,9 +1,8 @@
 <script>
   import DropDownRow from "./dropDownRow.svelte";
-  export let DropDownIsvisible = false;
 </script>
 
-<div class="dropDownContainer {!DropDownIsvisible ? 'visuallyHidden' : ''}">
+<div class="dropDownContainer ">
   <table class="dropDownTable">
     <DropDownRow
       rowTitle={"Break long lines"}

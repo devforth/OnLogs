@@ -2,9 +2,15 @@
   export let searchText = "";
   import Button from "../../../lib/Button/Button.svelte";
   import DropDown from "../../../lib/DropDown/DropDown.svelte";
+  import { clickOutside } from "../../../lib/OutsideClicker/OutsideClicker.js";
   let dropDownIsVisible = false;
   function dropDownToggle() {
     dropDownIsVisible = !dropDownIsVisible;
+  }
+  function handleClickOutside() {
+    if (dropDownIsVisible) {
+      dropDownIsVisible = false;
+    }
   }
 </script>
 
@@ -16,7 +22,11 @@
             <i class={"log log-Eye"} />
         </div>
     </button> -->
-  <div style:position={"relative"}>
+  <div
+    style:position={"relative"}
+    use:clickOutside
+    on:click_outside={handleClickOutside}
+  >
     <Button
       icon={"log log-Eye"}
       minWidth={55}
@@ -24,8 +34,9 @@
       iconHeight={20}
       CB={dropDownToggle}
     />
-
-    <DropDown DropDownIsvisible={dropDownIsVisible} />
+    {#if dropDownIsVisible}
+      <DropDown />
+    {/if}
   </div>
   <div class="header search">
     <i class={"log log-Search"} />
