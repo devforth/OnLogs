@@ -3,7 +3,7 @@
   import fetchApi from "../../utils/fetch";
   import Container from "../../lib/Container/Container.svelte";
   import Button from "../../lib/Button/Button.svelte";
-  import { replace } from "svelte-spa-router";
+  import { navigate } from "svelte-routing";
 
   let api = new fetchApi();
   let result = true;
@@ -16,7 +16,7 @@
     if (c.startsWith("onlogs-cookie=")) {
       (async () => {
         if ((await api.checkCookie())["error"] == null) {
-          replace("/view");
+          navigate("/view", { replace: true });
         }
       })();
     }
