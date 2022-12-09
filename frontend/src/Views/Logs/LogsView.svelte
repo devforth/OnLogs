@@ -10,7 +10,6 @@
   let storeVal = {};
 
   store.subscribe((val) => (storeVal = val));
-  console.log(storeVal);
 
   let searchText = "";
   let offset = 0,
@@ -36,7 +35,7 @@
   function getLogLineStatus(logLine = "") {
     const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
     const statuses_warnings = ["WARN", "WARNING"];
-    const statuses_other = ["DEBUG", "INFO"];
+    const statuses_other = ["DEBUG", "INFO", "ONLOGS"];
     const logLineItems = logLine.slice(30).split(" ");
     var i, j;
 
@@ -129,10 +128,11 @@
   id="logs"
   class="logs"
   bind:this={logsDiv}
-  on:scroll={async () => {
+  on:scroll={async (e) => {
     if (
       logsDiv.scrollTop >= 0 &&
       logsDiv.scrollTop < 5 &&
+      logsDiv.scrollLeft === 0 &&
       !isLogsUpdating &&
       !isUploading
     ) {
