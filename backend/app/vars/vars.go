@@ -3,14 +3,17 @@ package vars
 import (
 	srchx "github.com/devforth/libsrchx"
 	"github.com/gorilla/websocket"
+	"github.com/nsqio/go-diskqueue"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
 var (
-	Store, _       = srchx.NewStore("srchxdb", ".")
-	UsersDB, _     = leveldb.OpenFile("onlogsdb", nil) // should i ever close it?
-	Connections    = map[string][]websocket.Conn{}
-	All_Containers = []string{}
+	Store, _              = srchx.NewStore("srchxdb", ".")
+	UsersDB, _            = leveldb.OpenFile("onlogsdb", nil) // should i ever close it?
+	Connections           = map[string][]websocket.Conn{}
+	Active_DQ             = map[string]diskqueue.Interface{}
+	All_Containers        = []string{}
+	Active_Daemon_Streams = []string{}
 )
 
 type Container struct {

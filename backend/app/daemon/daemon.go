@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/devforth/OnLogs/app/vars"
 	"github.com/nsqio/go-diskqueue"
 	"github.com/tv42/httpunix"
 )
@@ -30,28 +31,43 @@ func CreateDaemonToLogfileStream(containerName string, dq diskqueue.Interface) {
 	)
 	reader := bufio.NewReader(resp.Body)
 	lastSleep := time.Now().Unix()
+
+	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), " +")[0], " ", "T", 1)
+	if len(datetime) < 29 {
+		datetime = datetime + strings.Repeat("0", 29-len(datetime))
+	}
+	dq.Put([]byte(datetime + "Z ONLOGS: " + containerName + " - container listening started!"))
+
 	for {
 		logLine, get_string_error := reader.ReadString('\n')
-		if get_string_error != nil {
-			if strings.Compare(get_string_error.Error(), "EOF") == 0 {
-				datetime := strings.Replace(strings.Split(time.Now().UTC().String(), " +")[0], " ", "T", 1)
-				if len(datetime) < 29 {
-					datetime = datetime + strings.Repeat("0", 29-len(datetime))
-				}
-				dq.Put([]byte(datetime + "Z ONLOGS: " + containerName + " - container stopped!"))
+		if get_string_error == nil {
+			to_put := []byte(logLine)
+			if []byte(logLine)[0] == 1 || []byte(logLine)[0] == 2 { // is it ok?
+				to_put = to_put[8:]
 			}
+			dq.Put(to_put)
+
+			if time.Now().Unix()-lastSleep > 5 {
+				time.Sleep(5 * time.Millisecond)
+				lastSleep = time.Now().Unix()
+			}
+			continue
+		}
+		if strings.Compare(get_string_error.Error(), "EOF") == 0 {
+			newDaemonStreams := []string{}
+			for _, stream := range vars.Active_Daemon_Streams {
+				if strings.Compare(stream, containerName) != 0 {
+					newDaemonStreams = append(newDaemonStreams, stream)
+				}
+			}
+			vars.Active_Daemon_Streams = newDaemonStreams
+
+			datetime := strings.Replace(strings.Split(time.Now().UTC().String(), " +")[0], " ", "T", 1)
+			if len(datetime) < 29 {
+				datetime = datetime + strings.Repeat("0", 29-len(datetime))
+			}
+			dq.Put([]byte(datetime + "Z ONLOGS: " + containerName + " - container stopped!"))
 			return
-		}
-
-		to_put := []byte(logLine)
-		if []byte(logLine)[0] == 1 || []byte(logLine)[0] == 2 { // is it ok?
-			to_put = to_put[8:]
-		}
-		dq.Put(to_put)
-
-		if time.Now().Unix()-lastSleep > 5 {
-			time.Sleep(5 * time.Millisecond)
-			lastSleep = time.Now().Unix()
 		}
 	}
 }
