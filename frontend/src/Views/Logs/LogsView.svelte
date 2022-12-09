@@ -159,7 +159,10 @@
             time={storeVal.UTCtime
               ? logItem.slice(0, 19).replace("T", " ")
               : new Date(
-                  new Date(logItem.slice(0, 19).replace("T", " ")).getTime()
+                  new Date().setTime(
+                    new Date(logItem.slice(0, 19).replace("T", " ")).getTime() -
+                      timezoneOffsetSec * 1000
+                  )
                 ).toLocaleString("sv-SE")}
             message={logItem.slice(30)}
             status={getLogLineStatus(logItem)}
@@ -174,8 +177,12 @@
             bind:this={logString}
             time={storeVal.UTCtime
               ? logItem.slice(0, 19).replace("T", " ")
-              : new Date(logItem.slice(0, 19).replace("T", " ")).getSeconds() +
-                timezoneOffsetSec}
+              : new Date(
+                  new Date().setTime(
+                    new Date(logItem.slice(0, 19).replace("T", " ")).getTime() -
+                      timezoneOffsetSec * 1000
+                  )
+                ).toLocaleString("sv-SE")}
             message={logItem.slice(30)}
             status={getLogLineStatus(logItem)}
           />
