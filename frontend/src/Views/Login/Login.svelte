@@ -31,6 +31,12 @@
       message = "Wrong password or login!";
     }
   }
+
+  async function handleKeydown(event) {
+    if (event.key === "Enter") {
+      await confirm();
+    }
+  }
 </script>
 
 <div class="login contentContainer">
@@ -59,7 +65,6 @@
         <div class="confirmButton">
           <Button
             CB={async () => {
-              console.log("click");
               await confirm();
             }}
             title="Login"
@@ -70,3 +75,4 @@
     </div>
   </Container>
 </div>
+<svelte:window on:keydown={handleKeydown} />
