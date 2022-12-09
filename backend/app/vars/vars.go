@@ -7,9 +7,10 @@ import (
 )
 
 var (
-	Store, _    = srchx.NewStore("srchxdb", ".")
-	UsersDB, _  = leveldb.OpenFile("onlogsdb", nil) // should i ever close it?
-	Connections = map[string][]websocket.Conn{}
+	Store, _       = srchx.NewStore("srchxdb", ".")
+	UsersDB, _     = leveldb.OpenFile("onlogsdb", nil) // should i ever close it?
+	Connections    = map[string][]websocket.Conn{}
+	All_Containers = []string{}
 )
 
 type Container struct {

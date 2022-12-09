@@ -24,6 +24,7 @@ func StreamLogs() {
 	os.RemoveAll("/logDump")
 	os.Mkdir("logDump", 0755)
 	containers := daemon.GetContainersList()
+	vars.All_Containers = containers
 	for _, container := range containers {
 		vars.Connections[container] = []websocket.Conn{}
 		tmpDir, _ := ioutil.TempDir("logDump", container)

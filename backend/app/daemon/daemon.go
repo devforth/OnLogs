@@ -30,25 +30,25 @@ func CreateDaemonToLogfileStream(containerName string, dq diskqueue.Interface) {
 	)
 	reader := bufio.NewReader(resp.Body)
 	lastSleep := time.Now().Unix()
-	var counter uint64 = 0
 	for {
-		logLine, _ := reader.ReadString('\n')
-		if strings.Compare("", logLine) == 0 {
-			continue
+		logLine, get_string_error := reader.ReadString('\n')
+		if get_string_error != nil {
+			if strings.Compare(get_string_error.Error(), "EOF") == 0 {
+				datetime := strings.Replace(strings.Split(time.Now().UTC().String(), " +")[0], " ", "T", 1)
+				if len(datetime) < 29 {
+					datetime = datetime + strings.Repeat("0", 29-len(datetime))
+				}
+				dq.Put([]byte(datetime + "Z ONLOGS: " + containerName + " - container stopped!"))
+			}
+			return
 		}
 
-		var err error
+		to_put := []byte(logLine)
 		if []byte(logLine)[0] == 1 || []byte(logLine)[0] == 2 { // is it ok?
-			err = dq.Put([]byte(logLine)[8:])
-		} else {
-			err = dq.Put([]byte(logLine))
+			to_put = to_put[8:]
 		}
+		dq.Put(to_put)
 
-		if err != nil {
-			time.Sleep(1 * time.Millisecond)
-			continue
-		}
-		counter += 1
 		if time.Now().Unix()-lastSleep > 5 {
 			time.Sleep(5 * time.Millisecond)
 			lastSleep = time.Now().Unix()

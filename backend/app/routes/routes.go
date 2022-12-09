@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/srchx_db"
 	"github.com/devforth/OnLogs/app/util"
@@ -98,7 +97,7 @@ func RouteGetHost(w http.ResponseWriter, req *http.Request) {
 		host = string(hostname)
 	}
 
-	to_return := &vars.HostsList{Host: host, Services: daemon.GetContainersList()}
+	to_return := &vars.HostsList{Host: host, Services: vars.All_Containers}
 	e, _ := json.Marshal(to_return)
 	w.Write(e)
 }
@@ -123,7 +122,7 @@ func RouteGetLogsStream(w http.ResponseWriter, req *http.Request) {
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
-	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
+	upgrader.CheckOrigin = func(r *http.Request) bool { return true } // verify req here?
 
 	ws, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
