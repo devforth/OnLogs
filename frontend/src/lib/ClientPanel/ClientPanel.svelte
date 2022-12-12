@@ -10,13 +10,35 @@
 </script>
 
 <div class="clientPanel">
-  <i
-    class="log log-User"
-    on:click={async () => {
-      await logout();
-      navigate("/login", { replace: true });
-    }}
-  />
+  <ul class="clientPanelOptionsList">
+    <li>
+      <i
+        class="log log-User"
+        on:click={async () => {
+          await logout();
+          navigate("/login", { replace: true });
+        }}
+      />
+    </li>
+    <li>
+      <i
+        class="log log-Wheel"
+        on:click={async () => {
+          await logout();
+          navigate("/login", { replace: true });
+        }}
+      />
+    </li>
+    <li>
+      <i
+        class="log log-Moon"
+        on:click={async () => {
+          await logout();
+          navigate("/login", { replace: true });
+        }}
+      />
+    </li>
+  </ul>
   <!-- <i class="log log-Wheel"/>
     <i class="log log-Moon"/> -->
 </div>

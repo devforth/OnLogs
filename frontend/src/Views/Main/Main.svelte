@@ -5,16 +5,16 @@
   import LogsView from "../Logs/LogsView.svelte";
   import Button from "../../lib/Button/Button.svelte";
   import fetchApi from "../../utils/fetch";
-    import ClientPanel from "../../lib/ClientPanel/ClientPanel.svelte";
+  import ClientPanel from "../../lib/ClientPanel/ClientPanel.svelte";
 
-  const listMargins = { marginTop: "6.68vh" }
-  let api = new fetchApi()
+  const listMargins = { marginTop: "6.68vh" };
+  let api = new fetchApi();
 
-  $: selectedService = ""
+  $: selectedService = "";
   async function getHosts() {
-    let hostList = [await api.getHosts()]  // TODO remove [] when backend will be able to send array of hosts
-    selectedService = hostList[0]["services"][0]  // TODO pick the last choosen service
-    return  hostList
+    let hostList = [await api.getHosts()]; // TODO remove [] when backend will be able to send array of hosts
+    selectedService = hostList[0]["services"][0]; // TODO pick the last choosen service
+    return hostList;
   }
 </script>
 
@@ -29,29 +29,35 @@
             border={false}
             highlighted
             minWidth={0}
-            minHeight={0} 
+            minHeight={0}
           />
           <!-- icon="log log-Plus"
           iconHeight={18} -->
         </div>
-          {#await getHosts()}
-            <p>loading...</p>
-          {:then hosts}
-            {#each hosts as host}
-              <HostList bind:selectedName={selectedService} hostName={host["host"]} servicesData={host["services"]} {...listMargins}/>
-            {/each}
-          {:catch}
-            <p style="margin-top: 15px;">Error</p>
-          {/await}
-      </div></Container>
+        {#await getHosts()}
+          <p>loading...</p>
+        {:then hosts}
+          {#each hosts as host}
+            <HostList
+              bind:selectedName={selectedService}
+              hostName={host["host"]}
+              servicesData={host["services"]}
+              {...listMargins}
+            />
+          {/each}
+        {:catch}
+          <p style="margin-top: 15px;">Error</p>
+        {/await}
+      </div></Container
+    >
     <Container minHeightVh={10.97}>
-      <ClientPanel/>
+      <ClientPanel />
     </Container>
   </div>
   <div class="subContainerMiddle subContainer">
     <!-- <Container minHeightVh={17.36}>1213414</Container> -->
     <Container minHeightVh={92.6}>
-      <LogsView bind:serviceName={selectedService}/>
+      <LogsView bind:serviceName={selectedService} />
     </Container>
   </div>
   <!-- <div class="subContainerRight  subContainer">
