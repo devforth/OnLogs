@@ -6,9 +6,17 @@
   import Button from "../../lib/Button/Button.svelte";
   import fetchApi from "../../utils/fetch";
   import ClientPanel from "../../lib/ClientPanel/ClientPanel.svelte";
+  import { userMenuOpen } from "@/Stores/stores.js";
+  import UserMenu from "@/lib/UserMenu/UserMenu.svelte";
 
   const listMargins = { marginTop: "6.68vh" };
   let api = new fetchApi();
+  let userMenuState = false;
+
+  userMenuOpen.subscribe((v) => {
+    userMenuState = v;
+  });
+  console.log("userMenu", userMenuState);
 
   $: selectedService = "";
   async function getHosts() {
@@ -57,7 +65,10 @@
   <div class="subContainerMiddle subContainer">
     <!-- <Container minHeightVh={17.36}>1213414</Container> -->
     <Container minHeightVh={92.6}>
-      <LogsView bind:serviceName={selectedService} />
+      {#if userMenuState}
+        <UserMenu />
+      {:else}<LogsView bind:serviceName={selectedService} />
+      {/if}
     </Container>
   </div>
   <!-- <div class="subContainerRight  subContainer">

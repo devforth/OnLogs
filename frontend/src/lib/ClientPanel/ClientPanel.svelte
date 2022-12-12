@@ -1,24 +1,22 @@
 <script>
   import fetchApi from "../../utils/fetch";
   import { navigate } from "svelte-routing";
+  import { userMenuOpen } from "../../Stores/stores.js";
 
   let api = new fetchApi();
   async function logout() {
     await api.logout();
     navigate("/login", { replace: true });
   }
+  function toggleUserMenu() {
+    userMenuOpen.update((v) => !v);
+  }
 </script>
 
 <div class="clientPanel">
   <ul class="clientPanelOptionsList">
     <li>
-      <i
-        class="log log-User"
-        on:click={async () => {
-          await logout();
-          navigate("/login", { replace: true });
-        }}
-      />
+      <i class="log log-User" on:click={toggleUserMenu} />
     </li>
     <li>
       <i

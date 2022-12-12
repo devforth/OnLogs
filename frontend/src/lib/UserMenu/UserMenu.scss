@@ -1,0 +1,26 @@
+.userTable {
+  width: 100%;
+
+  th {
+    padding: 5px;
+    border-bottom: 1px solid $lines-color;
+  }
+  tr {
+    border-bottom: 1px solid $lines-color;
+  }
+
+  span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+  }
+  .buttonSpan {
+    padding: 0;
+    margin-left: 12px;
+  }
+}
+
+table {
+  border-collapse: collapse;
+}
