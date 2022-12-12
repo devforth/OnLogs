@@ -15,6 +15,11 @@
     justify-content: center;
     padding: 12px;
   }
+  .buttonSpanContainer {
+    max-width: 150px;
+    margin-left: auto;
+    margin-right: 16px;
+  }
   .buttonSpan {
     padding: 0;
     margin-left: 12px;
@@ -23,4 +28,47 @@
 
 table {
   border-collapse: collapse;
+}
+
+.userCreateForm {
+  color: $lines-color;
+
+  .input {
+    padding: $normal-padding;
+    background-color: $inpun-color;
+    border-radius: $main-border-radius;
+    border: 1px solid $lines-color;
+    width: 100%;
+    outline: none;
+    box-sizing: border-box;
+  }
+  label {
+    margin-bottom: 6px;
+    font-size: $main-font-s;
+    color: $text-dark-color;
+    margin-left: 6px;
+  }
+
+  .inputContainer {
+    display: flex;
+    flex-direction: column;
+    margin-top: 12px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  input:focus {
+    border: 2px solid $active-color;
+  }
+
+  .buttonsContainer {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+    gap: 42px;
+  }
+
+  h3 {
+    color: $text-dark-color;
+  }
 }
