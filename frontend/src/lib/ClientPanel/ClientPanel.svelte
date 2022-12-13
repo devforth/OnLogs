@@ -1,15 +1,26 @@
 <script>
   import fetchApi from "../../utils/fetch";
   import { navigate } from "svelte-routing";
-  import { userMenuOpen } from "../../Stores/stores.js";
+  import { userMenuOpen, theme } from "../../Stores/stores.js";
 
   let api = new fetchApi();
   async function logout() {
     await api.logout();
     navigate("/login", { replace: true });
   }
+  //store management
   function toggleUserMenu() {
     userMenuOpen.update((v) => !v);
+  }
+  function toggleTheme() {
+    theme.update((v) => {
+      console.log(v);
+      if (v === "light") {
+        return "dark";
+      } else {
+        return "light";
+      }
+    });
   }
 </script>
 
@@ -28,13 +39,7 @@
       />
     </li>
     <li>
-      <i
-        class="log log-Moon"
-        on:click={async () => {
-          await logout();
-          navigate("/login", { replace: true });
-        }}
-      />
+      <i class="log log-Moon" on:click={toggleTheme} />
     </li>
   </ul>
   <!-- <i class="log log-Wheel"/>

@@ -52,24 +52,39 @@ h2.noLogsMessage {
     }
   }
 }
+.searchIcoContainer {
+  position: absolute;
+  left: 12px;
+}
 
 .search {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 5px 0 5px;
-  height: 35px;
-  background-color: #f8fafb;
-  border: 1px solid #a3a3b9;
-  border-radius: 10px;
+  position: relative;
+
   vertical-align: baseline;
   input {
-    font-family: "Ubuntu", sans-serif;
-    background-color: #f8fafb;
+    box-sizing: border-box;
+    width: 200px;
+    font-size: $main-font-m;
+    background-color: $inpun-color;
     border-radius: 10px;
+    padding: 0 14px 0 14px;
+    height: 40px;
+
+    border: 1px solid $text-placeholder-color;
   }
   input:focus {
     outline: none;
+    border: 2px solid $active-color;
+    caret-color: transparent;
+  }
+  input::placeholder {
+    position: absolute;
+    left: 40px;
+    top: 50%;
+    transform: translate(0, -50%);
   }
 }
 

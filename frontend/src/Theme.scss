@@ -1,0 +1,45 @@
+@mixin dark-mode {
+  background-color: $background-color-dark;
+  .log {
+    color: inherit;
+  }
+  div {
+    color: $text-dark-color-dark;
+    .dropDownContainer {
+      background-color: $block-bg-color-dark;
+      color: $text-dark-color-dark;
+      box-shadow: $main-shadow-dark;
+    }
+    .container {
+      box-shadow: $container-shadow-dark;
+      background-color: $block-bg-color-dark;
+      color: $text-dark-color-dark;
+    }
+    .highlighted {
+      background-color: $active-color-dark;
+    }
+  }
+  .button {
+    background-color: $btn-primary-color-dark;
+    color: $text-dark-color-dark;
+  }
+  .logsString {
+    border-color: $lines-color-dark;
+  }
+  input {
+    background-color: $btn-primary-color-dark;
+    border-color: $text-placeholder-color-dark;
+    color: $text-dark-color-dark;
+    &:focus {
+      border-color: $active-color-dark;
+    }
+  }
+  div.active {
+    .checkboxRoll {
+      background-color: $active-color-dark;
+    }
+  }
+}
+.dark-mode {
+  @include dark-mode;
+}

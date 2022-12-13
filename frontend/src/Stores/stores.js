@@ -7,3 +7,4 @@ export const store = writable({
 
 export const userMenuOpen = writable(false);
 export const addUserModalOpen = writable(false);
+export const theme = writable("light");

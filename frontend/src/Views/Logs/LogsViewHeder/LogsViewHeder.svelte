@@ -39,7 +39,9 @@
     {/if}
   </div>
   <div class="header search">
-    <i class={"log log-Search"} />
-    <input type="text" bind:value={searchText} />
+    {#if !searchText}<div class="searchIcoContainer">
+        <i class={"log log-Search"} />
+      </div>{/if}
+    <input type="text" bind:value={searchText} placeholder="Search" />
   </div>
 </div>

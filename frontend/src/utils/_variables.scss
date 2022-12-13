@@ -1,5 +1,5 @@
 // colors
-$active-color: #4E49DA;
+$active-color: #4e49da;
 $inpun-color: #f8fafb;
 $text-onactive-color: #fbfcff;
 $text-dark-color: #1b1850;
@@ -8,7 +8,7 @@ $lines-color: #c8d2e5;
 $background-color: #f8fafb;
 $btn-common-color: #414860;
 $btn-primary-color: #ffffff;
-$background-color: #f8fafb;
+$block-bg-color: #ffffff;
 
 $active-color-dark: #1b5d72;
 $inpun-color-dark: #a3a3b9;
@@ -18,12 +18,17 @@ $text-placeholder-color-dark: #a3a3b9;
 $lines-color-dark: #c8d2e5;
 $background-color-dark: #434664;
 $btn-primary-color-dark: #414860;
-$btn-common-color-dark: #414860;
+$lines-color-dark: #3e4a62;
+
+$block-bg-color-dark: #262a48;
 
 // shadows
 
 $main-shadow: 1px 1px 10px rgba(0, 0, 0, 0.15);
 $container-shadow: 1px 1px 30px rgba(5, 39, 70, 0.1);
+
+$main-shadow-dark: 1px 1px 5px rgba(0, 255, 255, 0.7);
+$container-shadow-dark: 1px 1px 12px rgba(0, 255, 255, 0.7);
 
 //border-radius
 
