@@ -7,14 +7,33 @@ import (
 	vars "github.com/devforth/OnLogs/app/vars"
 )
 
-func CreateUser(login string, password string) error {
+func IsUserExists(login string) bool {
 	isExists, _ := vars.UsersDB.Has([]byte(login), nil)
-	if isExists {
+	return isExists
+}
+
+func CreateUser(login string, password string) error {
+	if IsUserExists(login) {
 		return errors.New("User is already exists")
 	}
 
 	vars.UsersDB.Put([]byte(login), []byte(password), nil)
 	return nil
+}
+
+func GetUsers() []string {
+	users := []string{}
+	iter := vars.UsersDB.NewIterator(nil, nil)
+	for iter.Next() {
+		users = append(users, string(iter.Key()))
+	}
+	iter.Release()
+
+	return users
+}
+
+func EditUser(login string, password string) {
+	vars.UsersDB.Put([]byte(login), []byte(password), nil)
 }
 
 func DeleteUser(login string, password string) error {

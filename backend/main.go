@@ -24,6 +24,8 @@ func main() {
 	http.HandleFunc("/api/v1/login", routes.RouteLogin)
 	http.HandleFunc("/api/v1/logout", routes.RouteLogout)
 	http.HandleFunc("/api/v1/createUser", routes.RouteCreateUser)
+	http.HandleFunc("/api/v1/getUsers", routes.RouteGetUsers)
+	http.HandleFunc("/api/v1/editUser", routes.RouteEditUser)
 	http.HandleFunc("/api/v1/deleteUser", routes.RouteDeleteUser)
 
 	http.ListenAndServe(":2874", nil)
