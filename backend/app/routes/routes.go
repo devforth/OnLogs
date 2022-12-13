@@ -205,14 +205,17 @@ func RouteCreateUser(w http.ResponseWriter, req *http.Request) {
 
 func RouteDeleteUser(w http.ResponseWriter, req *http.Request) {
 	enableCors(&w)
-	if req.Method == "POST" {
-		var loginData vars.UserData
-		decoder := json.NewDecoder(req.Body)
-		decoder.Decode(&loginData)
+	if req.Method != "POST" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 
-		err := db.DeleteUser(loginData.Login, loginData.Password)
-		if err != nil {
-			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		}
+	var loginData vars.UserData
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&loginData)
+
+	err := db.DeleteUser(loginData.Login, loginData.Password)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 	}
 }
