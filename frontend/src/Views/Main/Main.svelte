@@ -6,7 +6,7 @@
   import Button from "../../lib/Button/Button.svelte";
   import fetchApi from "../../utils/fetch";
   import ClientPanel from "../../lib/ClientPanel/ClientPanel.svelte";
-  import { userMenuOpen } from "@/Stores/stores.js";
+  import { userMenuOpen, addUserModalOpen } from "@/Stores/stores.js";
   import UserMenu from "@/lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
@@ -14,11 +14,14 @@
   const listMargins = { marginTop: "6.68vh" };
   let api = new fetchApi();
   let userMenuState = false;
+  let addUserModOpen = false;
 
   userMenuOpen.subscribe((v) => {
     userMenuState = v;
   });
-  console.log("userMenu", userMenuState);
+  addUserModalOpen.subscribe((v) => {
+    addUserModOpen = v;
+  });
 
   $: selectedService = "";
   async function getHosts() {
@@ -69,7 +72,9 @@
     <Container minHeightVh={92.6}>
       {#if userMenuState}
         <UserMenu />
-        <Modal><UserManageForm /></Modal>
+        <Modal modalIsOpen={addUserModOpen} storeProp={addUserModalOpen}
+          ><UserManageForm /></Modal
+        >
       {:else}<LogsView bind:serviceName={selectedService} />
       {/if}
     </Container>

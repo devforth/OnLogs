@@ -19,6 +19,7 @@
     max-width: 150px;
     margin-left: auto;
     margin-right: 16px;
+    padding: 4px;
   }
   .buttonSpan {
     padding: 0;
@@ -70,5 +71,29 @@ table {
 
   h3 {
     color: $text-dark-color;
+  }
+}
+
+.usersHeaderContainer {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  h3 {
+    max-width: 150px;
+  }
+  .addUserButton {
+    padding: 12px;
+    width: 20px;
+    height: 20px;
+    border-radius: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .addUserButton:hover {
+    background-color: $active-color;
+    color: $text-onactive-color;
   }
 }

@@ -1,13 +1,16 @@
 <script>
   import { clickOutside } from "../../lib/OutsideClicker/OutsideClicker.js";
-  export let modalIsOpen = true;
+
+  export let modalIsOpen = false;
+  export let storeProp = {};
+
   function handleKeydown(e) {
     if (e.key === "Escape") {
       closeModal();
     }
   }
   function closeModal() {
-    modalIsOpen = false;
+    storeProp && storeProp.set(false);
   }
 </script>
 
