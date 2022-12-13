@@ -33,6 +33,22 @@ func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type")
 }
 
+func verifyAdminUser(w *http.ResponseWriter, req *http.Request) bool {
+	username, err := util.GetUserFromJWT(*req)
+	if username != "admin" {
+		(*w).WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(*w).Encode(map[string]string{"error": "Only admin can perform this request"})
+		return false
+	}
+
+	if err != nil {
+		(*w).WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(*w).Encode(map[string]string{"error": err.Error()})
+		return false
+	}
+	return true
+}
+
 func verifyUser(w *http.ResponseWriter, req *http.Request) bool {
 	_, err := util.GetUserFromJWT(*req)
 	if err != nil {
@@ -184,7 +200,7 @@ func RouteLogout(w http.ResponseWriter, req *http.Request) {
 }
 
 func RouteCreateUser(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
 
@@ -198,21 +214,61 @@ func RouteCreateUser(w http.ResponseWriter, req *http.Request) {
 	decoder.Decode(&loginData)
 
 	err := db.CreateUser(loginData.Login, loginData.Password)
-	if err != nil {
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	if err == nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+		return
 	}
+	json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+}
+
+func RouteGetUsers(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	users := db.GetUsers()
+	json.NewEncoder(w).Encode(map[string][]string{"users": users})
+}
+
+func RouteEditUser(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
+		return
+	}
+
+	var loginData vars.UserData
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&loginData)
+
+	if !db.IsUserExists(loginData.Login) {
+		json.NewEncoder(w).Encode(map[string]string{"error": "No such user"})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
 func RouteDeleteUser(w http.ResponseWriter, req *http.Request) {
-	enableCors(&w)
-	if req.Method == "POST" {
-		var loginData vars.UserData
-		decoder := json.NewDecoder(req.Body)
-		decoder.Decode(&loginData)
-
-		err := db.DeleteUser(loginData.Login, loginData.Password)
-		if err != nil {
-			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		}
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
+		return
 	}
+
+	if req.Method != "POST" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	var loginData vars.UserLogin
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&loginData)
+	if loginData.Login == "admin" {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Can't delete admin"})
+		return
+	}
+
+	err := db.DeleteUser(loginData.Login, loginData.Login)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
