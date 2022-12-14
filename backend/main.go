@@ -11,6 +11,7 @@ import (
 
 func main() {
 	util.RemoveOldFiles()
+	go util.StartLogDumpGarbageCollector()
 	godotenv.Load(".env")
 	util.CreateInitUser()
 	go streamer.StreamLogs()

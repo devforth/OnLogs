@@ -20,6 +20,21 @@ func RemoveOldFiles() {
 	}
 }
 
+func StartLogDumpGarbageCollector() {
+	for {
+		time.Sleep(1 * time.Minute)
+		containersDump, _ := os.ReadDir("logDump")
+		for _, containerDump := range containersDump {
+			dumpFiles, _ := os.ReadDir(containerDump.Name())
+			for _, dumpFile := range dumpFiles {
+				if strings.HasSuffix(dumpFile.Name(), ".bad") {
+					go os.Remove("logDump/" + containerDump.Name() + "/" + dumpFile.Name())
+				}
+			}
+		}
+	}
+}
+
 func CreateInitUser() {
 	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
 }
