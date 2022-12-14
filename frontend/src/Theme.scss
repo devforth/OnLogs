@@ -52,6 +52,7 @@
     color: $text-dark-color-dark;
     box-shadow: $main-shadow-dark;
     input {
+      outline: none;
       background-color: $btn-primary-color-dark;
       border-color: $text-placeholder-color-dark;
       color: $text-dark-color-dark;
@@ -62,6 +63,20 @@
     label,
     h3 {
       color: inherit;
+    }
+  }
+  .contentContainer {
+    h1#title {
+      color: $active-color-dark;
+    }
+    input {
+      outline: none;
+      background-color: $btn-primary-color-dark;
+      border-color: $text-placeholder-color-dark;
+      color: $text-dark-color-dark;
+      &:focus {
+        border-color: $active-color-dark;
+      }
     }
   }
 }
