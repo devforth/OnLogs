@@ -45,7 +45,7 @@ func StreamLogs() {
 				vars.Connections[container] = []websocket.Conn{}
 
 				tmpDir, _ := ioutil.TempDir("logDump", container)
-				dq := diskqueue.New(container, tmpDir, 4096, 4, 1<<10, 2500, 2*time.Second, NewAppLogger())
+				dq := diskqueue.New(container, tmpDir, 10240*1024, 19, 1<<10, 2500, 2*time.Second, NewAppLogger())
 				vars.Active_DQ[container] = dq
 
 				vars.All_Containers = append(vars.All_Containers, container)
@@ -64,6 +64,7 @@ func StreamLogs() {
 }
 
 func CreateLogfileToDBStream(containerName string, dq diskqueue.Interface) {
+	// lastSleep := time.Now().Unix()
 	for {
 		content := dq.ReadChan()
 		if content == nil {
@@ -80,7 +81,11 @@ func CreateLogfileToDBStream(containerName string, dq diskqueue.Interface) {
 		}
 
 		srchx_db.StoreItem(containerName, logItem)
-		time.Sleep(3 * time.Millisecond)
+
+		// if time.Now().Unix()-lastSleep > 4 {
+		// 	time.Sleep(1 * time.Millisecond)
+		// 	lastSleep = time.Now().Unix()
+		// }
 		continue
 	}
 }
