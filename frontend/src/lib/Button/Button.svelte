@@ -19,8 +19,9 @@
 </script>
 
 <button
-  on:click={() => {
+  on:click={(e) => {
     CB();
+    return e;
   }}
   style:min-width={`${minWidth}px`}
   style:min-height={`${minHeight}px`}

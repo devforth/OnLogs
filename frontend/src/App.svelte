@@ -21,12 +21,19 @@
       bodyEl.classList.remove("dark-mode");
     }
   }
+  onMount(() => {
+    const LStheme = window.localStorage.getItem("theme");
+    if (LStheme) {
+      theme.set(LStheme);
+    }
+  });
 </script>
 
 <Router {url}>
   <div>
     <Route path="view" component={Main} />
     <Route path="login" component={Login} />
+    <Route path="users" component={Main} />
 
     <Route path="/"><Main /></Route>
   </div>

@@ -5,6 +5,10 @@ export const store = writable({
   breakLines: true,
 });
 
+//modals state
 export const userMenuOpen = writable(false);
+export const userDeleteOpen = writable(false);
 export const addUserModalOpen = writable(false);
+export const editUserOpen = writable(false);
+
 export const theme = writable("light");

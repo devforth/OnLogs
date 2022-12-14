@@ -39,6 +39,31 @@
       background-color: $active-color-dark;
     }
   }
+  .userTable tr {
+    border-color: $lines-color-dark;
+  }
+  .addUserButton {
+    &:hover {
+      background-color: $active-color-dark;
+    }
+  }
+  .modalContainer {
+    background-color: $block-bg-color-dark;
+    color: $text-dark-color-dark;
+    box-shadow: $main-shadow-dark;
+    input {
+      background-color: $btn-primary-color-dark;
+      border-color: $text-placeholder-color-dark;
+      color: $text-dark-color-dark;
+      &:focus {
+        border-color: $active-color-dark;
+      }
+    }
+    label,
+    h3 {
+      color: inherit;
+    }
+  }
 }
 .dark-mode {
   @include dark-mode;

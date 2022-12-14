@@ -10,11 +10,28 @@
   import UserMenu from "@/lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
+  import { navigate } from "svelte-routing";
 
   const listMargins = { marginTop: "6.68vh" };
   let api = new fetchApi();
   let userMenuState = false;
   let addUserModOpen = false;
+  let newUserData = { login: "", password: "" };
+  let userForAdding = "";
+
+  function closeModal() {
+    addUserModalOpen.set(false);
+  }
+
+  async function createUser() {
+    if (newUserData.login && newUserData.password) {
+      const data = await api.createUser(newUserData);
+      if (!data.error) {
+        console.log("added");
+        userForAdding = newUserData.login;
+      }
+    }
+  }
 
   userMenuOpen.subscribe((v) => {
     userMenuState = v;
@@ -36,7 +53,13 @@
     <Container highlighted minHeightVh={79.3}>
       <div class="onLogsPanel">
         <div class="onLogsPanelHeader">
-          <h1>onLogs</h1>
+          <h1
+            on:click={() => {
+              navigate("/", { replace: true });
+            }}
+          >
+            onLogs
+          </h1>
           <Button
             title=""
             border={false}
@@ -70,10 +93,14 @@
   <div class="subContainerMiddle subContainer">
     <!-- <Container minHeightVh={17.36}>1213414</Container> -->
     <Container minHeightVh={92.6}>
-      {#if userMenuState}
-        <UserMenu />
+      {#if location.pathname === "/users"}
+        <UserMenu {userForAdding} />
         <Modal modalIsOpen={addUserModOpen} storeProp={addUserModalOpen}
-          ><UserManageForm /></Modal
+          ><UserManageForm
+            bind:userData={newUserData}
+            createHandler={createUser}
+            {closeModal}
+          /></Modal
         >
       {:else}<LogsView bind:serviceName={selectedService} />
       {/if}

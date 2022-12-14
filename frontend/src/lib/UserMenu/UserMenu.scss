@@ -97,3 +97,23 @@ table {
     color: $text-onactive-color;
   }
 }
+
+.buttonModalContainer {
+  display: flex;
+  margin-top: 54px;
+  margin-bottom: 24px;
+  justify-content: space-around;
+}
+
+.editInput {
+  border-radius: 10px;
+  padding: 6px 12px;
+  box-sizing: border-box;
+  font-size: $main-font-m;
+  border: 1px solid $lines-color;
+  margin-top: 42px;
+}
+.editInputContainer {
+  display: flex;
+  justify-content: center;
+}

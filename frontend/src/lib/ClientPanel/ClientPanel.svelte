@@ -11,13 +11,15 @@
   //store management
   function toggleUserMenu() {
     userMenuOpen.update((v) => !v);
+    navigate("/users", { replace: true });
   }
   function toggleTheme() {
     theme.update((v) => {
-      console.log(v);
       if (v === "light") {
+        window.localStorage.setItem("theme", "dark");
         return "dark";
       } else {
+        window.localStorage.setItem("theme", "light");
         return "light";
       }
     });

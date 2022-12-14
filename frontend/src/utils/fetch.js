@@ -11,7 +11,7 @@ class fetchApi {
     this.authorized = true;
   }
   async doFetch(method, path, body = null) {
-    if (body != null) {
+    if (body !== null) {
       body = JSON.stringify(body);
     }
     const response = await fetch(path, {
@@ -41,7 +41,7 @@ class fetchApi {
       login: login,
       password: password,
     });
-    if (result["error"] == null) {
+    if (result["error"] === null) {
       this.authorized = true;
       navigate("/view", { replace: true });
       return true;
@@ -62,6 +62,28 @@ class fetchApi {
       "GET",
       `${this.url}getLogs?id=${containerName}&search=${search}&limit=${limit}&offset=${offset}`
     );
+  }
+
+  async getUsers() {
+    return await this.doFetch("GET", `${this.url}getUsers`);
+  }
+
+  async removeUser(login) {
+    return await this.doFetch("POST", `${this.url}deleteUser`, { login });
+  }
+
+  async editUser(login, password) {
+    return await this.doFetch("POST", `${this.url}deleteUser`, {
+      login,
+      password,
+    });
+  }
+
+  async createUser({ login, password }) {
+    return await this.doFetch("POST", `${this.url}createUser`, {
+      login,
+      password,
+    });
   }
 }
 
