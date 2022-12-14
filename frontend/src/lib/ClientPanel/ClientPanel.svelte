@@ -3,6 +3,7 @@
   import { navigate } from "svelte-routing";
   import { userMenuOpen, theme } from "../../Stores/stores.js";
 
+  let localTheme = "";
   let api = new fetchApi();
   async function logout() {
     await api.logout();
@@ -14,6 +15,7 @@
     navigate("/users", { replace: true });
   }
   function toggleTheme() {
+    console.log(localTheme);
     theme.update((v) => {
       if (v === "light") {
         window.localStorage.setItem("theme", "dark");
@@ -24,6 +26,10 @@
       }
     });
   }
+
+  theme.subscribe((v) => {
+    localTheme = v;
+  });
 </script>
 
 <div class="clientPanel">
@@ -41,7 +47,10 @@
       />
     </li>
     <li>
-      <i class="log log-Moon" on:click={toggleTheme} />
+      <i
+        class="log log-{localTheme === 'dark' ? 'Sun' : 'Moon'}"
+        on:click={toggleTheme}
+      />
     </li>
   </ul>
   <!-- <i class="log log-Wheel"/>

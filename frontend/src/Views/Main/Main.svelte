@@ -11,6 +11,7 @@
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
   import { navigate } from "svelte-routing";
+  console.log(window.location);
 
   const listMargins = { marginTop: "6.68vh" };
   let api = new fetchApi();
@@ -18,6 +19,10 @@
   let addUserModOpen = false;
   let newUserData = { login: "", password: "" };
   let userForAdding = "";
+  export let host = "1234";
+  export let service = "1234";
+
+  console.log(host, service);
 
   function closeModal() {
     addUserModalOpen.set(false);

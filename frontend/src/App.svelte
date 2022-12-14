@@ -31,7 +31,7 @@
 
 <Router {url}>
   <div>
-    <Route path="view" component={Main} />
+    <Route path="view/:host/:service" component={Main} let:params />
     <Route path="login" component={Login} />
     <Route path="users" component={Main} />
 
