@@ -29,14 +29,13 @@ func CreateDaemonToLogfileStream(containerName string, dq diskqueue.Interface) {
 	resp, _ := client.Get(
 		"http+unix://daemon/containers/" + containerName + "/logs?stdout=true&stderr=true&timestamps=true&follow=true&since=" + curTime,
 	)
-	reader := bufio.NewReader(resp.Body)
-
 	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), " +")[0], " ", "T", 1)
 	if len(datetime) < 29 {
 		datetime = datetime + strings.Repeat("0", 29-len(datetime))
 	}
 	dq.Put([]byte(datetime + "Z ONLOGS: " + containerName + " - container listening started!"))
 
+	reader := bufio.NewReader(resp.Body)
 	lastSleep := time.Now().Unix()
 	for {
 		logLine, get_string_error := reader.ReadString('\n')
