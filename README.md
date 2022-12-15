@@ -1,5 +1,6 @@
 # OnLogs
 
+## docker-compose.yml example
   coposter_onlogs:
     image: devforth/onlogs
     restart: always
@@ -16,3 +17,7 @@
     volumes:
      - /var/run/docker.sock:/var/run/docker.sock
      - /etc/hostname:/etc/hostname
+     - onlogs-logs-volume:/leveldb  # save logs after onlogs restart
+     - onlogs-users-volume:/backend/onlogsdb  # save users after onlogs restart
+
+## https://bleveanalysis.couchbase.com/analysis

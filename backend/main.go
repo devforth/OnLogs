@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/devforth/OnLogs/app/routes"
@@ -11,6 +12,7 @@ import (
 
 func main() {
 	util.RemoveOldFiles()
+	go util.StartLogDumpGarbageCollector()
 	godotenv.Load(".env")
 	util.CreateInitUser()
 	go streamer.StreamLogs()
@@ -28,5 +30,6 @@ func main() {
 	http.HandleFunc("/api/v1/editUser", routes.RouteEditUser)
 	http.HandleFunc("/api/v1/deleteUser", routes.RouteDeleteUser)
 
-	http.ListenAndServe(":2874", nil)
+	err := http.ListenAndServe(":2874", nil)
+	fmt.Println("ONLOGS: ", err)
 }
