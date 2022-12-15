@@ -12,3 +12,8 @@ export const addUserModalOpen = writable(false);
 export const editUserOpen = writable(false);
 
 export const theme = writable("light");
+
+// hosts service
+
+export const lastChosenHost = writable("");
+export const lastChosenService = writable("");

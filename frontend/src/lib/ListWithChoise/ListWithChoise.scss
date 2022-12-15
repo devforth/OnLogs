@@ -1,0 +1,85 @@
+.listWithChoise {
+  .listElementButton {
+    text-align: center;
+  }
+  .listElement {
+  }
+  .hostHeader:hover {
+    opacity: 0.8;
+    .headerButton {
+      opacity: 1;
+    }
+  }
+
+  .headerButton {
+    opacity: 0;
+  }
+
+  .hostHeader {
+    @include center;
+    justify-content: start;
+    gap: 12px;
+  }
+  .log-Pencil {
+    font-size: 18px;
+  }
+
+  .hostName {
+    font-weight: bold;
+    font-size: $main-font-s;
+    cursor: pointer;
+  }
+
+  .hostRow {
+    @include center;
+    justify-content: space-between;
+    margin-left: 20px;
+    margin-right: 20px;
+
+    p {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      z-index: 3;
+      cursor: pointer;
+    }
+  }
+  .highlightedOverlay {
+    position: absolute;
+
+    background-color: rgba(0, 0, 0, 0.05);
+    width: 100%;
+    height: 39px;
+    top: 0;
+    z-index: -1;
+    &.active {
+      background: rgba(251, 252, 255, 0.1);
+      border-left: 9px solid $text-dark-color-dark;
+      box-sizing: border-box;
+      z-index: 1;
+    }
+  }
+  li {
+    margin-bottom: 0;
+    cursor: pointer;
+  }
+
+  .listElementButton {
+    opacity: 0;
+  }
+  .serviceListItem:hover {
+    opacity: 0.8;
+
+    .listElementButton {
+      opacity: 1;
+      cursor: pointer;
+      z-index: 3;
+    }
+  }
+
+  .serviceListItem {
+    margin-left: -20px;
+    margin-right: -20px;
+    position: relative;
+  }
+}

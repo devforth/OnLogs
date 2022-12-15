@@ -11,18 +11,31 @@
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
   import { navigate } from "svelte-routing";
-  console.log(window.location);
+  import { onMount } from "svelte";
+  import { lastChosenHost, lastChosenService } from "../../Stores/stores";
+  import ListWithChoise from "../../lib/ListWithChoise/ListWithChoise.svelte";
 
-  const listMargins = { marginTop: "6.68vh" };
+  // declare state
+  let locLastChosenHost = "";
+  let locLastChosenService = "";
+  lastChosenHost.subscribe((v) => {
+    locLastChosenHost = v;
+  });
+  lastChosenService.subscribe((v) => {
+    locLastChosenService = v;
+  });
+  // declare state
+
   let api = new fetchApi();
+  let hostList = [];
+  let servicesList = [];
+
   let userMenuState = false;
   let addUserModOpen = false;
   let newUserData = { login: "", password: "" };
   let userForAdding = "";
   export let host = "1234";
   export let service = "1234";
-
-  console.log(host, service);
 
   function closeModal() {
     addUserModalOpen.set(false);
@@ -32,7 +45,6 @@
     if (newUserData.login && newUserData.password) {
       const data = await api.createUser(newUserData);
       if (!data.error) {
-        console.log("added");
         userForAdding = newUserData.login;
       }
     }
@@ -45,12 +57,28 @@
     addUserModOpen = v;
   });
 
-  $: selectedService = "";
   async function getHosts() {
-    let hostList = [await api.getHosts()]; // TODO remove [] when backend will be able to send array of hosts
-    selectedService = hostList[0]["services"][0]; // TODO pick the last choosen service
-    return hostList;
+    const data = await api.getHosts();
+
+    if (Array.isArray(data) && data.at(0)) {
+      hostList = [...data];
+    }
+    if (data.host) {
+      hostList = [data];
+    }
   }
+  onMount(async () => {
+    await getHosts();
+
+    lastChosenHost.set(hostList.at(0)["host"]);
+    // @ts-ignore
+    lastChosenService.set(hostList.at(0)["services"].at(0));
+    servicesList = hostList
+      .filter((e) => {
+        return e.host === locLastChosenHost;
+      })
+      .at(0)["services"];
+  });
 </script>
 
 <div class="contentContainer">
@@ -75,20 +103,12 @@
           <!-- icon="log log-Plus"
           iconHeight={18} -->
         </div>
-        {#await getHosts()}
-          <p>loading...</p>
-        {:then hosts}
-          {#each hosts as host}
-            <HostList
-              bind:selectedName={selectedService}
-              hostName={host["host"]}
-              servicesData={host["services"]}
-              {...listMargins}
-            />
-          {/each}
-        {:catch}
-          <p style="margin-top: 15px;">Error</p>
-        {/await}
+
+        <ListWithChoise
+          listData={hostList}
+          headerButton={"Pencil"}
+          listElementButton={"true"}
+        />
       </div></Container
     >
     <Container minHeightVh={10.97}>
@@ -107,7 +127,7 @@
             {closeModal}
           /></Modal
         >
-      {:else}<LogsView bind:serviceName={selectedService} />
+      {:else}<LogsView />
       {/if}
     </Container>
   </div>

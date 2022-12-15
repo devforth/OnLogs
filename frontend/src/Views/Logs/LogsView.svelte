@@ -3,9 +3,17 @@
   import fetchApi from "../../utils/fetch";
   import { afterUpdate } from "svelte";
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
-  import { store } from "../../Stores/stores";
+  import {
+    store,
+    lastChosenHost,
+    lastChosenService,
+  } from "../../Stores/stores";
 
-  export let serviceName;
+  let serviceName = "";
+
+  lastChosenService.subscribe((v) => {
+    serviceName = v;
+  });
 
   let storeVal = {};
 
@@ -30,7 +38,6 @@
   });
 
   const timezoneOffsetSec = new Date().getTimezoneOffset() * 60;
-  console.log(timezoneOffsetSec);
 
   function getLogLineStatus(logLine = "") {
     const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
