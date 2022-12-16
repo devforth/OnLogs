@@ -20,4 +20,4 @@
      - onlogs-logs-volume:/leveldb  # save logs after onlogs restart
      - onlogs-users-volume:/backend/onlogsdb  # save users after onlogs restart
 
-## https://bleveanalysis.couchbase.com/analysis
+## https://bleveanalysis.couchbase.com/analysis - analyzer "standart"
