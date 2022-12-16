@@ -16,7 +16,7 @@
     if (c.startsWith("onlogs-cookie=")) {
       (async () => {
         if ((await api.checkCookie())["error"] == null) {
-          navigate("/view", { replace: true });
+          navigate("/", { replace: true });
         }
       })();
     }

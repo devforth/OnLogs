@@ -12,14 +12,16 @@
   export let headerButton = "";
   export let listElementButton = "";
   import { lastChosenHost, lastChosenService } from "../../Stores/stores.js";
-  let counter = 0;
+  let initialVisitcounter = 0;
+  console.log(activeElementName);
 
   $: {
     {
-      if (!counter) {
+      if (!initialVisitcounter && !activeElementName) {
         const chosenHost = listData[0] && listData[0].host;
         const chosenService = listData[0] && listData[0].services[0];
         activeElementName = listData[0] && `${chosenHost}-${chosenService}`;
+
         lastChosenHost.set(chosenHost);
         lastChosenService.set(chosenService);
 
@@ -77,7 +79,8 @@
                   choseSublistEl(listEl.host, service);
                   lastChosenHost.set(listEl.host);
                   lastChosenService.set(service);
-                  counter = 1;
+
+                  initialVisitcounter = 1;
                 }}
               >
                 <div class="hostRow {customListElClass}">
@@ -91,10 +94,12 @@
                   {/if}
                 </div>
                 <div
-                  class="highlightedOverlay {activeElementName ===
-                  `${listEl.host}-${service}`
-                    ? 'active'
-                    : ''}"
+                  class={`highlightedOverlay ${
+                    `${activeElementName}` ===
+                    `${listEl.host.trim()}-${service.trim()}`
+                      ? "active"
+                      : ``
+                  }`}
                 />
               </li>{/each}
           </ul>

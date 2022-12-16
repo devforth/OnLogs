@@ -12,10 +12,10 @@
   //store management
   function toggleUserMenu() {
     userMenuOpen.update((v) => !v);
+
     navigate("/users", { replace: true });
   }
   function toggleTheme() {
-    console.log(localTheme);
     theme.update((v) => {
       if (v === "light") {
         window.localStorage.setItem("theme", "dark");
@@ -38,13 +38,7 @@
       <i class="log log-User" on:click={toggleUserMenu} />
     </li>
     <li>
-      <i
-        class="log log-Wheel"
-        on:click={async () => {
-          await logout();
-          navigate("/login", { replace: true });
-        }}
-      />
+      <i class="log log-Wheel" />
     </li>
     <li>
       <i

@@ -14,6 +14,7 @@
   import { onMount } from "svelte";
   import { lastChosenHost, lastChosenService } from "../../Stores/stores";
   import ListWithChoise from "../../lib/ListWithChoise/ListWithChoise.svelte";
+  import CommonList from "../../lib/CommonList/CommonList.svelte";
 
   // declare state
   let locLastChosenHost = "";
@@ -34,8 +35,8 @@
   let addUserModOpen = false;
   let newUserData = { login: "", password: "" };
   let userForAdding = "";
-  export let host = "1234";
-  export let service = "1234";
+  export let host = "";
+  export let service = "";
 
   function closeModal() {
     addUserModalOpen.set(false);
@@ -48,6 +49,11 @@
         userForAdding = newUserData.login;
       }
     }
+  }
+
+  async function logout() {
+    await api.logout();
+    navigate("/login", { replace: true });
   }
 
   userMenuOpen.subscribe((v) => {
@@ -69,10 +75,18 @@
   }
   onMount(async () => {
     await getHosts();
+    if (service) {
+      lastChosenService.set(service);
+    } else {
+      lastChosenService.set(hostList.at(0)["services"].at(0));
+    }
+    if (host) {
+      lastChosenHost.set(host);
+    } else {
+      lastChosenHost.set(hostList.at(0)["host"]);
+    }
+    // @ts-ignore}
 
-    lastChosenHost.set(hostList.at(0)["host"]);
-    // @ts-ignore
-    lastChosenService.set(hostList.at(0)["services"].at(0));
     servicesList = hostList
       .filter((e) => {
         return e.host === locLastChosenHost;
@@ -88,7 +102,9 @@
         <div class="onLogsPanelHeader">
           <h1
             on:click={() => {
-              navigate("/", { replace: true });
+              navigate(`/view/${locLastChosenHost}/${locLastChosenService}`, {
+                replace: true,
+              });
             }}
           >
             onLogs
@@ -103,12 +119,17 @@
           <!-- icon="log log-Plus"
           iconHeight={18} -->
         </div>
-
-        <ListWithChoise
-          listData={hostList}
-          headerButton={"Pencil"}
-          listElementButton={"true"}
-        />
+        {#if location.pathname.includes("/view") || location.pathname === "/"}
+          <ListWithChoise
+            listData={hostList}
+            headerButton={"Pencil"}
+            listElementButton={"true"}
+            activeElementName={host && service && service !== "undefined"
+              ? `${host}-${service}`
+              : ""}
+          />{:else if location.pathname.includes("/users")}<CommonList
+            listData={[{ name: "Logout", ico: "Logout", callBack: logout }]}
+          />{/if}
       </div></Container
     >
     <Container minHeightVh={10.97}>

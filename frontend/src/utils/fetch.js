@@ -43,7 +43,7 @@ class fetchApi {
     });
     if (result["error"] === null) {
       this.authorized = true;
-      navigate("/view", { replace: true });
+      navigate("/", { replace: true });
       return true;
     }
     return false;

@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?328834909b06f754360b2598446ffd12?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?328834909b06f754360b2598446ffd12") format("woff2"),
-url("onLogsFont.woff?328834909b06f754360b2598446ffd12") format("woff"),
-url("onLogsFont.ttf?328834909b06f754360b2598446ffd12") format("truetype"),
-url("onLogsFont.svg?328834909b06f754360b2598446ffd12#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?39162320e858a593c60fcbcb7d439267?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?39162320e858a593c60fcbcb7d439267") format("woff2"),
+url("onLogsFont.woff?39162320e858a593c60fcbcb7d439267") format("woff"),
+url("onLogsFont.ttf?39162320e858a593c60fcbcb7d439267") format("truetype"),
+url("onLogsFont.svg?39162320e858a593c60fcbcb7d439267#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -68,30 +68,33 @@ url("onLogsFont.svg?328834909b06f754360b2598446ffd12#onLogsFont") format("svg");
 .log-Last:before {
 	content: "\f10f";
 }
-.log-Moon:before {
+.log-Logout:before {
 	content: "\f110";
 }
-.log-Pencil:before {
+.log-Moon:before {
 	content: "\f111";
 }
-.log-Plus:before {
+.log-Pencil:before {
 	content: "\f112";
 }
-.log-Refresh:before {
+.log-Plus:before {
 	content: "\f113";
 }
-.log-Search:before {
+.log-Refresh:before {
 	content: "\f114";
 }
-.log-Server:before {
+.log-Search:before {
 	content: "\f115";
 }
-.log-Sun:before {
+.log-Server:before {
 	content: "\f116";
 }
-.log-User:before {
+.log-Sun:before {
 	content: "\f117";
 }
-.log-Wheel:before {
+.log-User:before {
 	content: "\f118";
+}
+.log-Wheel:before {
+	content: "\f119";
 }
