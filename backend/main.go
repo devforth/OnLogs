@@ -12,7 +12,6 @@ import (
 
 func main() {
 	util.RemoveOldFiles()
-	go util.StartLogDumpGarbageCollector()
 	godotenv.Load(".env")
 	util.CreateInitUser()
 	go streamer.StreamLogs()
@@ -30,6 +29,5 @@ func main() {
 	http.HandleFunc("/api/v1/editUser", routes.RouteEditUser)
 	http.HandleFunc("/api/v1/deleteUser", routes.RouteDeleteUser)
 
-	err := http.ListenAndServe(":2874", nil)
-	fmt.Println("ONLOGS: ", err)
+	fmt.Println("ONLOGS: ", http.ListenAndServe(":2874", nil))
 }
