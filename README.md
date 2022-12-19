@@ -1,5 +1,8 @@
 # OnLogs
 
+Light docker logs listener that makes easier to debug your containers
+
+```
 ## docker-compose.yml example
   coposter_onlogs:
     image: devforth/onlogs
@@ -19,3 +22,4 @@
      - /etc/hostname:/etc/hostname
      - onlogs-logs-volume:/leveldb  # save logs after onlogs restart
      - onlogs-users-volume:/backend/onlogsdb  # save users after onlogs restart
+```
