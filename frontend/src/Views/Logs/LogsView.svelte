@@ -146,7 +146,7 @@
       isLogsUpdating = true;
       oldScrollHeight = logsDiv.scrollHeight;
       tmpLogs = allLogs;
-      const newLogs = await getLogs(serviceName, "", logLinesCount, offset);
+      const newLogs = await getLogs(serviceName, searchText, logLinesCount, offset);
       offset += newLogs.length;
       setTimeout(() => {
         logsDiv.scrollTop = logsDiv.scrollHeight - oldScrollHeight;
