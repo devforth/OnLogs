@@ -27,27 +27,35 @@ func GetUsers() []string {
 	for iter.Next() {
 		users = append(users, string(iter.Key()))
 	}
-	iter.Release()
+	defer iter.Release()
 
 	return users
 }
 
 func GetLogs(container string, message string, limit int, offset int) []string {
-
-	iter := vars.DB.NewIterator(nil, nil)
+	db := vars.ActiveDBs[container]
+	iter := db.NewIterator(nil, nil)
 	iter.Last()
 	position := 0
 	counter := 0
-	for position < offset {
-		iter.Prev()
-		position++
-	}
 
 	to_return := []string{}
+	for position < offset {
+		iter.Prev()
+		if strings.Contains(string(iter.Value()), message) {
+			position++
+		}
+	}
+
 	for counter < limit {
 		if len(iter.Key()) == 0 {
 			iter.Prev()
 			counter++
+			continue
+		}
+
+		if !strings.Contains(string(iter.Value()), message) {
+			iter.Prev()
 			continue
 		}
 
@@ -59,8 +67,8 @@ func GetLogs(container string, message string, limit int, offset int) []string {
 		iter.Prev()
 		counter++
 	}
-	iter.Release()
-	// container_db.Close()
+
+	defer iter.Release()
 	return to_return
 }
 
