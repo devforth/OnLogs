@@ -28,8 +28,8 @@ func putLogMessage(db *leveldb.DB, message string) {
 }
 
 // creates stream that writes logs from every docker container to leveldb
-func CreateDaemonToDBStream(containerName string, db *leveldb.DB) {
-	defer db.Close()
+func CreateDaemonToDBStream(containerName string) {
+	db := vars.ActiveDBs[containerName]
 	unix := &httpunix.Transport{
 		DialTimeout:           100 * time.Millisecond,
 		RequestTimeout:        1 * time.Second,
@@ -59,8 +59,11 @@ func CreateDaemonToDBStream(containerName string, db *leveldb.DB) {
 		}
 
 		to_put := []byte(logLine)
-		if []byte(logLine)[0] == 1 || []byte(logLine)[0] == 2 { // is it ok?
-			to_put = to_put[8:]
+		if []byte(logLine)[0] < 32 { // is it ok?
+			if !([]byte(logLine)[0] == 1) {
+				fmt.Println("ONLOGS: WARN: logline \"" + logLine + "\" started with " + strconv.Itoa(int([]byte(logLine)[0])))
+				to_put = to_put[8:]
+			}
 		}
 		putLogMessage(db, string(to_put))
 		for _, c := range vars.Connections[containerName] {
