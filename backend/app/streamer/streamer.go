@@ -1,18 +1,12 @@
 package streamer
 
 import (
-	"fmt"
-	"io/ioutil"
-	"log"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
-	"github.com/devforth/OnLogs/app/srchx_db"
 	"github.com/devforth/OnLogs/app/vars"
-	"github.com/gorilla/websocket"
-	"github.com/nsqio/go-diskqueue"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func contains(a string, list []string) bool {
@@ -24,68 +18,21 @@ func contains(a string, list []string) bool {
 	return false
 }
 
-func NewAppLogger() diskqueue.AppLogFunc {
-	return func(lvl diskqueue.LogLevel, f string, args ...interface{}) {
-		log.Println(fmt.Sprintf(lvl.String()+": "+f, args...))
-	}
-}
-
 func StreamLogs() {
-	os.RemoveAll("/logDump")
-	os.Mkdir("logDump", 0755)
 	containers := daemon.GetContainersList()
+	vars.All_Containers = containers
 	for {
 		for _, container := range containers {
-			containers_with_active_dq := make([]string, 0, len(vars.Active_DQ))
-			for k := range vars.Active_DQ {
-				containers_with_active_dq = append(containers_with_active_dq, k)
-			}
-
-			if !contains(container, containers_with_active_dq) {
-				vars.Connections[container] = []websocket.Conn{}
-
-				tmpDir, _ := ioutil.TempDir("logDump", container)
-				dq := diskqueue.New(container, tmpDir, 10240*1024, 19, 1<<10, 2500, 2*time.Second, NewAppLogger())
-				vars.Active_DQ[container] = dq
-
-				vars.All_Containers = append(vars.All_Containers, container)
-
-				go CreateLogfileToDBStream(container, dq)
-			}
-
 			if !contains(container, vars.Active_Daemon_Streams) {
+				newDB, _ := leveldb.OpenFile("leveldb/"+container, nil)
+				vars.ActiveDBs[container] = newDB
 				vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
-				go daemon.CreateDaemonToLogfileStream(container, vars.Active_DQ[container])
+				go daemon.CreateDaemonToDBStream(container)
+				// defer newDB.Close()
 			}
 		}
 		time.Sleep(1 * time.Second)
 		containers = daemon.GetContainersList()
-	}
-}
-
-func CreateLogfileToDBStream(containerName string, dq diskqueue.Interface) {
-	// lastSleep := time.Now().Unix()
-	for {
-		content := dq.ReadChan()
-		if content == nil {
-			time.Sleep(1 * time.Second)
-			continue
-		}
-		logLine := string(<-content)
-		logItem := &srchx_db.LogItem{
-			Datetime: logLine[:30],
-			Message:  logLine[31 : len(logLine)-1],
-		}
-		for _, c := range vars.Connections[containerName] {
-			c.WriteMessage(1, []byte(logLine))
-		}
-
-		srchx_db.StoreItem(containerName, logItem)
-
-		// if time.Now().Unix()-lastSleep > 4 {
-		// 	time.Sleep(1 * time.Millisecond)
-		// 	lastSleep = time.Now().Unix()
-		// }
-		continue
+		vars.All_Containers = containers
 	}
 }

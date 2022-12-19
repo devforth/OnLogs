@@ -1,2 +1,4 @@
 PASSWORD=fdnbvgadkus
 JWT_SECRET=asdgasdgsdfgsehqgWEV
+ENV_NAME = local
+PORT=2874

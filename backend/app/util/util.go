@@ -12,12 +12,12 @@ import (
 )
 
 func RemoveOldFiles() {
-	os.RemoveAll("leveldb") // may cause crashes
-	os.RemoveAll("onlogsdb")
-	files, _ := os.ReadDir("logDump")
-	for _, name := range files {
-		os.RemoveAll("logDump/" + name.Name())
-	}
+	// os.RemoveAll("leveldb") // may cause crashes
+	// os.RemoveAll("onlogsdb")
+	// files, _ := os.ReadDir("logDump")
+	// for _, name := range files {
+	// 	os.RemoveAll("logDump/" + name.Name())
+	// }
 }
 
 func StartLogDumpGarbageCollector() {

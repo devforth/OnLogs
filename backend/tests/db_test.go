@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	srchx_db "github.com/devforth/OnLogs/app/srchx_db"
+	"github.com/devforth/OnLogs/app/db"
 )
 
 func TestGetContainerLogs(t *testing.T) {
@@ -29,7 +29,7 @@ func TestGetContainerLogs(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got := srchx_db.GetLogs(tc.container, tc.message, tc.limit, tc.offset)
+		got := db.GetLogs(tc.container, tc.message, tc.limit, tc.offset)
 		if !reflect.DeepEqual(tc.want, got) {
 			t.Fatalf("expected: %v, got: %v", tc.want, got)
 		}

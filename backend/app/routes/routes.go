@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/devforth/OnLogs/app/db"
-	"github.com/devforth/OnLogs/app/srchx_db"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/gorilla/websocket"
@@ -126,7 +125,7 @@ func RouteGetLogs(w http.ResponseWriter, req *http.Request) {
 	params := req.URL.Query()
 	limit, _ := strconv.Atoi(params.Get("limit"))
 	offset, _ := strconv.Atoi(params.Get("offset"))
-	json.NewEncoder(w).Encode(srchx_db.GetLogs(params.Get("id"), params.Get("search"), limit, offset))
+	json.NewEncoder(w).Encode(db.GetLogs(params.Get("id"), params.Get("search"), limit, offset))
 }
 
 func RouteGetLogsStream(w http.ResponseWriter, req *http.Request) {
