@@ -45,6 +45,9 @@ func GetLogs(container string, message string, limit int, offset int) []string {
 		if strings.Contains(string(iter.Value()), message) {
 			position++
 		}
+		if len(iter.Key()) == 0 {
+			return to_return
+		}
 	}
 
 	for counter < limit {
