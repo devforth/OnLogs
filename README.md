@@ -2,8 +2,8 @@
 
 Light docker logs listener that makes easier to debug your containers
 
-```
 ## docker-compose.yml example
+```
   coposter_onlogs:
     image: devforth/onlogs
     restart: always
