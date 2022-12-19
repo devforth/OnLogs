@@ -4,16 +4,23 @@
 
 <div class="dropDownContainer ">
   <table class="dropDownTable">
-    <DropDownRow
-      rowTitle={"Break long lines"}
-      rowImage={"log log-Break"}
-      storeValue={"breakLines"}
-    />
-    <DropDownRow
-      rowTitle={"Log time in UTC"}
-      rowImage={"log log-Clock"}
-      storeValue={"UTCtime"}
-      isLast={true}
-    />
+    <thbody>
+      <DropDownRow
+        rowTitle={"Break long lines"}
+        rowImage={"log log-Break"}
+        storeValue={"breakLines"}
+        isFirst={true}
+      />
+      <DropDownRow
+        rowTitle={"Log time in UTC"}
+        rowImage={"log log-Clock"}
+        storeValue={"UTCtime"}
+      />
+      <DropDownRow
+        rowTitle={"Case sensitive search"}
+        rowImage={"log log-Leters"}
+        storeValue={"caseSensitive"}
+      />
+    </thbody>
   </table>
 </div>

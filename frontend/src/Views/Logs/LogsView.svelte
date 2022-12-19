@@ -45,7 +45,7 @@
     let isScrolling = false;
     logsContEl = document.querySelector("#logs");
     const defaultScrollDiff = logsContEl.scrollTop - logsContEl.scrollHeight;
-    console.log(defaultScrollDiff);
+
     logsContEl.addEventListener("scroll", () => {
       if (!isScrolling) {
         isScrolling = true;
@@ -55,16 +55,9 @@
             logsContEl.scrollHeight - logsContEl.scrollTop !==
               logsContEl.clientHeight
           ) {
-            console.log(
-              logsContEl.scrollHeight,
-              "test",
-              logsContEl.scrollTop,
-              logsContEl.scrollHeight - logsContEl.scrollTop
-            );
             buttonToBottomIsVisible = true;
           } else {
             buttonToBottomIsVisible = false;
-            console.log(logsContEl.scrollHeight, "test", logsContEl.scrollTop);
           }
           isScrolling = false;
         }, 1000);
@@ -78,7 +71,7 @@
     const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
     const statuses_warnings = ["WARN", "WARNING"];
     const statuses_other = ["DEBUG", "INFO", "ONLOGS"];
-    const logLineItems = logLine.slice(30).split(" ");
+    const logLineItems = logLine.split(" ");
     var i, j;
 
     for (i = 0; i < logLineItems.length; i++) {
@@ -148,6 +141,7 @@
     webSocket.onmessage = (event) => {
       offset++;
       allLogs.push(event.data);
+      console.log(event.data.split('",'));
       tmpLogs = allLogs;
       scrollToBottom();
     };
@@ -180,7 +174,12 @@
       isLogsUpdating = true;
       oldScrollHeight = logsDiv.scrollHeight;
       tmpLogs = allLogs;
-      const newLogs = await getLogs(serviceName, searchText, logLinesCount, offset);
+      const newLogs = await getLogs(
+        serviceName,
+        searchText,
+        logLinesCount,
+        offset
+      );
       offset += newLogs.length;
       setTimeout(() => {
         logsDiv.scrollTop = logsDiv.scrollHeight - oldScrollHeight;
@@ -199,17 +198,17 @@
             <LogsString
               bind:this={logString}
               time={storeVal.UTCtime
-                ? logItem.slice(0, 19).replace("T", " ")
+                ? logItem
                 : new Date(
                     new Date().setTime(
                       new Date(
-                        logItem.slice(0, 19).replace("T", " ")
+                        logItem.at(0).slice(0, 19).replace("T", " ")
                       ).getTime() -
                         timezoneOffsetSec * 1000
                     )
                   ).toLocaleString("sv-SE")}
-              message={logItem.slice(30)}
-              status={getLogLineStatus(logItem)}
+              message={logItem.at(1)}
+              status={getLogLineStatus(logItem.at(1))}
             />
           {/each}
         {/await}
@@ -220,17 +219,17 @@
             <LogsString
               bind:this={logString}
               time={storeVal.UTCtime
-                ? logItem.slice(0, 19).replace("T", " ")
+                ? logItem.at(0).slice(0, 19).replace("T", " ")
                 : new Date(
                     new Date().setTime(
                       new Date(
-                        logItem.slice(0, 19).replace("T", " ")
+                        logItem.at(0).slice(0, 19).replace("T", " ")
                       ).getTime() -
                         timezoneOffsetSec * 1000
                     )
                   ).toLocaleString("sv-SE")}
-              message={logItem.slice(30)}
-              status={getLogLineStatus(logItem)}
+              message={logItem.at(1)}
+              status={getLogLineStatus(logItem.at(1))}
             />
           {/each}
         {/await}

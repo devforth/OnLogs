@@ -9,6 +9,13 @@
   right: 50%;
   top: 110%;
   transform: translate(50%);
+
+  td {
+    padding-top: 12px;
+    &:nth-child(1) {
+      padding-top: 0;
+    }
+  }
 }
 
 .dropDownRawEl.ico {
@@ -23,12 +30,8 @@
   margin-bottom: 20px;
 }
 
-.rowContainer {
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-}
-
-.isLast {
-  margin-bottom: 0;
+.isFirst {
+  td {
+    padding-top: 0;
+  }
 }
