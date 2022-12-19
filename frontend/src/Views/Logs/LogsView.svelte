@@ -1,13 +1,14 @@
 <script>
   import LogsString from "../../lib/LogsString/LogsString.svelte";
   import fetchApi from "../../utils/fetch";
-  import { afterUpdate } from "svelte";
+  import { afterUpdate, onMount } from "svelte";
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
   import {
     store,
     lastChosenHost,
     lastChosenService,
   } from "../../Stores/stores";
+  import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
 
   let serviceName = "";
 
@@ -35,6 +36,40 @@
 
   afterUpdate(() => {
     scrollToBottom();
+  });
+
+  let logsContEl = null;
+  let buttonToBottomIsVisible = false;
+
+  onMount(() => {
+    let isScrolling = false;
+    logsContEl = document.querySelector("#logs");
+    const defaultScrollDiff = logsContEl.scrollTop - logsContEl.scrollHeight;
+    console.log(defaultScrollDiff);
+    logsContEl.addEventListener("scroll", () => {
+      if (!isScrolling) {
+        isScrolling = true;
+        setTimeout(() => {
+          if (
+            logsContEl.scrollTop &&
+            logsContEl.scrollHeight - logsContEl.scrollTop !==
+              logsContEl.clientHeight
+          ) {
+            console.log(
+              logsContEl.scrollHeight,
+              "test",
+              logsContEl.scrollTop,
+              logsContEl.scrollHeight - logsContEl.scrollTop
+            );
+            buttonToBottomIsVisible = true;
+          } else {
+            buttonToBottomIsVisible = false;
+            console.log(logsContEl.scrollHeight, "test", logsContEl.scrollTop);
+          }
+          isScrolling = false;
+        }, 1000);
+      }
+    });
   });
 
   const timezoneOffsetSec = new Date().getTimezoneOffset() * 60;
@@ -156,45 +191,54 @@
     }
   }}
 >
-  <table class="logsTable {storeVal.breakLines ? 'breakLines' : ''}">
-    {#if searchText.length === 0}
-      <!-- svelte-ignore empty-block -->
-      {#await getLogsStream(serviceName) then}
-        {#each tmpLogs as logItem}
-          <LogsString
-            bind:this={logString}
-            time={storeVal.UTCtime
-              ? logItem.slice(0, 19).replace("T", " ")
-              : new Date(
-                  new Date().setTime(
-                    new Date(logItem.slice(0, 19).replace("T", " ")).getTime() -
-                      timezoneOffsetSec * 1000
-                  )
-                ).toLocaleString("sv-SE")}
-            message={logItem.slice(30)}
-            status={getLogLineStatus(logItem)}
-          />
-        {/each}
-      {/await}
-    {:else}
-      <!-- svelte-ignore empty-block -->
-      {#await getLogs(serviceName, searchText, logLinesCount, 0) then logs}
-        {#each logs as logItem}
-          <LogsString
-            bind:this={logString}
-            time={storeVal.UTCtime
-              ? logItem.slice(0, 19).replace("T", " ")
-              : new Date(
-                  new Date().setTime(
-                    new Date(logItem.slice(0, 19).replace("T", " ")).getTime() -
-                      timezoneOffsetSec * 1000
-                  )
-                ).toLocaleString("sv-SE")}
-            message={logItem.slice(30)}
-            status={getLogLineStatus(logItem)}
-          />
-        {/each}
-      {/await}
+  <div class="logsTableContainer">
+    <table class="logsTable {storeVal.breakLines ? 'breakLines' : ''}">
+      {#if searchText.length === 0}
+        <!-- svelte-ignore empty-block -->
+        {#await getLogsStream(serviceName) then}
+          {#each tmpLogs as logItem}
+            <LogsString
+              bind:this={logString}
+              time={storeVal.UTCtime
+                ? logItem.slice(0, 19).replace("T", " ")
+                : new Date(
+                    new Date().setTime(
+                      new Date(
+                        logItem.slice(0, 19).replace("T", " ")
+                      ).getTime() -
+                        timezoneOffsetSec * 1000
+                    )
+                  ).toLocaleString("sv-SE")}
+              message={logItem.slice(30)}
+              status={getLogLineStatus(logItem)}
+            />
+          {/each}
+        {/await}
+      {:else}
+        <!-- svelte-ignore empty-block -->
+        {#await getLogs(serviceName, searchText, logLinesCount, 0) then logs}
+          {#each logs as logItem}
+            <LogsString
+              bind:this={logString}
+              time={storeVal.UTCtime
+                ? logItem.slice(0, 19).replace("T", " ")
+                : new Date(
+                    new Date().setTime(
+                      new Date(
+                        logItem.slice(0, 19).replace("T", " ")
+                      ).getTime() -
+                        timezoneOffsetSec * 1000
+                    )
+                  ).toLocaleString("sv-SE")}
+              message={logItem.slice(30)}
+              status={getLogLineStatus(logItem)}
+            />
+          {/each}
+        {/await}
+      {/if}
+    </table>
+    {#if buttonToBottomIsVisible}
+      <ButtonToBottom ico={"Down"} />
     {/if}
-  </table>
+  </div>
 </div>

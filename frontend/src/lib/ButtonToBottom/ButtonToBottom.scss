@@ -1,0 +1,28 @@
+.buttonToBottomContainer {
+  width: 40px;
+  height: 40px;
+  background-color: $background-color;
+  color: $text-dark-color;
+  border-radius: $main-border-radius;
+  box-shadow: $main-shadow;
+  @include center;
+  position: fixed;
+  bottom: 60px;
+  right: 80px;
+  background-color: $active-color;
+  opacity: 0.4;
+  &:hover {
+    opacity: 1;
+    cursor: pointer;
+  }
+  .icoContainer {
+    @include center;
+    font-size: 14px;
+    z-index: 4;
+    color: $text-onactive-color;
+  }
+}
+
+.logsTableContainer {
+  position: relative;
+}

@@ -79,6 +79,16 @@
       }
     }
   }
+
+  .buttonToBottomContainer {
+    background-color: $active-color-dark;
+
+    .icoContainer {
+      font-size: 14px;
+      z-index: 4;
+      color: $text-onactive-color-dark;
+    }
+  }
 }
 .dark-mode {
   @include dark-mode;

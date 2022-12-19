@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?39162320e858a593c60fcbcb7d439267?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?39162320e858a593c60fcbcb7d439267") format("woff2"),
-url("onLogsFont.woff?39162320e858a593c60fcbcb7d439267") format("woff"),
-url("onLogsFont.ttf?39162320e858a593c60fcbcb7d439267") format("truetype"),
-url("onLogsFont.svg?39162320e858a593c60fcbcb7d439267#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?674555e3230e5237213b5b443a2efc32?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?674555e3230e5237213b5b443a2efc32") format("woff2"),
+url("onLogsFont.woff?674555e3230e5237213b5b443a2efc32") format("woff"),
+url("onLogsFont.ttf?674555e3230e5237213b5b443a2efc32") format("truetype"),
+url("onLogsFont.svg?674555e3230e5237213b5b443a2efc32#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -53,48 +53,51 @@ url("onLogsFont.svg?39162320e858a593c60fcbcb7d439267#onLogsFont") format("svg");
 .log-Data:before {
 	content: "\f10a";
 }
-.log-Eye:before {
+.log-Down:before {
 	content: "\f10b";
 }
-.log-Filter:before {
+.log-Eye:before {
 	content: "\f10c";
 }
-.log-Group:before {
+.log-Filter:before {
 	content: "\f10d";
 }
-.log-Info:before {
+.log-Group:before {
 	content: "\f10e";
 }
-.log-Last:before {
+.log-Info:before {
 	content: "\f10f";
 }
-.log-Logout:before {
+.log-Last:before {
 	content: "\f110";
 }
-.log-Moon:before {
+.log-Logout:before {
 	content: "\f111";
 }
-.log-Pencil:before {
+.log-Moon:before {
 	content: "\f112";
 }
-.log-Plus:before {
+.log-Pencil:before {
 	content: "\f113";
 }
-.log-Refresh:before {
+.log-Plus:before {
 	content: "\f114";
 }
-.log-Search:before {
+.log-Refresh:before {
 	content: "\f115";
 }
-.log-Server:before {
+.log-Search:before {
 	content: "\f116";
 }
-.log-Sun:before {
+.log-Server:before {
 	content: "\f117";
 }
-.log-User:before {
+.log-Sun:before {
 	content: "\f118";
 }
-.log-Wheel:before {
+.log-User:before {
 	content: "\f119";
+}
+.log-Wheel:before {
+	content: "\f11a";
 }
