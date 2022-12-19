@@ -32,18 +32,27 @@ func GetUsers() []string {
 	return users
 }
 
-func GetLogs(container string, message string, limit int, offset int) []string {
+func GetLogs(container string, message string, limit int, offset int, startWith string) [][]string {
 	db := vars.ActiveDBs[container]
 	iter := db.NewIterator(nil, nil)
-	iter.Last()
 	position := 0
 	counter := 0
+	to_return := [][]string{}
 
-	to_return := []string{}
-	for position < offset {
-		iter.Prev()
-		if strings.Contains(string(iter.Value()), message) {
-			position++
+	iter.Last()
+	if startWith == "" {
+		for position < offset {
+			iter.Prev()
+			if strings.Contains(string(iter.Value()), message) {
+				position++
+			}
+			if len(iter.Key()) == 0 {
+				return to_return
+			}
+		}
+	} else {
+		if !iter.Seek([]byte(startWith)) {
+			return to_return
 		}
 	}
 
@@ -60,10 +69,12 @@ func GetLogs(container string, message string, limit int, offset int) []string {
 		}
 
 		datetime := strings.Split(string(iter.Key()), " +")[0]
-		if len(datetime) < 29 {
-			datetime = datetime + strings.Repeat("0", 29-len(datetime))
-		}
-		to_return = append(to_return, datetime+" "+string(iter.Value()))
+		to_return = append(
+			to_return,
+			[]string{
+				datetime, string(iter.Value()),
+			},
+		)
 		iter.Prev()
 		counter++
 	}

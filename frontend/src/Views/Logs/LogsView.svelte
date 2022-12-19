@@ -172,8 +172,7 @@
   bind:this={logsDiv}
   on:scroll={async (e) => {
     if (
-      logsDiv.scrollTop >= 0 &&
-      logsDiv.scrollTop < 5 &&
+      logsDiv.scrollTop === 0 &&
       logsDiv.scrollLeft === 0 &&
       !isLogsUpdating &&
       !isUploading

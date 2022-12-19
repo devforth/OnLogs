@@ -125,7 +125,7 @@ func RouteGetLogs(w http.ResponseWriter, req *http.Request) {
 	params := req.URL.Query()
 	limit, _ := strconv.Atoi(params.Get("limit"))
 	offset, _ := strconv.Atoi(params.Get("offset"))
-	json.NewEncoder(w).Encode(db.GetLogs(params.Get("id"), params.Get("search"), limit, offset))
+	json.NewEncoder(w).Encode(db.GetLogs(params.Get("id"), params.Get("search"), limit, offset, params.Get("startWith")))
 }
 
 func RouteGetLogsStream(w http.ResponseWriter, req *http.Request) {
