@@ -13,7 +13,6 @@
   export let listElementButton = "";
   import { lastChosenHost, lastChosenService } from "../../Stores/stores.js";
   let initialVisitcounter = 0;
-  console.log(activeElementName);
 
   $: {
     {
@@ -38,7 +37,8 @@
     }
   }
   function choseSublistEl(firstEl, secondEl) {
-    activeElementName = `${firstEl}-${secondEl}`;
+    activeElementName = `${firstEl.trim()}-${secondEl.trim()}`;
+    console.log(activeElementName);
     navigate(`/view/${firstEl}/${secondEl}`, { replace: true });
   }
 
