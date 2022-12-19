@@ -7,6 +7,19 @@ import (
 	vars "github.com/devforth/OnLogs/app/vars"
 )
 
+func containStr(a string, b string, caseSens bool) bool {
+	if caseSens {
+		if strings.Contains(a, b) {
+			return true
+		}
+		return false
+	}
+	if strings.Contains(strings.ToLower(a), strings.ToLower(b)) {
+		return true
+	}
+	return false
+}
+
 func IsUserExists(login string) bool {
 	isExists, _ := vars.UsersDB.Has([]byte(login), nil)
 	return isExists
@@ -32,7 +45,7 @@ func GetUsers() []string {
 	return users
 }
 
-func GetLogs(container string, message string, limit int, offset int, startWith string) [][]string {
+func GetLogs(container string, message string, limit int, offset int, startWith string, caseSensetivity bool) [][]string {
 	db := vars.ActiveDBs[container]
 	iter := db.NewIterator(nil, nil)
 	position := 0
@@ -43,7 +56,7 @@ func GetLogs(container string, message string, limit int, offset int, startWith 
 	if startWith == "" {
 		for position < offset {
 			iter.Prev()
-			if strings.Contains(string(iter.Value()), message) {
+			if containStr(string(iter.Value()), message, caseSensetivity) {
 				position++
 			}
 			if len(iter.Key()) == 0 {
@@ -63,7 +76,7 @@ func GetLogs(container string, message string, limit int, offset int, startWith 
 			continue
 		}
 
-		if !strings.Contains(string(iter.Value()), message) {
+		if !containStr(string(iter.Value()), message, caseSensetivity) {
 			iter.Prev()
 			continue
 		}
