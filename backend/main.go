@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/devforth/OnLogs/app/routes"
 	"github.com/devforth/OnLogs/app/streamer"
@@ -29,5 +30,5 @@ func main() {
 	http.HandleFunc("/api/v1/editUser", routes.RouteEditUser)
 	http.HandleFunc("/api/v1/deleteUser", routes.RouteDeleteUser)
 
-	fmt.Println("ONLOGS: ", http.ListenAndServe(":2874", nil))
+	fmt.Println("ONLOGS: ", http.ListenAndServe(":"+string(os.Getenv("PORT")), nil))
 }
