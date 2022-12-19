@@ -66,8 +66,9 @@ func CreateDaemonToDBStream(containerName string) {
 			}
 		}
 		putLogMessage(db, string(to_put))
+		to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31 : len(to_put)-1])})
 		for _, c := range vars.Connections[containerName] {
-			c.WriteMessage(1, []byte(logLine))
+			c.WriteMessage(1, to_send)
 		}
 
 		if time.Now().Unix()-lastSleep > 1 {
