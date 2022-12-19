@@ -62,6 +62,7 @@ func CreateDaemonToDBStream(containerName string) {
 		if []byte(logLine)[0] < 32 { // is it ok?
 			if !([]byte(logLine)[0] == 1) {
 				fmt.Println("ONLOGS: WARN: logline \"" + logLine + "\" started with " + strconv.Itoa(int([]byte(logLine)[0])))
+				fmt.Println([]byte(logLine))
 				to_put = to_put[8:]
 			}
 		}
