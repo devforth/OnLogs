@@ -12,7 +12,7 @@ var (
 	Connections           = map[string][]websocket.Conn{}
 	All_Containers        = []string{}
 	Active_Daemon_Streams = []string{}
-	DB, _                 = leveldb.OpenFile("leveldb/"+"longtest2", nil)
+	ActiveDBs             = map[string]*leveldb.DB{}
 )
 
 type Container struct {

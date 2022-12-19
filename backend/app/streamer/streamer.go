@@ -6,6 +6,7 @@ import (
 
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/vars"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func contains(a string, list []string) bool {
@@ -23,8 +24,11 @@ func StreamLogs() {
 	for {
 		for _, container := range containers {
 			if !contains(container, vars.Active_Daemon_Streams) {
+				newDB, _ := leveldb.OpenFile("leveldb/"+container, nil)
+				vars.ActiveDBs[container] = newDB
 				vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
-				go daemon.CreateDaemonToDBStream(container, vars.DB)
+				go daemon.CreateDaemonToDBStream(container)
+				// defer newDB.Close()
 			}
 		}
 		time.Sleep(1 * time.Second)
