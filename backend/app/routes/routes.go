@@ -81,6 +81,10 @@ func RouteFrontend(w http.ResponseWriter, req *http.Request) {
 		dir = http.Dir("dist")
 		file, err = dir.Open("index.html")
 	}
+	if err != nil {
+		return
+	}
+	defer file.Close()
 
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(fileName)))
@@ -89,7 +93,6 @@ func RouteFrontend(w http.ResponseWriter, req *http.Request) {
 	content := make([]byte, stat.Size())
 	io.ReadFull(file, content)
 	http.ServeContent(w, req, requestedPath, stat.ModTime(), bytes.NewReader(content))
-	defer file.Close()
 }
 
 func RouteCheckCookie(w http.ResponseWriter, req *http.Request) {
@@ -125,7 +128,11 @@ func RouteGetLogs(w http.ResponseWriter, req *http.Request) {
 	params := req.URL.Query()
 	limit, _ := strconv.Atoi(params.Get("limit"))
 	offset, _ := strconv.Atoi(params.Get("offset"))
-	json.NewEncoder(w).Encode(db.GetLogs(params.Get("id"), params.Get("search"), limit, offset, params.Get("startWith")))
+	caseSensetive, err := strconv.ParseBool(params.Get("caseSens"))
+	if err != nil {
+		caseSensetive = false
+	}
+	json.NewEncoder(w).Encode(db.GetLogs(params.Get("id"), params.Get("search"), limit, offset, params.Get("startWith"), caseSensetive))
 }
 
 func RouteGetLogsStream(w http.ResponseWriter, req *http.Request) {
