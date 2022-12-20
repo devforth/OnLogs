@@ -6,7 +6,7 @@
     editUserOpen,
   } from "../../Stores/stores.js";
   import fetchApi from "../../utils/fetch";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import Modal from "../Modal/Modal.svelte";
   import Input from "../Input/Input.svelte";
   let usersList = [];
@@ -49,8 +49,8 @@
       usersList = usersList.filter((u) => {
         return u !== login;
       });
-      userDeleteOpen.update((v) => !v);
-      console.log(usersList);
+
+      userDeleteOpen.set(false);
     }
   }
 
@@ -70,16 +70,19 @@
     chosenUserLogin = e;
   }
 
-  userDeleteOpen.subscribe((v) => {
+  const delUnsubscribe = userDeleteOpen.subscribe((v) => {
     deleteModalIsOpen = v;
   });
 
-  editUserOpen.subscribe((v) => {
+  const editUnsubscribe = editUserOpen.subscribe((v) => {
     editModalIsOpen = v;
   });
 
   onMount(() => {
     getUsers();
+  });
+  onDestroy(() => {
+    delUnsubscribe(), editUnsubscribe();
   });
 </script>
 

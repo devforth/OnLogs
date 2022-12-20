@@ -19,3 +19,13 @@ export const theme = writable("light");
 
 export const lastChosenHost = writable("");
 export const lastChosenService = writable("");
+
+// toast state
+
+export const toast = writable({
+  tittle: "",
+  message: "",
+  position: "",
+  status: "",
+});
+export const toastIsVisible = writable(false);

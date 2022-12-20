@@ -89,6 +89,11 @@
       color: $text-onactive-color-dark;
     }
   }
+
+  .toastContainer {
+    background-color: $background-color-dark;
+    box-shadow: $main-shadow-dark;
+  }
 }
 .dark-mode {
   @include dark-mode;

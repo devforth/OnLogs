@@ -2,6 +2,7 @@
   import fetchApi from "../../utils/fetch";
   import { navigate } from "svelte-routing";
   import { userMenuOpen, theme } from "../../Stores/stores.js";
+  import { onDestroy } from "svelte";
 
   let localTheme = "";
   let api = new fetchApi();
@@ -27,9 +28,10 @@
     });
   }
 
-  theme.subscribe((v) => {
+  const unsubscribe = theme.subscribe((v) => {
     localTheme = v;
   });
+  onDestroy(unsubscribe);
 </script>
 
 <div class="clientPanel">

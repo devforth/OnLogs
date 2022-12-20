@@ -1,7 +1,7 @@
 <script>
   import LogsString from "../../lib/LogsString/LogsString.svelte";
   import fetchApi from "../../utils/fetch";
-  import { afterUpdate, onMount } from "svelte";
+  import { afterUpdate, onMount, onDestroy } from "svelte";
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
   import {
     store,
@@ -13,13 +13,13 @@
   let serviceName = "";
   let startWith = "";
 
-  lastChosenService.subscribe((v) => {
+  const lastChosenServiceUnsubscribe = lastChosenService.subscribe((v) => {
     serviceName = v;
   });
 
   let storeVal = {};
 
-  store.subscribe((val) => {
+  const storevalUnsubscribe = store.subscribe((val) => {
     storeVal = val;
   });
 
@@ -66,6 +66,9 @@
         }, 1000);
       }
     });
+  });
+  onDestroy(() => {
+    lastChosenServiceUnsubscribe(), storevalUnsubscribe();
   });
 
   const timezoneOffsetSec = new Date().getTimezoneOffset() * 60;

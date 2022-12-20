@@ -1,14 +1,16 @@
 <script>
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   export let active = true;
   export let storeValue = "";
   let initialValue = true;
   import { store } from "../../Stores/stores.js";
+  let unsubscribe = () => {};
 
   onMount(() => {
-    store.subscribe((v) => (initialValue = v[storeValue]));
+    unsubscribe = store.subscribe((v) => (initialValue = v[storeValue]));
     active = initialValue;
   });
+  onDestroy(unsubscribe);
 
   function handleClick() {
     active = !active;

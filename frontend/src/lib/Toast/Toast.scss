@@ -1,0 +1,41 @@
+.toastContainer {
+  width: 400px;
+  height: 200px;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: $background-color;
+  border-radius: $main-border-radius;
+  box-shadow: $main-shadow;
+  box-sizing: border-box;
+  border: 2px solid;
+
+  &.error {
+    color: #ff4242;
+    border-color: #ff4242;
+  }
+
+  &.debug {
+    color: #178f15;
+    border-color: #178f15;
+  }
+
+  &.warn {
+    color: #ff8a00;
+    border-color: #ff8a00;
+  }
+
+  &.info {
+    color: skyblue;
+    border-color: skyblue;
+  }
+
+  p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

@@ -11,21 +11,10 @@
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
   import { navigate } from "svelte-routing";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import { lastChosenHost, lastChosenService } from "../../Stores/stores";
   import ListWithChoise from "../../lib/ListWithChoise/ListWithChoise.svelte";
   import CommonList from "../../lib/CommonList/CommonList.svelte";
-
-  // declare state
-  let locLastChosenHost = "";
-  let locLastChosenService = "";
-  lastChosenHost.subscribe((v) => {
-    locLastChosenHost = v;
-  });
-  lastChosenService.subscribe((v) => {
-    locLastChosenService = v;
-  });
-  // declare state
 
   let api = new fetchApi();
   let hostList = [];
@@ -89,7 +78,7 @@
 
     servicesList = hostList
       .filter((e) => {
-        return e.host === locLastChosenHost;
+        return e.host === $lastChosenHost;
       })
       .at(0)["services"];
   });
@@ -102,7 +91,7 @@
         <div class="onLogsPanelHeader">
           <h1
             on:click={() => {
-              navigate(`/view/${locLastChosenHost}/${locLastChosenService}`, {
+              navigate(`/view/${$lastChosenHost}/${$lastChosenService}`, {
                 replace: true,
               });
             }}

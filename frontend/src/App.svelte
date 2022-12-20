@@ -3,10 +3,11 @@
   import Main from "./Views/Main/Main.svelte";
   import Login from "./Views/Login/Login.svelte";
   import { theme } from "./Stores/stores.js";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
+  import Toast from "./lib/Toast/Toast.svelte";
   export let url = "";
   let themeState = "dark";
-  theme.subscribe((v) => {
+  const unsubscribe = theme.subscribe((v) => {
     themeState = v;
   });
   $: themeState && checkTheme(themeState);
@@ -27,6 +28,7 @@
       theme.set(LStheme);
     }
   });
+  onDestroy(unsubscribe);
 </script>
 
 <Router {url}>
@@ -37,4 +39,12 @@
 
     <Route path="/"><Main /></Route>
   </div>
+  <Toast
+    toastOptions={{
+      tittle: "Warning",
+      message: "Warning",
+      position: "",
+      status: "error",
+    }}
+  />
 </Router>
