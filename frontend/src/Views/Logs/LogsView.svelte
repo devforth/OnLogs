@@ -140,8 +140,8 @@
     webSocket = new WebSocket(`${api.wsUrl}getLogsStream?id=${service}`); // maybe should move to fetch
     webSocket.onmessage = (event) => {
       offset++;
-      allLogs.push(event.data);
-      console.log(event.data.split('",'));
+      allLogs.push(JSON.parse(event.data));
+
       tmpLogs = allLogs;
       scrollToBottom();
     };
@@ -198,7 +198,7 @@
             <LogsString
               bind:this={logString}
               time={storeVal.UTCtime
-                ? logItem
+                ? logItem.at(0).slice(0, 19).replace("T", " ")
                 : new Date(
                     new Date().setTime(
                       new Date(
