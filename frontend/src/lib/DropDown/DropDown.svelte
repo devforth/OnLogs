@@ -17,9 +17,9 @@
         storeValue={"UTCtime"}
       />
       <DropDownRow
-        rowTitle={"Case sensitive search"}
+        rowTitle={"Case insensitive search"}
         rowImage={"log log-Leters"}
-        storeValue={"caseSensitive"}
+        storeValue={"caseInSensitive"}
       />
     </thbody>
   </table>

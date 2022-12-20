@@ -18,7 +18,9 @@
 
   let storeVal = {};
 
-  store.subscribe((val) => (storeVal = val));
+  store.subscribe((val) => {
+    storeVal = val;
+  });
 
   let searchText = "";
   let offset = 0,
@@ -112,11 +114,12 @@
     service = "",
     search = "",
     limit = logLinesCount,
-    offset = 0
+    offset = 0,
+    caseSens = false
   ) {
     isUploading = true;
     const newLogs = (
-      await api.getLogs(service, search, limit, offset)
+      await api.getLogs(service, search, limit, offset, caseSens)
     ).reverse();
     offset += newLogs.length;
     isUploading = false;
@@ -134,7 +137,13 @@
     if (webSocket != undefined) {
       webSocket.close();
     }
-    const newLogs = await getLogs(serviceName, "", logLinesCount, offset);
+    const newLogs = await getLogs(
+      serviceName,
+      "",
+      logLinesCount,
+      offset,
+      !storeVal.caseInSensitive
+    );
     offset += newLogs.length;
     tmpLogs = allLogs;
     webSocket = new WebSocket(`${api.wsUrl}getLogsStream?id=${service}`); // maybe should move to fetch
@@ -178,7 +187,8 @@
         serviceName,
         searchText,
         logLinesCount,
-        offset
+        offset,
+        !storeVal.caseInSensitive
       );
       offset += newLogs.length;
       setTimeout(() => {
@@ -214,7 +224,7 @@
         {/await}
       {:else}
         <!-- svelte-ignore empty-block -->
-        {#await getLogs(serviceName, searchText, logLinesCount, 0) then logs}
+        {#await getLogs(serviceName, searchText, logLinesCount, 0, !storeVal.caseInSensitive) then logs}
           {#each logs as logItem}
             <LogsString
               bind:this={logString}

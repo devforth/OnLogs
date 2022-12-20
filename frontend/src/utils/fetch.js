@@ -57,10 +57,20 @@ class fetchApi {
     return await this.doFetch("GET", `${this.url}getHost`);
   }
 
-  async getLogs(containerName = "", search = "", limit = 30, offset = 0) {
+  async getLogs(
+    containerName = "",
+    search = "",
+    limit = 30,
+    offset = 0,
+    caseSens = false
+  ) {
     return await this.doFetch(
       "GET",
-      `${this.url}getLogs?id=${containerName}&search=${search}&limit=${limit}&offset=${offset}`
+      `${
+        this.url
+      }getLogs?id=${containerName}&search=${search}&limit=${limit}&offset=${offset}${
+        search ? `&caseSens=${caseSens}` : ""
+      }`
     );
   }
 

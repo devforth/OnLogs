@@ -3,6 +3,8 @@ import { writable } from "svelte/store";
 export const store = writable({
   UTCtime: true,
   breakLines: true,
+  // used insensitive prop coz for now default value MUST be true
+  caseInSensitive: true,
 });
 
 //modals state
