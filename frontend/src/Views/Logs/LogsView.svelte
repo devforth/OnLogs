@@ -133,10 +133,10 @@
     offset = 0;
     allLogs = [];
     tmpLogs = allLogs;
-    if (service.localeCompare("") == 0) {
+    if (service.localeCompare("") === 0) {
       return;
     }
-    if (webSocket != undefined) {
+    if (webSocket !== undefined) {
       webSocket.close();
     }
     const newLogs = await getLogs(
@@ -150,11 +150,15 @@
     tmpLogs = allLogs;
     webSocket = new WebSocket(`${api.wsUrl}getLogsStream?id=${service}`); // maybe should move to fetch
     webSocket.onmessage = (event) => {
-      offset++;
-      allLogs.push(JSON.parse(event.data));
+      if (event.data !== "PING") {
+        offset++;
+        allLogs.push(JSON.parse(event.data));
 
-      tmpLogs = allLogs;
-      scrollToBottom();
+        tmpLogs = allLogs;
+        scrollToBottom();
+      } else {
+        webSocket.send("PONG");
+      }
     };
   }
 </script>
