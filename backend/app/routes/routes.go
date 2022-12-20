@@ -35,7 +35,7 @@ func enableCors(w *http.ResponseWriter) {
 func verifyAdminUser(w *http.ResponseWriter, req *http.Request) bool {
 	username, err := util.GetUserFromJWT(*req)
 	if username != "admin" {
-		(*w).WriteHeader(http.StatusUnauthorized)
+		(*w).WriteHeader(http.StatusForbidden)
 		json.NewEncoder(*w).Encode(map[string]string{"error": "Only admin can perform this request"})
 		return false
 	}
