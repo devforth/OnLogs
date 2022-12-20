@@ -6,6 +6,7 @@ import (
 
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/vars"
+	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -18,18 +19,35 @@ func contains(a string, list []string) bool {
 	return false
 }
 
+func messageHandler(connection websocket.Conn, gotPong *bool) {
+	_, m, _ := connection.ReadMessage()
+	if string(m) == "PONG" {
+		*gotPong = true
+	}
+}
+
 func checkConnections() {
 	for {
 		for container, _ := range vars.Connections {
-			for _, connection := range vars.Connections[container] {
+			newConnectionsList := []websocket.Conn{}
+			for connectionIdx, connection := range vars.Connections[container] {
+				gotPong := false
+
 				connection.WriteMessage(1, []byte("PING"))
+				go messageHandler(connection, &gotPong)
 				time.Sleep(5 * time.Second)
-				// _, message, _ := connection.ReadMessage()
-				// fmt.Println(message)
+
+				if !gotPong {
+					newConnectionsList = append(vars.Connections[container][:connectionIdx], vars.Connections[container][connectionIdx+1:]...)
+				} else {
+					newConnectionsList = vars.Connections[container]
+				}
 			}
+			vars.Connections[container] = newConnectionsList
+			newConnectionsList = []websocket.Conn{}
+
 		}
-		// time.Sleep(20 * time.Minute)
-		time.Sleep(3 * time.Second)
+		time.Sleep(5 * time.Minute)
 	}
 }
 
