@@ -26,7 +26,7 @@ func messageHandler(connection websocket.Conn, gotPong *bool) {
 	}
 }
 
-func checkConnections() {
+func checkConnections() { // TODO improve
 	for {
 		for container, _ := range vars.Connections {
 			newConnectionsList := []websocket.Conn{}
@@ -45,7 +45,6 @@ func checkConnections() {
 			}
 			vars.Connections[container] = newConnectionsList
 			newConnectionsList = []websocket.Conn{}
-
 		}
 		time.Sleep(5 * time.Minute)
 	}
