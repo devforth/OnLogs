@@ -11,6 +11,7 @@
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
 
   let serviceName = "";
+  let startWith = "";
 
   lastChosenService.subscribe((v) => {
     serviceName = v;
@@ -119,8 +120,9 @@
   ) {
     isUploading = true;
     const newLogs = (
-      await api.getLogs(service, search, limit, offset, caseSens)
+      await api.getLogs(service, search, limit, offset, caseSens, startWith)
     ).reverse();
+    startWith = newLogs?.at(0).at(0);
     offset += newLogs.length;
     isUploading = false;
     allLogs = [...newLogs, ...allLogs];

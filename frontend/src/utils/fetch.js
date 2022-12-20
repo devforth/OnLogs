@@ -62,14 +62,15 @@ class fetchApi {
     search = "",
     limit = 30,
     offset = 0,
-    caseSens = false
+    caseSens = false,
+    startWith = ""
   ) {
     return await this.doFetch(
       "GET",
       `${
         this.url
       }getLogs?id=${containerName}&search=${search}&limit=${limit}&offset=${offset}${
-        search ? `&caseSens=${caseSens}` : ""
+        search ? `&startWith=${startWith}&caseSens=${caseSens}` : ""
       }`
     );
   }
