@@ -28,7 +28,6 @@ func StreamLogs() {
 				vars.ActiveDBs[container] = newDB
 				vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
 				go daemon.CreateDaemonToDBStream(container)
-				// defer newDB.Close()
 			}
 		}
 		time.Sleep(1 * time.Second)

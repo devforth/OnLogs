@@ -44,6 +44,7 @@ func CreateDaemonToDBStream(containerName string) {
 
 	reader := bufio.NewReader(resp.Body)
 	lastSleep := time.Now().Unix()
+	defer db.Close()
 	for {
 		logLine, get_string_error := reader.ReadString('\n')
 		if get_string_error != nil {
@@ -60,11 +61,7 @@ func CreateDaemonToDBStream(containerName string) {
 
 		to_put := []byte(logLine)
 		if []byte(logLine)[0] < 32 { // is it ok?
-			if !([]byte(logLine)[0] == 1) {
-				fmt.Println("ONLOGS: WARN: logline \"" + logLine + "\" started with " + strconv.Itoa(int([]byte(logLine)[0])))
-				fmt.Println([]byte(logLine))
-				to_put = to_put[8:]
-			}
+			to_put = to_put[8:]
 		}
 		putLogMessage(db, string(to_put))
 		to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31 : len(to_put)-1])})
