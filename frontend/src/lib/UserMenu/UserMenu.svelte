@@ -4,6 +4,8 @@
     addUserModalOpen,
     userDeleteOpen,
     editUserOpen,
+    toast,
+    toastIsVisible,
   } from "../../Stores/stores.js";
   import fetchApi from "../../utils/fetch";
   import { onMount, onDestroy } from "svelte";
@@ -39,11 +41,23 @@
 
     if (!data.error) {
       editUserOpen.update((v) => !v);
+    } else {
+      toastIsVisible.set(true);
+      toast.set({
+        message: data.error,
+        tittle: "Error",
+        status: "error",
+        position: "",
+      });
+      setTimeout(() => {
+        toastIsVisible.set(false);
+      }, 5000);
     }
   }
 
   async function removeUser(login) {
     const data = await api.removeUser(login);
+    console.log($toastIsVisible);
 
     if (!data.error) {
       usersList = usersList.filter((u) => {
@@ -51,6 +65,17 @@
       });
 
       userDeleteOpen.set(false);
+    } else {
+      toastIsVisible.set(true);
+      toast.set({
+        message: data.error,
+        tittle: "Error",
+        status: "error",
+        position: "",
+      });
+      setTimeout(() => {
+        toastIsVisible.set(false);
+      }, 5000);
     }
   }
 

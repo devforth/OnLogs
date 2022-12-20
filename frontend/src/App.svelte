@@ -39,12 +39,5 @@
 
     <Route path="/"><Main /></Route>
   </div>
-  <Toast
-    toastOptions={{
-      tittle: "Warning",
-      message: "Warning",
-      position: "",
-      status: "error",
-    }}
-  />
+  <Toast />
 </Router>

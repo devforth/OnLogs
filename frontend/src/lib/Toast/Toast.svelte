@@ -1,16 +1,10 @@
 <script>
-  export let toastOptions = {
-    message: "",
-    tittle: "",
-    position: "",
-    status: "",
-  };
-  let toastsIsVisible = false;
+  import { toastIsVisible, toast } from "../../Stores/stores.js";
 </script>
 
-{#if !toastsIsVisible}
-  <div class="toastContainer {toastOptions.status}">
-    <h4>{toastOptions.tittle}</h4>
-    <p>{toastOptions.message}</p>
+{#if $toastIsVisible}
+  <div class="toastContainer {$toast.status}">
+    <h4>{$toast.tittle}</h4>
+    <p>{$toast.message}</p>
   </div>
 {/if}
