@@ -10,18 +10,7 @@
   } from "../../Stores/stores";
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
 
-  let serviceName = "";
   let startWith = "";
-
-  const lastChosenServiceUnsubscribe = lastChosenService.subscribe((v) => {
-    serviceName = v;
-  });
-
-  let storeVal = {};
-
-  const storevalUnsubscribe = store.subscribe((val) => {
-    storeVal = val;
-  });
 
   let searchText = "";
   let offset = 0,
@@ -47,7 +36,6 @@
   onMount(() => {
     let isScrolling = false;
     logsContEl = document.querySelector("#logs");
-    const defaultScrollDiff = logsContEl.scrollTop - logsContEl.scrollHeight;
 
     logsContEl.addEventListener("scroll", () => {
       if (!isScrolling) {
@@ -66,9 +54,6 @@
         }, 1000);
       }
     });
-  });
-  onDestroy(() => {
-    lastChosenServiceUnsubscribe(), storevalUnsubscribe();
   });
 
   const timezoneOffsetSec = new Date().getTimezoneOffset() * 60;
@@ -129,6 +114,7 @@
     offset += newLogs.length;
     isUploading = false;
     allLogs = [...newLogs, ...allLogs];
+    console.log(allLogs);
     return newLogs;
   }
 
@@ -143,11 +129,11 @@
       webSocket.close();
     }
     const newLogs = await getLogs(
-      serviceName,
+      $lastChosenService,
       "",
       logLinesCount,
       offset,
-      !storeVal.caseInSensitive
+      !$store.caseInSensitive
     );
     offset += newLogs.length;
     tmpLogs = allLogs;
@@ -193,11 +179,11 @@
       oldScrollHeight = logsDiv.scrollHeight;
       tmpLogs = allLogs;
       const newLogs = await getLogs(
-        serviceName,
+        $lastChosenService,
         searchText,
         logLinesCount,
         offset,
-        !storeVal.caseInSensitive
+        !$store.caseInSensitive
       );
       offset += newLogs.length;
       setTimeout(() => {
@@ -205,18 +191,19 @@
         isLogsUpdating = false;
       });
       tmpLogs = allLogs;
+      console.log("scroll");
     }
   }}
 >
   <div class="logsTableContainer">
-    <table class="logsTable {storeVal.breakLines ? 'breakLines' : ''}">
+    <table class="logsTable {$store.breakLines ? 'breakLines' : ''}">
       {#if searchText.length === 0}
         <!-- svelte-ignore empty-block -->
-        {#await getLogsStream(serviceName) then}
+        {#await getLogsStream($lastChosenService) then}
           {#each tmpLogs as logItem}
             <LogsString
               bind:this={logString}
-              time={storeVal.UTCtime
+              time={$store.UTCtime
                 ? logItem.at(0).slice(0, 19).replace("T", " ")
                 : new Date(
                     new Date().setTime(
@@ -233,11 +220,11 @@
         {/await}
       {:else}
         <!-- svelte-ignore empty-block -->
-        {#await getLogs(serviceName, searchText, logLinesCount, 0, !storeVal.caseInSensitive) then logs}
+        {#await getLogs($lastChosenService, searchText, logLinesCount, 0, !$store.caseInSensitive) then logs}
           {#each logs as logItem}
             <LogsString
               bind:this={logString}
-              time={storeVal.UTCtime
+              time={$store.UTCtime
                 ? logItem.at(0).slice(0, 19).replace("T", " ")
                 : new Date(
                     new Date().setTime(
