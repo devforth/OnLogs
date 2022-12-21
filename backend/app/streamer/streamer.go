@@ -46,7 +46,7 @@ func checkConnections() { // TODO improve
 			vars.Connections[container] = newConnectionsList
 			newConnectionsList = []websocket.Conn{}
 		}
-		time.Sleep(5 * time.Minute)
+		time.Sleep(20 * time.Second)
 	}
 }
 
@@ -63,7 +63,7 @@ func StreamLogs() {
 				go daemon.CreateDaemonToDBStream(container)
 			}
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(20 * time.Second)
 		containers = daemon.GetContainersList()
 		vars.All_Containers = containers
 	}
