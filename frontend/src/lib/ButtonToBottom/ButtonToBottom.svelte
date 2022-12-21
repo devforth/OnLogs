@@ -2,14 +2,7 @@
   import { onMount } from "svelte";
   export let ico = "";
   export let callBack = () => {};
-  onMount(() => {
-    setTimeout(() => {
-      console.dir(
-        document.querySelector(".buttonToBottomContainer").parentElement
-          .scrollTop
-      );
-    }, 4000);
-  });
+
   function scrollToBottom() {
     const el = document.querySelector("#endOfScroll");
     console.log(el);

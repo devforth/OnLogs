@@ -13,11 +13,15 @@
   let startWith = "";
 
   let searchText = "";
+  let searchOffset = 0;
   let offset = 0,
     logLinesCount = 30,
     oldScrollHeight = 0;
   let allLogs = [],
     tmpLogs = allLogs;
+  let searchLogs = [];
+  $: tmpSearchLogs = searchLogs;
+
   let webSocket = undefined;
   let isLogsUpdating = false,
     isUploading = false;
@@ -25,6 +29,23 @@
   const api = new fetchApi();
   $: logString = undefined;
   $: logsDiv = undefined;
+  $: {
+    (async () => {
+      if (searchText !== "") {
+        searchLogs = [];
+        searchOffset = 0;
+        startWith = "";
+        const data = await getLogsWithSearch(
+          $lastChosenService,
+          searchText,
+          logLinesCount,
+          0,
+          !$store.caseInSensitive
+        );
+        simpleScrollToBottom();
+      }
+    })();
+  }
 
   afterUpdate(() => {
     scrollToBottom();
@@ -91,11 +112,21 @@
     const userScrolledToSpecificLoc =
       logsCont.scrollHeight - logsCont.scrollTop - logsCont.clientHeight >
       SCROLL_FINAL_GAP_PX;
+
     if (!userScrolledToSpecificLoc) {
       setTimeout(() => {
         logsCont.scrollTop = logsCont.scrollHeight - logsCont.clientHeight;
         oldScrollHeight = logsCont.scrollHeight;
       });
+    }
+  }
+
+  function simpleScrollToBottom() {
+    const el = document.querySelector("#endOfLogs");
+    if (!el) {
+      return;
+    } else {
+      el.scrollIntoView({ behavior: "smooth" });
     }
   }
 
@@ -108,13 +139,26 @@
   ) {
     isUploading = true;
     const newLogs = (
-      await api.getLogs(service, search, limit, offset, caseSens, startWith)
+      await api.getLogs(service, search, limit, offset)
     ).reverse();
     startWith = newLogs?.at(0).at(0);
     offset += newLogs.length;
     isUploading = false;
     allLogs = [...newLogs, ...allLogs];
-    console.log(allLogs);
+    console.log(allLogs, "alllogs");
+    return newLogs;
+  }
+  async function getLogsWithSearch(serv, search, limit, offset, caseSenset) {
+    isUploading = true;
+    const newLogs = (
+      await api.getLogs(serv, search, limit, offset, caseSenset, startWith)
+    ).reverse();
+    startWith = newLogs?.at(0)?.at(0);
+    searchOffset += newLogs.length;
+    isUploading = false;
+
+    searchLogs = [...newLogs, ...searchLogs];
+
     return newLogs;
   }
 
@@ -132,16 +176,31 @@
       $lastChosenService,
       "",
       logLinesCount,
-      offset,
-      !$store.caseInSensitive
+      offset
     );
     offset += newLogs.length;
     tmpLogs = allLogs;
     webSocket = new WebSocket(`${api.wsUrl}getLogsStream?id=${service}`); // maybe should move to fetch
     webSocket.onmessage = (event) => {
       if (event.data !== "PING") {
+        const logfromWS = JSON.parse(event.data);
+        allLogs.push(logfromWS);
         offset++;
-        allLogs.push(JSON.parse(event.data));
+        if (!$store.caseInSensitive) {
+          if (searchText !== "" && logfromWS[1].includes(searchText)) {
+            searchLogs = [...searchLogs, logfromWS];
+            searchOffset++;
+          }
+        } else {
+          if (
+            searchText !== "" &&
+            logfromWS[1].toLowerCase().includes(searchText.toLowerCase())
+          ) {
+            searchLogs = [...searchLogs, logfromWS];
+            searchOffset++;
+            console.log(tmpSearchLogs), "tmp";
+          }
+        }
 
         tmpLogs = allLogs;
         scrollToBottom();
@@ -178,20 +237,33 @@
       isLogsUpdating = true;
       oldScrollHeight = logsDiv.scrollHeight;
       tmpLogs = allLogs;
-      const newLogs = await getLogs(
-        $lastChosenService,
-        searchText,
-        logLinesCount,
-        offset,
-        !$store.caseInSensitive
-      );
-      offset += newLogs.length;
-      setTimeout(() => {
-        logsDiv.scrollTop = logsDiv.scrollHeight - oldScrollHeight;
-        isLogsUpdating = false;
-      });
-      tmpLogs = allLogs;
-      console.log("scroll");
+      if (searchText.length === 0) {
+        const newLogs = await getLogs(
+          $lastChosenService,
+          searchText,
+          logLinesCount,
+          offset
+        );
+        offset += newLogs.length;
+        setTimeout(() => {
+          logsDiv.scrollTop = logsDiv.scrollHeight - oldScrollHeight;
+          isLogsUpdating = false;
+        });
+        tmpLogs = allLogs;
+      } else {
+        const newLogs = await getLogsWithSearch(
+          $lastChosenService,
+          searchText,
+          logLinesCount,
+          searchOffset,
+          !$store.caseInSensitive
+        );
+
+        setTimeout(() => {
+          logsDiv.scrollTop = logsDiv.scrollHeight - oldScrollHeight;
+          isLogsUpdating = false;
+        });
+      }
     }
   }}
 >
@@ -220,26 +292,26 @@
         {/await}
       {:else}
         <!-- svelte-ignore empty-block -->
-        {#await getLogs($lastChosenService, searchText, logLinesCount, 0, !$store.caseInSensitive) then logs}
-          {#each logs as logItem}
-            <LogsString
-              bind:this={logString}
-              time={$store.UTCtime
-                ? logItem.at(0).slice(0, 19).replace("T", " ")
-                : new Date(
-                    new Date().setTime(
-                      new Date(
-                        logItem.at(0).slice(0, 19).replace("T", " ")
-                      ).getTime() -
-                        timezoneOffsetSec * 1000
-                    )
-                  ).toLocaleString("sv-SE")}
-              message={logItem.at(1)}
-              status={getLogLineStatus(logItem.at(1))}
-            />
-          {/each}
-        {/await}
+
+        {#each tmpSearchLogs as logItem}
+          <LogsString
+            bind:this={logString}
+            time={$store.UTCtime
+              ? logItem.at(0).slice(0, 19).replace("T", " ")
+              : new Date(
+                  new Date().setTime(
+                    new Date(
+                      logItem.at(0).slice(0, 19).replace("T", " ")
+                    ).getTime() -
+                      timezoneOffsetSec * 1000
+                  )
+                ).toLocaleString("sv-SE")}
+            message={logItem.at(1)}
+            status={getLogLineStatus(logItem.at(1))}
+          />
+        {/each}
       {/if}
+      <div id={"endOfLogs"} />
     </table>
     {#if buttonToBottomIsVisible}
       <ButtonToBottom ico={"Down"} />
