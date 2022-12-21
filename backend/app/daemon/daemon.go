@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
+	"net"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/tv42/httpunix"
 )
 
 func createLogMessage(db *leveldb.DB, message string) {
@@ -30,22 +29,27 @@ func putLogMessage(db *leveldb.DB, message string) {
 // creates stream that writes logs from every docker container to leveldb
 func CreateDaemonToDBStream(containerName string) {
 	db := vars.ActiveDBs[containerName]
-	unix := &httpunix.Transport{
-		DialTimeout:           100 * time.Millisecond,
-		RequestTimeout:        1 * time.Second,
-		ResponseHeaderTimeout: 1 * time.Second,
-	}
-	unix.RegisterLocation("daemon", "/var/run/docker.sock")
-	var client = http.Client{Transport: unix}
-	resp, _ := client.Get(
-		"http+unix://daemon/containers/" + containerName + "/logs?stdout=true&stderr=true&timestamps=true&follow=true&since=" + strconv.FormatInt(time.Now().Unix(), 10),
+	connection, _ := net.Dial("unix", "/var/run/docker.sock")
+	fmt.Fprintf(
+		connection,
+		"GET /containers/"+containerName+"/logs?stdout=true&stderr=true&timestamps=true&follow=true&since="+strconv.FormatInt(time.Now().Unix(), 10)+" HTTP/1.0\r\n\r\n",
 	)
+
 	createLogMessage(db, "ONLOGS: Container listening started!")
 
-	reader := bufio.NewReader(resp.Body)
+	reader := bufio.NewReader(connection)
 	lastSleep := time.Now().Unix()
 	defer db.Close()
-	for {
+
+	for { // reading resp header
+		tmp, _ := reader.ReadString('\n')
+		if tmp[:len(tmp)-2] == "" {
+			tmp, _ = reader.ReadString('\n')
+			break
+		}
+	}
+
+	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n')
 		if get_string_error != nil {
 			newDaemonStreams := []string{}
@@ -78,28 +82,22 @@ func CreateDaemonToDBStream(containerName string) {
 
 // make request to docker socket
 func makeSocketRequest(path string) []byte {
-	unix := &httpunix.Transport{
-		DialTimeout:           100 * time.Millisecond,
-		RequestTimeout:        1 * time.Second,
-		ResponseHeaderTimeout: 1 * time.Second,
-	}
-	unix.RegisterLocation("daemon", "/var/run/docker.sock")
-	var client = http.Client{
-		Transport: unix,
-	}
+	connection, _ := net.Dial("unix", "/var/run/docker.sock")
+	fmt.Fprintf(connection, "GET /"+path+" HTTP/1.0\r\n\r\n")
 
-	resp, _ := client.Get("http+unix://daemon/" + path)
-	body, _ := ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
+	body, _ := ioutil.ReadAll(connection)
 
+	connection.Close()
 	return body
 }
 
 // returns list of names of docker containers from docker daemon
 func GetContainersList() []string {
-	body := makeSocketRequest("containers/json")
 	var result []map[string]any
-	json.Unmarshal(body, &result)
+
+	body := string(makeSocketRequest("containers/json"))
+	body = strings.Split(body, "\r\n\r\n")[1]
+	json.Unmarshal([]byte(body), &result)
 
 	var names []string
 	for i := 0; i < len(result); i++ {
