@@ -63,7 +63,7 @@ func StreamLogs() {
 				go daemon.CreateDaemonToDBStream(container)
 			}
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(10 * time.Second)
 		containers = daemon.GetContainersList()
 		vars.All_Containers = containers
 	}

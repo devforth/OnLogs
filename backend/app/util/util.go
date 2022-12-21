@@ -14,25 +14,6 @@ import (
 func RemoveOldFiles() {
 	// os.RemoveAll("leveldb") // may cause crashes
 	// os.RemoveAll("onlogsdb")
-	// files, _ := os.ReadDir("logDump")
-	// for _, name := range files {
-	// 	os.RemoveAll("logDump/" + name.Name())
-	// }
-}
-
-func StartLogDumpGarbageCollector() {
-	for {
-		time.Sleep(1 * time.Minute)
-		containersDump, _ := os.ReadDir("logDump")
-		for _, containerDump := range containersDump {
-			dumpFiles, _ := os.ReadDir(containerDump.Name())
-			for _, dumpFile := range dumpFiles {
-				if strings.HasSuffix(dumpFile.Name(), ".bad") {
-					go os.Remove("logDump/" + containerDump.Name() + "/" + dumpFile.Name())
-				}
-			}
-		}
-	}
 }
 
 func CreateInitUser() {
