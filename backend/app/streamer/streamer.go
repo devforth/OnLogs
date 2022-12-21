@@ -28,7 +28,7 @@ func messageHandler(connection websocket.Conn, gotPong *bool) {
 
 func checkConnections() { // TODO improve
 	for {
-		for container, _ := range vars.Connections {
+		for container := range vars.Connections {
 			newConnectionsList := []websocket.Conn{}
 			for connectionIdx, connection := range vars.Connections[container] {
 				gotPong := false
