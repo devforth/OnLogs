@@ -26,7 +26,6 @@ frontend/.gitignore
 *.sw?
 
 backend/leveldb
-backend/onlogsdb
 backend/.gitignore
 
 README.md
