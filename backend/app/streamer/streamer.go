@@ -35,7 +35,7 @@ func checkConnections() { // TODO improve
 
 				connection.WriteMessage(1, []byte("PING"))
 				go messageHandler(connection, &gotPong)
-				time.Sleep(5 * time.Second)
+				time.Sleep(1 * time.Minute)
 
 				if !gotPong {
 					newConnectionsList = append(vars.Connections[container][:connectionIdx], vars.Connections[container][connectionIdx+1:]...)
@@ -46,7 +46,7 @@ func checkConnections() { // TODO improve
 			vars.Connections[container] = newConnectionsList
 			newConnectionsList = []websocket.Conn{}
 		}
-		time.Sleep(20 * time.Second)
+		time.Sleep(3 * time.Minute)
 	}
 }
 
