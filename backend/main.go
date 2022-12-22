@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	util.RemoveOldFiles()
+	// os.RemoveAll("leveldb")
 	godotenv.Load(".env")
 	util.CreateInitUser()
 	go streamer.StreamLogs()

@@ -57,7 +57,7 @@ func StreamLogs() {
 	for {
 		for _, container := range containers {
 			if !contains(container, vars.Active_Daemon_Streams) {
-				newDB, _ := leveldb.OpenFile("leveldb/"+container, nil)
+				newDB, _ := leveldb.OpenFile("/leveldb/logs"+container, nil)
 				vars.ActiveDBs[container] = newDB
 				vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
 				go daemon.CreateDaemonToDBStream(container)

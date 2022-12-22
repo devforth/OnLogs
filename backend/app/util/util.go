@@ -11,11 +11,6 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
-func RemoveOldFiles() {
-	// os.RemoveAll("leveldb") // may cause crashes
-	// os.RemoveAll("onlogsdb")
-}
-
 func CreateInitUser() {
 	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
 }
