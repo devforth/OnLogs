@@ -4,7 +4,7 @@ Light docker logs listener that makes easier to debug your containers
 
 ## docker-compose.yml example
 ```
-  example_onlogs:
+  onlogs:
     image: devforth/onlogs
     restart: always
     environment:
@@ -15,8 +15,8 @@ Light docker logs listener that makes easier to debug your containers
       - <any port>:<any port>
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.example_onlogs.rule=(Host(`your.host.name`)"
-      - "traefik.http.services.example_onlogs.loadbalancer.server.port=<any port>"
+      - "traefik.http.routers.onlogs.rule=Host(`<any host name>`)"
+      - "traefik.http.services.onlogs.loadbalancer.server.port=<any port>"
     volumes:
      - /var/run/docker.sock:/var/run/docker.sock
      - /etc/hostname:/etc/hostname
