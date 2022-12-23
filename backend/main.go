@@ -14,21 +14,29 @@ import (
 func main() {
 	// os.RemoveAll("leveldb")
 	godotenv.Load(".env")
-	util.CreateInitUser()
 	go streamer.StreamLogs()
 
-	http.HandleFunc("/", routes.RouteFrontend)
+	isClient := os.Getenv("CLIENT")
+	if isClient != "" {
+		http.HandleFunc("/api/v1/getHost", routes.GetHosts)
+		http.HandleFunc("/api/v1/getLogs", routes.GetLogs)
+		http.HandleFunc("/api/v1/getLogsStream", routes.GetLogsStream)
+	} else {
+		util.CreateInitUser()
+		util.CreateInitHost()
 
-	http.HandleFunc("/api/v1/checkCookie", routes.RouteCheckCookie)
-	http.HandleFunc("/api/v1/getLogsStream", routes.RouteGetLogsStream)
-	http.HandleFunc("/api/v1/getHost", routes.RouteGetHost)
-	http.HandleFunc("/api/v1/getLogs", routes.RouteGetLogs)
-	http.HandleFunc("/api/v1/login", routes.RouteLogin)
-	http.HandleFunc("/api/v1/logout", routes.RouteLogout)
-	http.HandleFunc("/api/v1/createUser", routes.RouteCreateUser)
-	http.HandleFunc("/api/v1/getUsers", routes.RouteGetUsers)
-	http.HandleFunc("/api/v1/editUser", routes.RouteEditUser)
-	http.HandleFunc("/api/v1/deleteUser", routes.RouteDeleteUser)
-
+		http.HandleFunc("/", routes.Frontend)
+		http.HandleFunc("/api/v1/checkCookie", routes.CheckCookie)
+		http.HandleFunc("/api/v1/getLogsStream", routes.GetLogsStream)
+		http.HandleFunc("/api/v1/addHost", routes.AddHost)
+		http.HandleFunc("/api/v1/getHosts", routes.GetHosts)
+		http.HandleFunc("/api/v1/getLogs", routes.GetLogs)
+		http.HandleFunc("/api/v1/login", routes.Login)
+		http.HandleFunc("/api/v1/logout", routes.Logout)
+		http.HandleFunc("/api/v1/createUser", routes.CreateUser)
+		http.HandleFunc("/api/v1/getUsers", routes.GetUsers)
+		http.HandleFunc("/api/v1/editUser", routes.EditUser)
+		http.HandleFunc("/api/v1/deleteUser", routes.DeleteUser)
+	}
 	fmt.Println("ONLOGS: ", http.ListenAndServe(":"+string(os.Getenv("PORT")), nil))
 }

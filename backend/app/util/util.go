@@ -2,6 +2,7 @@ package util
 
 import (
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -11,8 +12,32 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
+func Contains(a string, list []string) bool {
+	for _, b := range list {
+		if strings.Compare(b, a) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func CreateInitUser() {
 	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
+}
+
+func CreateInitHost() {
+	_, err := ioutil.ReadFile("leveldb/hosts/hostsList")
+	if err != nil {
+		os.MkdirAll("leveldb/hosts", 0700)
+		hostname, err := os.ReadFile("/etc/hostname")
+		var host string
+		if err != nil {
+			host, _ = os.Hostname()
+		} else {
+			host = string(hostname)
+		}
+		os.WriteFile("leveldb/hosts/hostsList", []byte(host+"\n"), 0777)
+	}
 }
 
 func CreateJWT(login string) string {

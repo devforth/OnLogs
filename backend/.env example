@@ -1,4 +1,8 @@
-PASSWORD=fdnbvgadkus
-JWT_SECRET=asdgasdgsdfgsehqgWEV
+PASSWORD=fsadfsadfad
+JWT_SECRET=fasdfasdfasdfasd
 ENV_NAME = local
 PORT=2874
+
+# HOST=onlogs.coposter.me
+# CLIENT=true
+ONLOGS_TOKEN=NDBYGFI7OLfgvuDgvoD98
