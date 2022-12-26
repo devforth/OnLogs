@@ -54,7 +54,7 @@ class fetchApi {
   }
 
   async getHosts() {
-    return await this.doFetch("GET", `${this.url}getHost`);
+    return await this.doFetch("GET", `${this.url}getHosts`);
   }
 
   async getLogs(
