@@ -18,6 +18,8 @@ func main() {
 
 	isClient := os.Getenv("CLIENT")
 	if isClient != "" {
+		util.SendInitRequest()
+
 		http.HandleFunc("/api/v1/getHost", routes.GetHosts)
 		http.HandleFunc("/api/v1/getLogs", routes.GetLogs)
 		http.HandleFunc("/api/v1/getLogsStream", routes.GetLogsStream)
@@ -38,5 +40,6 @@ func main() {
 		http.HandleFunc("/api/v1/editUser", routes.EditUser)
 		http.HandleFunc("/api/v1/deleteUser", routes.DeleteUser)
 	}
+
 	fmt.Println("ONLOGS: ", http.ListenAndServe(":"+string(os.Getenv("PORT")), nil))
 }
