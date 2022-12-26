@@ -1,6 +1,8 @@
 package util
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -25,18 +27,28 @@ func CreateInitUser() {
 	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
 }
 
+func SendInitRequest() {
+	postBody, _ := json.Marshal(map[string]string{
+		"Hostname": GetHost(),
+		"Token":    os.Getenv("ONLOGS_TOKEN"),
+	})
+	responseBody := bytes.NewBuffer(postBody)
+
+	resp, err := http.Post("https://"+os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
+	if err != nil {
+		panic("ERROR: Can't send request to host!\n" + err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		panic("ERROR: Response status from host is " + resp.Status) // TODO: Improve text with host response body
+	}
+}
+
 func CreateInitHost() {
 	_, err := ioutil.ReadFile("leveldb/hosts/hostsList")
 	if err != nil {
 		os.MkdirAll("leveldb/hosts", 0700)
-		hostname, err := os.ReadFile("/etc/hostname")
-		var host string
-		if err != nil {
-			host, _ = os.Hostname()
-		} else {
-			host = string(hostname)
-		}
-		os.WriteFile("leveldb/hosts/hostsList", []byte(host+"\n"), 0777)
+		os.WriteFile("leveldb/hosts/hostsList", []byte(GetHost()+"\n"), 0777)
 	}
 }
 
@@ -49,6 +61,17 @@ func CreateJWT(login string) string {
 	tokenString, _ := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
 	return tokenString
+}
+
+func GetHost() string {
+	hostname, err := os.ReadFile("/etc/hostname")
+	var host string
+	if err != nil {
+		host, _ = os.Hostname()
+	} else {
+		host = string(hostname)
+	}
+	return host
 }
 
 func GetUserFromJWT(req http.Request) (string, error) {
