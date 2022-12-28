@@ -1,7 +1,11 @@
 <script>
   import fetchApi from "../../utils/fetch";
   import { navigate } from "svelte-routing";
-  import { userMenuOpen, theme } from "../../Stores/stores.js";
+  import {
+    userMenuOpen,
+    theme,
+    activeMenuOption,
+  } from "../../Stores/stores.js";
   import { onDestroy } from "svelte";
 
   let localTheme = "";
@@ -13,6 +17,7 @@
   //store management
   function toggleUserMenu() {
     userMenuOpen.update((v) => !v);
+    activeMenuOption.set("user");
 
     navigate("/users", { replace: true });
   }
@@ -27,6 +32,10 @@
       }
     });
   }
+  function goToHome() {
+    navigate("/", { replace: true });
+    activeMenuOption.set("home");
+  }
 
   const unsubscribe = theme.subscribe((v) => {
     localTheme = v;
@@ -36,10 +45,23 @@
 
 <div class="clientPanel">
   <ul class="clientPanelOptionsList">
-    <li on:click={toggleUserMenu}>
-      <i class="log log-User" />
+    <li on:click={goToHome} class={$activeMenuOption === "home" && "active"}>
+      <i class="log log-Home " />
+      <div
+        class="higlightedOverlay {$activeMenuOption === 'home' && 'active'}"
+      />
     </li>
-    <li>
+    <li
+      on:click={toggleUserMenu}
+      class={$activeMenuOption === "user" && "active"}
+    >
+      <i class="log log-User" />
+      <div
+        class="higlightedOverlay {$activeMenuOption === 'user' && 'active'}"
+      />
+    </li>
+
+    <li class={$activeMenuOption === "wheel" && "active"}>
       <i class="log log-Wheel" />
     </li>
     <li on:click={toggleTheme}>

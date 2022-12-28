@@ -106,7 +106,24 @@
       }
     }
   }
+  div.clientPanel {
+    li {
+      &:hover {
+        opacity: 0.8;
+      }
+      &.active i {
+        color: $active-color-dark;
+      }
+
+      .higlightedOverlay.active {
+        &.active {
+          border-bottom: 9px solid $active-color-dark;
+        }
+      }
+    }
+  }
 }
+
 .dark-mode {
   @include dark-mode;
 }

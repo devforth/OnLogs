@@ -136,15 +136,14 @@
                     on:click={() => {
                       setChosenUserLogin(user);
                       showUserDeleting();
-                    }}
-                    ><Button title={"Remove"} minWidth={86} highlighted /></span
+                    }}><Button title={"Remove"} minWidth={86} /></span
                   >
                   <span
                     class="buttonSpan"
                     on:click={() => {
                       setChosenUserLogin(user);
                       showUserEditing();
-                    }}><Button title={"Edit"} minWidth={86} highlighted /></span
+                    }}><Button title={"Edit"} minWidth={86} /></span
                   ></span
                 ></td
               ></tr

@@ -6,7 +6,11 @@
   import Button from "../../lib/Button/Button.svelte";
   import fetchApi from "../../utils/fetch";
   import ClientPanel from "../../lib/ClientPanel/ClientPanel.svelte";
-  import { userMenuOpen, addUserModalOpen } from "@/Stores/stores.js";
+  import {
+    userMenuOpen,
+    addUserModalOpen,
+    activeMenuOption,
+  } from "@/Stores/stores.js";
   import UserMenu from "@/lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
@@ -98,6 +102,7 @@
               navigate(`/view/${$lastChosenHost}/${$lastChosenService}`, {
                 replace: true,
               });
+              activeMenuOption.set("home");
             }}
           >
             onLogs
