@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?d6ce7be8c88ce24cdbff1ed3554248cf?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?d6ce7be8c88ce24cdbff1ed3554248cf") format("woff2"),
-url("onLogsFont.woff?d6ce7be8c88ce24cdbff1ed3554248cf") format("woff"),
-url("onLogsFont.ttf?d6ce7be8c88ce24cdbff1ed3554248cf") format("truetype"),
-url("onLogsFont.svg?d6ce7be8c88ce24cdbff1ed3554248cf#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?b5ee971267c0309cb1a5bcde8257f272?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?b5ee971267c0309cb1a5bcde8257f272") format("woff2"),
+url("onLogsFont.woff?b5ee971267c0309cb1a5bcde8257f272") format("woff"),
+url("onLogsFont.ttf?b5ee971267c0309cb1a5bcde8257f272") format("truetype"),
+url("onLogsFont.svg?b5ee971267c0309cb1a5bcde8257f272#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -65,42 +65,45 @@ url("onLogsFont.svg?d6ce7be8c88ce24cdbff1ed3554248cf#onLogsFont") format("svg");
 .log-Group:before {
 	content: "\f10e";
 }
-.log-Info:before {
+.log-Home:before {
 	content: "\f10f";
 }
-.log-Last:before {
+.log-Info:before {
 	content: "\f110";
 }
-.log-Leters:before {
+.log-Last:before {
 	content: "\f111";
 }
-.log-Logout:before {
+.log-Leters:before {
 	content: "\f112";
 }
-.log-Moon:before {
+.log-Logout:before {
 	content: "\f113";
 }
-.log-Pencil:before {
+.log-Moon:before {
 	content: "\f114";
 }
-.log-Plus:before {
+.log-Pencil:before {
 	content: "\f115";
 }
-.log-Refresh:before {
+.log-Plus:before {
 	content: "\f116";
 }
-.log-Search:before {
+.log-Refresh:before {
 	content: "\f117";
 }
-.log-Server:before {
+.log-Search:before {
 	content: "\f118";
 }
-.log-Sun:before {
+.log-Server:before {
 	content: "\f119";
 }
-.log-User:before {
+.log-Sun:before {
 	content: "\f11a";
 }
-.log-Wheel:before {
+.log-User:before {
 	content: "\f11b";
+}
+.log-Wheel:before {
+	content: "\f11c";
 }
