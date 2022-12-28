@@ -1,23 +1,14 @@
 package streamer
 
 import (
-	"strings"
 	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
+	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
 )
-
-func contains(a string, list []string) bool {
-	for _, b := range list {
-		if strings.Compare(b, a) == 0 {
-			return true
-		}
-	}
-	return false
-}
 
 func messageHandler(connection websocket.Conn, gotPong *bool) {
 	_, m, _ := connection.ReadMessage()
@@ -28,14 +19,14 @@ func messageHandler(connection websocket.Conn, gotPong *bool) {
 
 func checkConnections() { // TODO improve
 	for {
-		for container, _ := range vars.Connections {
+		for container := range vars.Connections {
 			newConnectionsList := []websocket.Conn{}
 			for connectionIdx, connection := range vars.Connections[container] {
 				gotPong := false
 
 				connection.WriteMessage(1, []byte("PING"))
 				go messageHandler(connection, &gotPong)
-				time.Sleep(5 * time.Second)
+				time.Sleep(1 * time.Minute)
 
 				if !gotPong {
 					newConnectionsList = append(vars.Connections[container][:connectionIdx], vars.Connections[container][connectionIdx+1:]...)
@@ -46,7 +37,7 @@ func checkConnections() { // TODO improve
 			vars.Connections[container] = newConnectionsList
 			newConnectionsList = []websocket.Conn{}
 		}
-		time.Sleep(5 * time.Minute)
+		time.Sleep(3 * time.Minute)
 	}
 }
 
@@ -56,14 +47,14 @@ func StreamLogs() {
 	go checkConnections()
 	for {
 		for _, container := range containers {
-			if !contains(container, vars.Active_Daemon_Streams) {
-				newDB, _ := leveldb.OpenFile("leveldb/"+container, nil)
+			if !util.Contains(container, vars.Active_Daemon_Streams) {
+				newDB, _ := leveldb.OpenFile("leveldb/logs/"+container, nil)
 				vars.ActiveDBs[container] = newDB
 				vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
 				go daemon.CreateDaemonToDBStream(container)
 			}
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(20 * time.Second)
 		containers = daemon.GetContainersList()
 		vars.All_Containers = containers
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
@@ -58,6 +59,13 @@ func verifyUser(w *http.ResponseWriter, req *http.Request) bool {
 	return true
 }
 
+func verifyOnlogsToken(token string) bool {
+	if token == os.Getenv("ONLOGS_TOKEN") {
+		return true
+	}
+	return true
+}
+
 func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
 	enableCors(w)
 	if req.Method == "OPTIONS" {
@@ -67,7 +75,7 @@ func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
 	return false
 }
 
-func RouteFrontend(w http.ResponseWriter, req *http.Request) {
+func Frontend(w http.ResponseWriter, req *http.Request) {
 	requestedPath := req.URL.String()
 	dirPath, fileName := filepath.Split(requestedPath)
 	if fileName == "" {
@@ -95,32 +103,81 @@ func RouteFrontend(w http.ResponseWriter, req *http.Request) {
 	http.ServeContent(w, req, requestedPath, stat.ModTime(), bytes.NewReader(content))
 }
 
-func RouteCheckCookie(w http.ResponseWriter, req *http.Request) {
+func CheckCookie(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func RouteGetHost(w http.ResponseWriter, req *http.Request) {
+func AddHost(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) {
+		return
+	}
+
+	if req.Method != "POST" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	var addReq struct {
+		Hostname string
+		Token    string
+	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&addReq)
+
+	if !verifyOnlogsToken(addReq.Token) {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	fileContent, err := ioutil.ReadFile("leveldb/hosts/hostsList")
+	fmt.Println(fileContent)
+	if err != nil {
+		os.MkdirAll("leveldb/hosts", 0700)
+		os.WriteFile("leveldb/hosts/hostsList", []byte(req.RemoteAddr+"\n"), 0777)
+		return
+	} else {
+		if util.Contains(req.RemoteAddr, strings.Split(string(fileContent), "\n")) {
+			return
+		}
+	}
+
+	os.WriteFile("leveldb/hosts/hostsList", []byte(string(fileContent)+req.RemoteAddr+"\n"), 0777)
+}
+
+func GetHosts(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
 
-	var host string
-	hostname, err := os.ReadFile("/etc/hostname")
+	fileContent, err := ioutil.ReadFile("leveldb/hosts/hostsList")
 	if err != nil {
-		host, _ = os.Hostname()
-	} else {
-		host = string(hostname)
+		util.CreateInitHost()
+		fileContent, _ = ioutil.ReadFile("leveldb/hosts/hostsList")
+	}
+	hosts := strings.Split(string(fileContent), "\n")
+	var to_return []vars.HostsList
+
+	for _, host := range hosts {
+		resp, err := http.Get(host + "/api/v1/getHost")
+		if err == nil {
+			var result vars.HostsList
+			json.NewDecoder(resp.Body).Decode(&result)
+			to_return = append(to_return, result)
+		} else {
+			fmt.Println("ERROR: ", err)
+		}
 	}
 
-	to_return := &vars.HostsList{Host: host, Services: vars.All_Containers}
+	host := util.GetHost()
+	to_return = append(to_return, vars.HostsList{Host: host, Services: vars.All_Containers})
 	e, _ := json.Marshal(to_return)
 	w.Write(e)
 }
 
-func RouteGetLogs(w http.ResponseWriter, req *http.Request) {
+func GetLogs(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -135,7 +192,7 @@ func RouteGetLogs(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(db.GetLogs(params.Get("id"), params.Get("search"), limit, offset, params.Get("startWith"), caseSensetive))
 }
 
-func RouteGetLogsStream(w http.ResponseWriter, req *http.Request) {
+func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -158,7 +215,7 @@ func RouteGetLogsStream(w http.ResponseWriter, req *http.Request) {
 	vars.Connections[container] = append(vars.Connections[container], *ws)
 }
 
-func RouteLogin(w http.ResponseWriter, req *http.Request) {
+func Login(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 		return
@@ -190,7 +247,7 @@ func RouteLogin(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func RouteLogout(w http.ResponseWriter, req *http.Request) {
+func Logout(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -205,7 +262,7 @@ func RouteLogout(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func RouteCreateUser(w http.ResponseWriter, req *http.Request) {
+func CreateUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
@@ -227,7 +284,7 @@ func RouteCreateUser(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 }
 
-func RouteGetUsers(w http.ResponseWriter, req *http.Request) {
+func GetUsers(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -236,7 +293,7 @@ func RouteGetUsers(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string][]string{"users": users})
 }
 
-func RouteEditUser(w http.ResponseWriter, req *http.Request) {
+func EditUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
@@ -253,7 +310,7 @@ func RouteEditUser(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func RouteDeleteUser(w http.ResponseWriter, req *http.Request) {
+func DeleteUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
@@ -263,7 +320,9 @@ func RouteDeleteUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var loginData vars.UserLogin
+	var loginData struct {
+		Login string `json:"login"`
+	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&loginData)
 	if loginData.Login == "admin" {

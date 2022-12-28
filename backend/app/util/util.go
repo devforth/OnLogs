@@ -1,7 +1,10 @@
 package util
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -11,32 +14,42 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
-func RemoveOldFiles() {
-	// os.RemoveAll("leveldb") // may cause crashes
-	// os.RemoveAll("onlogsdb")
-	// files, _ := os.ReadDir("logDump")
-	// for _, name := range files {
-	// 	os.RemoveAll("logDump/" + name.Name())
-	// }
-}
-
-func StartLogDumpGarbageCollector() {
-	for {
-		time.Sleep(1 * time.Minute)
-		containersDump, _ := os.ReadDir("logDump")
-		for _, containerDump := range containersDump {
-			dumpFiles, _ := os.ReadDir(containerDump.Name())
-			for _, dumpFile := range dumpFiles {
-				if strings.HasSuffix(dumpFile.Name(), ".bad") {
-					go os.Remove("logDump/" + containerDump.Name() + "/" + dumpFile.Name())
-				}
-			}
+func Contains(a string, list []string) bool {
+	for _, b := range list {
+		if strings.Compare(b, a) == 0 {
+			return true
 		}
 	}
+	return false
 }
 
 func CreateInitUser() {
 	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
+}
+
+func SendInitRequest() {
+	postBody, _ := json.Marshal(map[string]string{
+		"Hostname": GetHost(),
+		"Token":    os.Getenv("ONLOGS_TOKEN"),
+	})
+	responseBody := bytes.NewBuffer(postBody)
+
+	resp, err := http.Post("https://"+os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
+	if err != nil {
+		panic("ERROR: Can't send request to host!\n" + err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		panic("ERROR: Response status from host is " + resp.Status) // TODO: Improve text with host response body
+	}
+}
+
+func CreateInitHost() {
+	_, err := ioutil.ReadFile("leveldb/hosts/hostsList")
+	if err != nil {
+		os.MkdirAll("leveldb/hosts", 0700)
+		os.WriteFile("leveldb/hosts/hostsList", []byte(GetHost()+"\n"), 0777)
+	}
 }
 
 func CreateJWT(login string) string {
@@ -48,6 +61,17 @@ func CreateJWT(login string) string {
 	tokenString, _ := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
 	return tokenString
+}
+
+func GetHost() string {
+	hostname, err := os.ReadFile("/etc/hostname")
+	var host string
+	if err != nil {
+		host, _ = os.Hostname()
+	} else {
+		host = string(hostname)
+	}
+	return host
 }
 
 func GetUserFromJWT(req http.Request) (string, error) {

@@ -7,7 +7,6 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/joho/godotenv v1.4.0
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/tv42/httpunix v0.0.0-20191220191345-2ba4b9c3382c
 )
 
 require (
