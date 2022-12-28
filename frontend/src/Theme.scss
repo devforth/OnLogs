@@ -21,7 +21,7 @@
   }
   .button {
     background-color: $btn-primary-color-dark;
-    color: $text-dark-color-dark;
+    color: $active-color-dark;
   }
   .logsString {
     border-color: $lines-color-dark;
@@ -29,7 +29,7 @@
   input {
     background-color: $btn-primary-color-dark;
     border-color: $text-placeholder-color-dark;
-    color: $text-dark-color-dark;
+    color: $active-color-dark;
     &:focus {
       border-color: $active-color-dark;
     }
@@ -55,7 +55,7 @@
       outline: none;
       background-color: $btn-primary-color-dark;
       border-color: $text-placeholder-color-dark;
-      color: $text-dark-color-dark;
+      color: $active-color-dark;
       &:focus {
         border-color: $active-color-dark;
       }
@@ -73,7 +73,7 @@
       outline: none;
       background-color: $btn-primary-color-dark;
       border-color: $text-placeholder-color-dark;
-      color: $text-dark-color-dark;
+      color: $active-color-dark;
       &:focus {
         border-color: $active-color-dark;
       }
@@ -86,13 +86,25 @@
     .icoContainer {
       font-size: 14px;
       z-index: 4;
-      color: $text-onactive-color-dark;
+      color: white;
     }
   }
 
   .toastContainer {
-    background-color: $background-color;
+    background-color: $background-color-dark;
     box-shadow: $main-shadow-dark;
+  }
+  .searchIcoContainer {
+    color: $active-color-dark;
+  }
+  .textContainer {
+    .linksContainer {
+      p {
+        &:hover {
+          color: $active-color-dark;
+        }
+      }
+    }
   }
 }
 .dark-mode {

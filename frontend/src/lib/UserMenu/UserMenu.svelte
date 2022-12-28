@@ -57,7 +57,6 @@
 
   async function removeUser(login) {
     const data = await api.removeUser(login);
-    console.log($toastIsVisible);
 
     if (!data.error) {
       usersList = usersList.filter((u) => {

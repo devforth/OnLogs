@@ -12,7 +12,11 @@
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
   import { navigate } from "svelte-routing";
   import { onMount, onDestroy } from "svelte";
-  import { lastChosenHost, lastChosenService } from "../../Stores/stores";
+  import {
+    lastChosenHost,
+    lastChosenService,
+    theme,
+  } from "../../Stores/stores";
   import ListWithChoise from "../../lib/ListWithChoise/ListWithChoise.svelte";
   import CommonList from "../../lib/CommonList/CommonList.svelte";
 
@@ -86,7 +90,7 @@
 
 <div class="contentContainer">
   <div class="subContainerLeft subContainer">
-    <Container highlighted minHeightVh={79.3}>
+    <Container highlighted={$theme !== "dark"} minHeightVh={79.3}>
       <div class="onLogsPanel">
         <div class="onLogsPanelHeader">
           <h1

@@ -5,6 +5,7 @@
   import { theme } from "./Stores/stores.js";
   import { onMount, onDestroy } from "svelte";
   import Toast from "./lib/Toast/Toast.svelte";
+  import Notfound from "./lib/NotFound/Notfound.svelte";
   export let url = "";
   let themeState = "dark";
   const unsubscribe = theme.subscribe((v) => {
@@ -36,6 +37,7 @@
     <Route path="view/:host/:service" component={Main} />
     <Route path="login" component={Login} />
     <Route path="users" component={Main} />
+    <Route component={Notfound} />
 
     <Route path="/"><Main /></Route>
   </div>

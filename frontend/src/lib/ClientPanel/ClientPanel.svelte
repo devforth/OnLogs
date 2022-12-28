@@ -36,17 +36,14 @@
 
 <div class="clientPanel">
   <ul class="clientPanelOptionsList">
-    <li>
-      <i class="log log-User" on:click={toggleUserMenu} />
+    <li on:click={toggleUserMenu}>
+      <i class="log log-User" />
     </li>
     <li>
       <i class="log log-Wheel" />
     </li>
-    <li>
-      <i
-        class="log log-{localTheme === 'dark' ? 'Sun' : 'Moon'}"
-        on:click={toggleTheme}
-      />
+    <li on:click={toggleTheme}>
+      <i class="log log-{localTheme === 'dark' ? 'Sun' : 'Moon'}" />
     </li>
   </ul>
   <!-- <i class="log log-Wheel"/>
