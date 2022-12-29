@@ -1,5 +1,9 @@
 <script>
   import DropDownRow from "./dropDownRow.svelte";
+  import {
+    snipetModalIsVisible,
+    addHostMenuIsVisible,
+  } from "../../Stores/stores.js";
 </script>
 
 <div class="dropDownContainer addHost ">
@@ -21,7 +25,8 @@
         storeValue={""}
         disableCheckbox={true}
         titleCallBack={() => {
-          console.log("click");
+          snipetModalIsVisible.set(true);
+          addHostMenuIsVisible.set(false);
         }}
       />
     </thbody>

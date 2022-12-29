@@ -20,7 +20,6 @@ export const theme = writable("light");
 export const lastChosenHost = writable("");
 export const lastChosenService = writable("");
 
-
 // toast state
 
 export const toast = writable({
@@ -32,4 +31,10 @@ export const toast = writable({
 export const toastIsVisible = writable(false);
 
 // active menu option
-export const activeMenuOption = writable("home")
+export const activeMenuOption = writable("home");
+
+//add host menu
+export const addHostMenuIsVisible = writable(false);
+
+//snippet modal
+export const snipetModalIsVisible = writable(false);

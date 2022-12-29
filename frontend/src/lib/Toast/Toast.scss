@@ -1,37 +1,35 @@
 .toastContainer {
-  width: 250px;
-  height: 120px;
+  width: 200px;
+  height: 100px;
   position: absolute;
-  top: 0;
+  top: 20px;
   left: 50%;
   transform: translate(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  background-color: $background-color;
+
   border-radius: $main-border-radius;
   box-shadow: $main-shadow;
   box-sizing: border-box;
+  z-index: 10;
+  color: #ffffff;
   border: 2px solid;
 
   &.error {
-    color: #ff4242;
-    border-color: #ff4242;
+    background-color: #992c2c;
   }
 
   &.debug {
-    color: #178f15;
-    border-color: #178f15;
+    background-color: #2f912d;
   }
 
   &.warn {
-    color: #ff8a00;
-    border-color: #ff8a00;
+    background-color: #ac681a;
   }
 
   &.info {
-    color: skyblue;
-    border-color: skyblue;
+    background-color: rgb(62, 132, 160);
   }
 
   p {

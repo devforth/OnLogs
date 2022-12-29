@@ -90,6 +90,10 @@ class fetchApi {
     });
   }
 
+  async getSecret() {
+    return await this.doFetch("GET", `${this.url}getSecret`);
+  }
+
   async createUser({ login, password }) {
     return await this.doFetch("POST", `${this.url}createUser`, {
       login,

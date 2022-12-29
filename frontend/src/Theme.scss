@@ -21,17 +21,17 @@
   }
   .button {
     background-color: $btn-primary-color-dark;
-    // color: $active-color-dark;
+    color: $text-onactive-color-dark;
   }
   .logsString {
     border-color: $lines-color-dark;
   }
   input {
-    background-color: $btn-primary-color-dark;
-    border-color: $text-placeholder-color-dark;
+    background-color: $inpun-color-dark;
+    border-color: $inputs-border-color;
     color: $active-color-dark;
     &:focus {
-      border-color: $active-color-dark;
+      border-color: $inputs-border-color;
     }
   }
   div.active {
@@ -53,12 +53,9 @@
     box-shadow: $main-shadow-dark;
     input {
       outline: none;
-      background-color: $btn-primary-color-dark;
-      border-color: $text-placeholder-color-dark;
-      color: $active-color-dark;
-      &:focus {
-        border-color: $active-color-dark;
-      }
+      background-color: $inpun-color-dark;
+      border-color: $inputs-border-color;
+      color: $text-onactive-color-dark;
     }
     label,
     h3 {
@@ -71,12 +68,9 @@
     }
     input {
       outline: none;
-      background-color: $btn-primary-color-dark;
-      border-color: $text-placeholder-color-dark;
-      color: $active-color-dark;
-      &:focus {
-        border-color: $active-color-dark;
-      }
+      background-color: $inpun-color-dark;
+      border-color: $inputs-border-color;
+      color: $text-onactive-color-dark;
     }
   }
 
@@ -91,11 +85,11 @@
   }
 
   .toastContainer {
-    background-color: $background-color-dark;
+    background-color: #797676;
     box-shadow: $main-shadow-dark;
   }
   .searchIcoContainer {
-    color: $active-color-dark;
+    color: $text-onactive-color-dark;
   }
   .textContainer {
     .linksContainer {
@@ -120,6 +114,22 @@
           border-bottom: 9px solid $active-color-dark;
         }
       }
+    }
+  }
+
+  .secretModalContainer {
+    background-color: $block-bg-color-dark;
+
+    .snippetContainer {
+      background-color: $inpun-color-dark;
+
+      pre {
+        color: $text-dark-color-dark;
+      }
+    }
+
+    .secretMoalTitle {
+      color: $text-dark-color-dark;
     }
   }
 }

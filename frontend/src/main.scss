@@ -17,6 +17,7 @@
 @import "./lib/ButtonToBottom/ButtonToBottom.scss";
 @import "./lib/Toast/Toast.scss";
 @import "./lib/NotFound/Notfound.scss";
+@import "./lib/SecretModal/SecretModal.scss";
 body {
   font-family: "Ubuntu", sans-serif;
   background-color: $background-color;
@@ -74,4 +75,14 @@ input {
 
 .clickable {
   cursor: pointer;
+}
+
+.modalOverlay {
+  position: absolute;
+  height: 100%;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+  top: 0;
+  left: 0;
+  z-index: 6;
 }

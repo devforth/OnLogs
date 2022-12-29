@@ -13,6 +13,8 @@
     lastChosenHost,
     lastChosenService,
     theme,
+    snipetModalIsVisible,
+    addHostMenuIsVisible,
   } from "../../Stores/stores.js";
   import UserMenu from "../../lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
@@ -24,6 +26,7 @@
   import CommonList from "../../lib/CommonList/CommonList.svelte";
   import { clickOutside } from "../../lib/OutsideClicker/OutsideClicker.js";
   import DropDownAddHost from "../../lib/DropDown/DropDownAddHost.svelte";
+  import SecretModal from "../../lib/SecretModal/SecretModal.svelte";
 
   let api = new fetchApi();
   let hostList = [];
@@ -33,7 +36,7 @@
   let addUserModOpen = false;
   let newUserData = { login: "", password: "" };
   let userForAdding = "";
-  let addMenuIsVisible = false;
+
   export let host = "";
   export let service = "";
 
@@ -113,7 +116,7 @@
             style:position={"relative"}
             use:clickOutside
             on:click_outside={() => {
-              addMenuIsVisible = false;
+              addHostMenuIsVisible.set(false);
             }}
           >
             <Button
@@ -125,10 +128,10 @@
               icon="log log-Plus"
               iconHeight={18}
               CB={() => {
-                addMenuIsVisible = !addMenuIsVisible;
+                addHostMenuIsVisible.update((v) => !v);
               }}
             />
-            {#if addMenuIsVisible}
+            {#if $addHostMenuIsVisible}
               <DropDownAddHost />{/if}
           </div>
         </div>
@@ -165,6 +168,9 @@
       {/if}
     </Container>
   </div>
+  {#if $snipetModalIsVisible}
+    <SecretModal />
+  {/if}
   <!-- <div class="subContainerRight  subContainer">
     <Container minHeightVh={24.44}>1213414</Container>
     <Container minHeightVh={21.52}>1213414</Container>
