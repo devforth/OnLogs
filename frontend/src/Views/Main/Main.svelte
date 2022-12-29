@@ -10,19 +10,20 @@
     userMenuOpen,
     addUserModalOpen,
     activeMenuOption,
-  } from "@/Stores/stores.js";
-  import UserMenu from "@/lib/UserMenu/UserMenu.svelte";
+    lastChosenHost,
+    lastChosenService,
+    theme,
+  } from "../../Stores/stores.js";
+  import UserMenu from "../../lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
   import { navigate } from "svelte-routing";
   import { onMount, onDestroy } from "svelte";
-  import {
-    lastChosenHost,
-    lastChosenService,
-    theme,
-  } from "../../Stores/stores";
+
   import ListWithChoise from "../../lib/ListWithChoise/ListWithChoise.svelte";
   import CommonList from "../../lib/CommonList/CommonList.svelte";
+  import { clickOutside } from "../../lib/OutsideClicker/OutsideClicker.js";
+  import DropDownAddHost from "../../lib/DropDown/DropDownAddHost.svelte";
 
   let api = new fetchApi();
   let hostList = [];
@@ -32,6 +33,7 @@
   let addUserModOpen = false;
   let newUserData = { login: "", password: "" };
   let userForAdding = "";
+  let addMenuIsVisible = false;
   export let host = "";
   export let service = "";
 
@@ -107,15 +109,28 @@
           >
             onLogs
           </h1>
-          <Button
-            title=""
-            border={false}
-            highlighted
-            minWidth={0}
-            minHeight={0}
-          />
-          <!-- icon="log log-Plus"
-          iconHeight={18} -->
+          <div
+            style:position={"relative"}
+            use:clickOutside
+            on:click_outside={() => {
+              addMenuIsVisible = false;
+            }}
+          >
+            <Button
+              title=""
+              border={false}
+              highlighted
+              minWidth={0}
+              minHeight={0}
+              icon="log log-Plus"
+              iconHeight={18}
+              CB={() => {
+                addMenuIsVisible = !addMenuIsVisible;
+              }}
+            />
+            {#if addMenuIsVisible}
+              <DropDownAddHost />{/if}
+          </div>
         </div>
         {#if location.pathname.includes("/view") || location.pathname === "/"}
           <ListWithChoise

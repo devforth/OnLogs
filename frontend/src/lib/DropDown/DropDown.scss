@@ -12,10 +12,21 @@
 
   td {
     padding-top: 12px;
-    &:nth-child(1) {
-      padding-top: 0;
+    vertical-align: middle;
+  }
+  &.addHost {
+    right: 50%;
+    transform: translate(100%);
+    .dropDownRawEl.text {
+      margin-right: 0px;
     }
   }
+}
+
+.emptyBox {
+  height: 28px;
+  width: 1px;
+  opacity: 0;
 }
 
 .dropDownRawEl.ico {

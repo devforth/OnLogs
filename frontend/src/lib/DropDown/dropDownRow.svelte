@@ -5,6 +5,8 @@
   export let iconHeight = "";
   export let isFirst = false;
   export let storeValue = "";
+  export let disableCheckbox = false;
+  export let titleCallBack = null;
   let checkBoxValue = true;
   import { store } from "../../Stores/stores.js";
 
@@ -13,7 +15,14 @@
   });
 </script>
 
-<tr class=" {isFirst ? 'isFirst' : ''}">
+<tr
+  class=" {isFirst ? 'isFirst' : ''} {titleCallBack ? 'clickable' : ''}"
+  on:click={() => {
+    if (titleCallBack) {
+      titleCallBack();
+    }
+  }}
+>
   <!-- <div class="rowContainer {isLast ? 'isLast' : ''}"> -->
   <td>
     <div class="dropDownRawEl ico">
@@ -25,8 +34,12 @@
     </div>
   </td>
   <td><div class="dropDownRawEl text">{rowTitle}</div></td>
+
   <td class="dropDownRawEl"
-    ><Checkbox bind:active={checkBoxValue} {storeValue} /></td
-  >
+    >{#if !disableCheckbox}<Checkbox bind:active={checkBoxValue} {storeValue} />
+    {:else}
+      <div class="emptyBox" />
+    {/if}
+  </td>
   <!-- </div> -->
 </tr>
