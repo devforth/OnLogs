@@ -6,10 +6,13 @@
     toast,
     toastIsVisible,
   } from "../../Stores/stores";
+  import { clickOutside } from "../../lib/OutsideClicker/OutsideClicker.js";
   import { onMount } from "svelte";
+  import FetchApi from "../../utils/fetch.js";
+  import { handleKeydown } from "../../utils/functions.js";
+
   let token = "";
   let origin = location.origin;
-  import FetchApi from "../../utils/fetch.js";
   const api = new FetchApi();
   async function getSecret() {
     try {
@@ -39,7 +42,13 @@
   });
 </script>
 
-<div class="secretModalContainer">
+<div
+  class="secretModalContainer"
+  use:clickOutside
+  on:click_outside={() => {
+    snipetModalIsVisible.set(false);
+  }}
+>
   <h3 class="secretMoalTitle">Connect new host</h3>
   <div class="snippetContainer">
     <pre class="secretSnippet">docker run devforth/onlogs
@@ -82,3 +91,10 @@
   </div>
 </div>
 <div class="modalOverlay" />
+<svelte:window
+  on:keydown={(e) => {
+    handleKeydown(e, "Escape", () => {
+      snipetModalIsVisible.set(false);
+    });
+  }}
+/>
