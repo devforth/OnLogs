@@ -101,7 +101,7 @@ class fetchApi {
   async getServiceLogsSize(host, service) {
     return await this.doFetch(
       "GET",
-      `${this.url}getSizeByService?${host}${service}`
+      `${this.url}getSizeByService?host=${host}&service=${service}`
     );
   }
 
