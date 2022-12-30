@@ -169,6 +169,10 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 	w.Write(e)
 }
 
+func GetSizeByAll(w http.ResponseWriter, req *http.Request) {
+	// os.
+}
+
 func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
@@ -177,7 +181,8 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 	var size int64
 	params := req.URL.Query()
 	if params.Get("service") == "" {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusForbidden)
+		return
 	}
 
 	if params.Get("host") != util.GetHost() {
@@ -187,7 +192,7 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 			}
 			return err
 		})
-		size = size / (1024 * 1024) // MiB
+		size = size / (1024 * 1024 * 1024) // MiB
 	} else {
 		filepath.Walk("leveldb/logs/"+params.Get("service"), func(_ string, info os.FileInfo, err error) error {
 			if !info.IsDir() {
