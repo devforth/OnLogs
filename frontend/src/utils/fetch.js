@@ -63,13 +63,14 @@ class fetchApi {
     limit = 30,
     offset = 0,
     caseSens = false,
-    startWith = ""
+    startWith = "",
+    hostName = ""
   ) {
     return await this.doFetch(
       "GET",
       `${
         this.url
-      }getLogs?id=${containerName}&search=${search}&limit=${limit}&offset=${offset}${
+      }getLogs?host=${hostName}&id=${containerName}&search=${search}&limit=${limit}&offset=${offset}${
         search ? `&startWith=${startWith}&caseSens=${caseSens}` : ""
       }`
     );

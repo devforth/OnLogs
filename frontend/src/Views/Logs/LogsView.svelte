@@ -40,7 +40,9 @@
           searchText,
           logLinesCount,
           0,
-          !$store.caseInSensitive
+          !$store.caseInSensitive,
+          "",
+          $lastChosenHost
         );
         simpleScrollToBottom();
       }
@@ -139,7 +141,7 @@
   ) {
     isUploading = true;
     const newLogs = (
-      await api.getLogs(service, search, limit, offset)
+      await api.getLogs(service, search, limit, offset, "", "", $lastChosenHost)
     ).reverse();
     startWith = newLogs?.at(0).at(0);
     offset += newLogs.length;
@@ -151,7 +153,15 @@
   async function getLogsWithSearch(serv, search, limit, offset, caseSenset) {
     isUploading = true;
     const newLogs = (
-      await api.getLogs(serv, search, limit, offset, caseSenset, startWith)
+      await api.getLogs(
+        serv,
+        search,
+        limit,
+        offset,
+        caseSenset,
+        startWith,
+        $lastChosenHost
+      )
     ).reverse();
     startWith = newLogs?.at(0)?.at(0);
     searchOffset += newLogs.length;
