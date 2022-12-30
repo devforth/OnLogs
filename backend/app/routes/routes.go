@@ -169,6 +169,36 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 	w.Write(e)
 }
 
+func GetSizeByService(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	var size int64
+	params := req.URL.Query()
+	if params.Get("service") == "" {
+		w.WriteHeader(http.StatusNotFound)
+	}
+
+	if params.Get("host") != util.GetHost() {
+		filepath.Walk("leveldb/hosts/"+params.Get("host")+"/"+params.Get("service"), func(_ string, info os.FileInfo, err error) error {
+			if !info.IsDir() {
+				size += info.Size()
+			}
+			return err
+		})
+		size = size / (1024 * 1024) // MiB
+	} else {
+		filepath.Walk("leveldb/logs/"+params.Get("service"), func(_ string, info os.FileInfo, err error) error {
+			if !info.IsDir() {
+				size += info.Size()
+			}
+			return err
+		})
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": strconv.FormatInt(size, 10)})
+}
+
 func GetLogs(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return

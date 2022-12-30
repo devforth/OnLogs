@@ -67,7 +67,7 @@ func CreateDaemonToHostStream(containerName string) {
 	for { // reading resp header
 		tmp, _ := reader.ReadString('\n')
 		if tmp[:len(tmp)-2] == "" {
-			tmp, _ = reader.ReadString('\n')
+			reader.ReadString('\n')
 			break
 		}
 	}
@@ -123,7 +123,7 @@ func CreateDaemonToDBStream(containerName string) {
 	for { // reading resp header
 		tmp, _ := reader.ReadString('\n')
 		if tmp[:len(tmp)-2] == "" {
-			tmp, _ = reader.ReadString('\n')
+			reader.ReadString('\n')
 			break
 		}
 	}

@@ -29,6 +29,7 @@ func main() {
 	http.HandleFunc("/api/v1/addLogLine", routes.AddLogLine)
 	http.HandleFunc("/api/v1/createUser", routes.CreateUser)
 	http.HandleFunc("/api/v1/getHosts", routes.GetHosts)
+	http.HandleFunc("/api/v1/getSizeByService", routes.GetSizeByService)
 	http.HandleFunc("/api/v1/getLogs", routes.GetLogs)
 	http.HandleFunc("/api/v1/getUsers", routes.GetUsers)
 	http.HandleFunc("/api/v1/getLogsStream", routes.GetLogsStream)
