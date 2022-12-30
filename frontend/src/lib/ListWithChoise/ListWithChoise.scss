@@ -1,4 +1,10 @@
 .listWithChoise {
+  height: 20vh;
+  padding: $container-padding;
+  padding-top: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+
   .listElementButton {
     text-align: center;
   }

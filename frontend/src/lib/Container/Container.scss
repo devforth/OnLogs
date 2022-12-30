@@ -1,26 +1,23 @@
-.container{
-    font-family: 'Ubuntu', sans-serif;
+.container {
+  font-family: "Ubuntu", sans-serif;
 
-    background-color: $btn-primary-color;
-    border-radius: $large-border-radius;
-    color:$text-dark-color;
-    padding-left: $container-padding;
-    padding-right:$container-padding;
-    padding-top:$container-vertical-padding ;
-    padding-bottom:$container-vertical-padding ;
-    box-sizing: border-box;
-   
-   
+  background-color: $btn-primary-color;
+  border-radius: $large-border-radius;
+  color: $text-dark-color;
+  padding-left: $container-padding;
+  padding-right: $container-padding;
+  padding-top: $container-vertical-padding;
+  padding-bottom: $container-vertical-padding;
+  box-sizing: border-box;
 
-    &.highlighted{
-        background-color:$active-color;
-        color:$text-onactive-color;
-    }
-     &.border{
-         box-shadow:$container-shadow;
-
-    }
+  &.highlighted {
+    background-color: $active-color;
+    color: $text-onactive-color;
+  }
+  &.border {
+    box-shadow: $container-shadow;
+  }
+  &.paddingOff {
+    padding: 0;
+  }
 }
-
-
-

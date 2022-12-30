@@ -20,8 +20,8 @@
       console.log("service");
       (async () => {
         logsSize = await fetchApi.getServiceLogsSize(
-          lastChosenHost,
-          lastChosenService
+          $lastChosenHost,
+          $lastChosenService
         );
       })();
     }

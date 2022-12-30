@@ -6,9 +6,9 @@
   border-radius: $main-border-radius;
   box-shadow: $main-shadow;
   @include center;
-  position: fixed;
-  bottom: 60px;
-  right: 80px;
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
   background-color: $active-color;
   opacity: 0.4;
   &:hover {
@@ -23,6 +23,6 @@
   }
 }
 
-.logsTableContainer {
+.subContainerMiddle .subContainer {
   position: relative;
 }

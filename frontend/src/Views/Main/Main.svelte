@@ -100,7 +100,11 @@
 
 <div class="contentContainer">
   <div class="subContainerLeft subContainer">
-    <Container highlighted={$theme !== "dark"} minHeightVh={79.3}>
+    <Container
+      highlighted={$theme !== "dark"}
+      minHeightVh={79.3}
+      paddingOff={true}
+    >
       <div class="onLogsPanel">
         <div class="onLogsPanelHeader">
           <h1
