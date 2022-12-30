@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -34,21 +35,15 @@ func SendInitRequest() {
 	})
 	responseBody := bytes.NewBuffer(postBody)
 
-	resp, err := http.Post("https://"+os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
+	resp, err := http.Post(os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
 	if err != nil {
 		panic("ERROR: Can't send request to host!\n" + err.Error())
 	}
 
 	if resp.StatusCode != 200 {
+		b, _ := ioutil.ReadAll(resp.Body)
+		fmt.Println(string(b))
 		panic("ERROR: Response status from host is " + resp.Status) // TODO: Improve text with host response body
-	}
-}
-
-func CreateInitHost() {
-	_, err := ioutil.ReadFile("leveldb/hosts/hostsList")
-	if err != nil {
-		os.MkdirAll("leveldb/hosts", 0700)
-		os.WriteFile("leveldb/hosts/hostsList", []byte(GetHost()+"\n"), 0777)
 	}
 }
 

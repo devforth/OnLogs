@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/gorilla/websocket"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func enableCors(w *http.ResponseWriter) {
@@ -110,11 +110,23 @@ func CheckCookie(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func AddHost(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) {
-		return
+func AddLogLine(w http.ResponseWriter, req *http.Request) {
+	var logItem struct {
+		Host      string
+		Container string
+		LogLine   []string
 	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&logItem)
+	fmt.Println(logItem)
 
+	db, err := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
+	fmt.Print(err)
+	db.Put([]byte(logItem.LogLine[0]), []byte(logItem.LogLine[1]), nil)
+	defer db.Close()
+}
+
+func AddHost(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -132,19 +144,7 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fileContent, err := ioutil.ReadFile("leveldb/hosts/hostsList")
-	fmt.Println(fileContent)
-	if err != nil {
-		os.MkdirAll("leveldb/hosts", 0700)
-		os.WriteFile("leveldb/hosts/hostsList", []byte(req.RemoteAddr+"\n"), 0777)
-		return
-	} else {
-		if util.Contains(req.RemoteAddr, strings.Split(string(fileContent), "\n")) {
-			return
-		}
-	}
-
-	os.WriteFile("leveldb/hosts/hostsList", []byte(string(fileContent)+req.RemoteAddr+"\n"), 0777)
+	os.MkdirAll("leveldb/hosts/"+addReq.Hostname, 0700)
 }
 
 func GetHosts(w http.ResponseWriter, req *http.Request) {
@@ -152,27 +152,19 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fileContent, err := ioutil.ReadFile("leveldb/hosts/hostsList")
-	if err != nil {
-		util.CreateInitHost()
-		fileContent, _ = ioutil.ReadFile("leveldb/hosts/hostsList")
-	}
-	hosts := strings.Split(string(fileContent), "\n")
 	var to_return []vars.HostsList
+	to_return = append(to_return, vars.HostsList{Host: util.GetHost(), Services: vars.All_Containers})
 
+	hosts, _ := os.ReadDir("leveldb/hosts/")
 	for _, host := range hosts {
-		resp, err := http.Get(host + "/api/v1/getHost")
-		if err == nil {
-			var result vars.HostsList
-			json.NewDecoder(resp.Body).Decode(&result)
-			to_return = append(to_return, result)
-		} else {
-			fmt.Println("ERROR: ", err)
+		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name())
+		allContainers := []string{}
+		for _, container := range containers {
+			allContainers = append(allContainers, container.Name())
 		}
+		to_return = append(to_return, vars.HostsList{Host: host.Name(), Services: allContainers})
 	}
 
-	host := util.GetHost()
-	to_return = append(to_return, vars.HostsList{Host: host, Services: vars.All_Containers})
 	e, _ := json.Marshal(to_return)
 	w.Write(e)
 }
@@ -189,7 +181,7 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		caseSensetive = false
 	}
-	json.NewEncoder(w).Encode(db.GetLogs(params.Get("id"), params.Get("search"), limit, offset, params.Get("startWith"), caseSensetive))
+	json.NewEncoder(w).Encode(db.GetLogs(params.Get("host"), params.Get("id"), params.Get("search"), limit, offset, params.Get("startWith"), caseSensetive))
 }
 
 func GetLogsStream(w http.ResponseWriter, req *http.Request) {

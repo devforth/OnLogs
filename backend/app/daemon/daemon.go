@@ -2,14 +2,18 @@ package daemon
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -24,6 +28,26 @@ func createLogMessage(db *leveldb.DB, message string) {
 
 func putLogMessage(db *leveldb.DB, message string) {
 	db.Put([]byte(message[:30]), []byte(message[31:len(message)-1]), nil)
+}
+
+func sendLogMessage(container string, message string) {
+	postBody, _ := json.Marshal(map[string]interface{}{
+		"Host":      util.GetHost(),
+		"LogLine":   []string{message[:30], message[31 : len(message)-1]},
+		"Container": container,
+	})
+	responseBody := bytes.NewBuffer(postBody)
+
+	http.Post(os.Getenv("HOST")+"/api/v1/addLogLine", "application/json", responseBody)
+	// if err != nil {
+	// 	fmt.Println("ERROR: Can't send request to host!\n" + err.Error())
+	// 	fmt.Println("WARN: Message is not sent: " + message)
+	// }
+
+	// if resp.StatusCode != 200 {
+	// 	fmt.Println("ERROR: Response status from host is " + resp.Status) // TODO: Improve text with host response body
+	// 	fmt.Println("WARN: Message is not sent: " + message)
+	// }
 }
 
 // creates stream that writes logs from every docker container to leveldb
@@ -68,13 +92,19 @@ func CreateDaemonToDBStream(containerName string) {
 			continue
 		}
 
-		if []byte(logLine)[0] < 32 { // is it ok?
+		if []byte(logLine)[0] < 32 && []byte(logLine)[0] > 126 { // is it ok?
 			to_put = to_put[8:]
 		}
-		putLogMessage(db, string(to_put))
-		to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31 : len(to_put)-1])})
-		for _, c := range vars.Connections[containerName] {
-			c.WriteMessage(1, to_send)
+
+		if os.Getenv("CLIENT") != "" {
+			sendLogMessage(containerName, string(to_put))
+		} else {
+			putLogMessage(db, string(to_put))
+
+			to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31 : len(to_put)-1])})
+			for _, c := range vars.Connections[containerName] {
+				c.WriteMessage(1, to_send)
+			}
 		}
 
 		if time.Now().Unix()-lastSleep > 1 {

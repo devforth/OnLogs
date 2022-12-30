@@ -4,7 +4,9 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/devforth/OnLogs/app/util"
 	vars "github.com/devforth/OnLogs/app/vars"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func containStr(a string, b string, caseSens bool) bool {
@@ -45,8 +47,14 @@ func GetUsers() []string {
 	return users
 }
 
-func GetLogs(container string, message string, limit int, offset int, startWith string, caseSensetivity bool) [][]string {
-	db := vars.ActiveDBs[container]
+func GetLogs(host string, container string, message string, limit int, offset int, startWith string, caseSensetivity bool) [][]string {
+	var db *leveldb.DB
+	if host == util.GetHost() {
+		db = vars.ActiveDBs[container]
+	} else {
+		db, _ = leveldb.OpenFile("leveldb/hosts/"+host+"/"+container, nil)
+		defer db.Close()
+	}
 	iter := db.NewIterator(nil, nil)
 	position := 0
 	counter := 0

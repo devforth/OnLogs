@@ -25,3 +25,7 @@ Light docker logs listener that makes easier to debug your containers
 volumes:
   onlogs-volume:
 ```
+
+
+## Notes
+cf problem bot fight mode

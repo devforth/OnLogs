@@ -37,7 +37,7 @@ func checkConnections() { // TODO improve
 			vars.Connections[container] = newConnectionsList
 			newConnectionsList = []websocket.Conn{}
 		}
-		time.Sleep(3 * time.Minute)
+		time.Sleep(1 * time.Minute)
 	}
 }
 
