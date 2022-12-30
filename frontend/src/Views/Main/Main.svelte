@@ -140,17 +140,19 @@
               <DropDownAddHost />{/if}
           </div>
         </div>
-        {#if location.pathname.includes("/view") || location.pathname === "/"}
-          <ListWithChoise
-            listData={hostList}
-            headerButton={"Pencil"}
-            listElementButton={"true"}
-            activeElementName={host && service && service !== "undefined"
-              ? `${host}-${service}`
-              : ""}
-          />{:else if location.pathname.includes("/users")}<CommonList
-            listData={[{ name: "Logout", ico: "Logout", callBack: logout }]}
-          />{/if}
+        <div class="listwrapper">
+          {#if location.pathname.includes("/view") || location.pathname === "/"}
+            <ListWithChoise
+              listData={hostList}
+              headerButton={"Pencil"}
+              listElementButton={"true"}
+              activeElementName={host && service && service !== "undefined"
+                ? `${host}-${service}`
+                : ""}
+            />{:else if location.pathname.includes("/users")}<CommonList
+              listData={[{ name: "Logout", ico: "Logout", callBack: logout }]}
+            />{/if}
+        </div>
       </div></Container
     >
     <Container minHeightVh={10.97}>

@@ -14,15 +14,17 @@
     if (isAllLogs) {
       console.log("all");
       (async () => {
-        logsSize = await fetchApi.getAllLogsSize();
+        const data = await fetchApi.getAllLogsSize();
+        logsSize = data.sizeMiB;
       })();
     } else {
       console.log("service");
       (async () => {
-        logsSize = await fetchApi.getServiceLogsSize(
+        const data = await fetchApi.getServiceLogsSize(
           $lastChosenHost,
           $lastChosenService
         );
+        logsSize = data.sizeMiB;
       })();
     }
   }
