@@ -6,8 +6,9 @@
 .subContainer {
   display: flex;
   flex-direction: column;
-  overflow: clip;
+
   justify-content: center;
+  position: relative;
 
   box-sizing: border-box;
 
