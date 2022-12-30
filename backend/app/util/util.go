@@ -66,6 +66,10 @@ func GetHost() string {
 	} else {
 		host = string(hostname)
 	}
+
+	if []byte(host)[0] < 32 || []byte(host)[0] < 126 {
+		host = host[:len(host)-1]
+	}
 	return host
 }
 

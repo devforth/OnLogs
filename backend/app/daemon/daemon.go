@@ -92,7 +92,7 @@ func CreateDaemonToDBStream(containerName string) {
 			continue
 		}
 
-		if []byte(logLine)[0] < 32 && []byte(logLine)[0] > 126 { // is it ok?
+		if []byte(logLine)[0] < 32 || []byte(logLine)[0] > 126 { // is it ok?
 			to_put = to_put[8:]
 		}
 
