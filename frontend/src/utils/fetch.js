@@ -94,6 +94,16 @@ class fetchApi {
     return await this.doFetch("GET", `${this.url}getSecret`);
   }
 
+  async getAllLogsSize() {
+    return await this.doFetch("GET", `${this.url}getSizeByAll`);
+  }
+  async getServiceLogsSize(host, service) {
+    return await this.doFetch(
+      "GET",
+      `${this.url}getSizeByService?${host}${service}`
+    );
+  }
+
   async createUser({ login, password }) {
     return await this.doFetch("POST", `${this.url}createUser`, {
       login,

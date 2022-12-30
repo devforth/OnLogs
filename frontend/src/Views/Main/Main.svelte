@@ -27,6 +27,7 @@
   import { clickOutside } from "../../lib/OutsideClicker/OutsideClicker.js";
   import DropDownAddHost from "../../lib/DropDown/DropDownAddHost.svelte";
   import SecretModal from "../../lib/SecretModal/SecretModal.svelte";
+  import LogsSize from "../../lib/LogsSize/LogsSize.svelte";
 
   let api = new fetchApi();
   let hostList = [];
@@ -171,12 +172,19 @@
   {#if $snipetModalIsVisible}
     <SecretModal />
   {/if}
-  <!-- <div class="subContainerRight  subContainer">
-    <Container minHeightVh={24.44}>1213414</Container>
-    <Container minHeightVh={21.52}>1213414</Container>
+  <div class="subContainerRight  subContainer">
+    <Container minHeightVh={15}
+      ><LogsSize
+        discribeText={"Space used by all logs"}
+        isAllLogs={true}
+      /></Container
+    >
+    <Container minHeightVh={15}
+      ><LogsSize discribeText={"Space used by service"} /></Container
+    >
     <div class="subContainerThumb">
       <Container minHeightVh={17.36}>1213414</Container>
       <Container minHeightVh={12.91} highlighted>1213414</Container>
     </div>
-  </div> -->
+  </div>
 </div>

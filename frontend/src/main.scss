@@ -18,6 +18,7 @@
 @import "./lib/Toast/Toast.scss";
 @import "./lib/NotFound/Notfound.scss";
 @import "./lib/SecretModal/SecretModal.scss";
+@import "./lib/LogsSize/LogSize.scss";
 body {
   font-family: "Ubuntu", sans-serif;
   background-color: $background-color;
@@ -26,9 +27,14 @@ body {
   margin: 0;
 }
 
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+}
 h1 {
   font-size: $main-font-xl;
-  margin: 0;
 }
 
 .contentContainer {

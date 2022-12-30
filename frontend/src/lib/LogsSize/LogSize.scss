@@ -1,0 +1,26 @@
+.logSizeContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  height: 100%;
+  color: $text-dark-color;
+  .log {
+    font-size: 24px;
+  }
+  .title {
+    margin-top: 10px;
+    margin-bottom: 10px;
+  }
+  .commonText {
+    color: $text-placeholder-color;
+  }
+  .cleanButtonContainer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    .log {
+      font-size: 24px !important;
+    }
+  }
+}

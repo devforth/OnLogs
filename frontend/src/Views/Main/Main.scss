@@ -1,16 +1,18 @@
 .contentContainer {
   display: flex;
-  justify-content: space-between;
+  justify-content: space-around;
 }
 
 .subContainer {
   display: flex;
   flex-direction: column;
+  overflow: clip;
+  justify-content: center;
 
   box-sizing: border-box;
 
   &Left {
-    width: 19.76vw;
+    width: 15vw;
     justify-content: space-between;
     position: relative;
   }
@@ -19,13 +21,13 @@
     justify-content: space-between;
   }
   &Middle {
-    width: 75vw;
+    width: 68vw;
     justify-content: space-between;
   }
 }
 
 .subContainerThumb {
-  height: 39.72vh;
+  height: 50vh;
   display: flex;
   flex-direction: column;
   justify-content: space-between;

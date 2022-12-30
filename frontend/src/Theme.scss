@@ -132,6 +132,19 @@
       color: $text-dark-color-dark;
     }
   }
+
+  .logSizeContainer {
+    color: $text-dark-color-dark;
+
+    .commonText {
+      color: $text-dark-color-dark;
+    }
+
+    button.highlighted {
+      background-color: $text-onactive-color-dark;
+      color: $block-bg-color-dark;
+    }
+  }
 }
 
 .dark-mode {
