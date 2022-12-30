@@ -24,6 +24,9 @@
   &Middle {
     width: 68vw;
     justify-content: space-between;
+    .container {
+      height: 100%;
+    }
   }
 }
 
