@@ -18,12 +18,15 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-func createLogMessage(db *leveldb.DB, message string) {
+func createLogMessage(db *leveldb.DB, message string) string {
 	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), " +")[0], " ", "T", 1)
 	if len(datetime) < 29 {
 		datetime = datetime + strings.Repeat("0", 29-len(datetime))
 	}
-	db.Put([]byte(datetime+"Z"), []byte(message), nil)
+	if db != nil {
+		db.Put([]byte(datetime+"Z"), []byte(message), nil)
+	}
+	return datetime + "Z " + message
 }
 
 func putLogMessage(db *leveldb.DB, message string) {
@@ -36,9 +39,7 @@ func sendLogMessage(container string, message string) {
 		"LogLine":   []string{message[:30], message[31 : len(message)-1]},
 		"Container": container,
 	})
-	responseBody := bytes.NewBuffer(postBody)
-
-	http.Post(os.Getenv("HOST")+"/api/v1/addLogLine", "application/json", responseBody)
+	http.Post(os.Getenv("HOST")+"/api/v1/addLogLine", "application/json", bytes.NewBuffer(postBody))
 	// if err != nil {
 	// 	fmt.Println("ERROR: Can't send request to host!\n" + err.Error())
 	// 	fmt.Println("WARN: Message is not sent: " + message)
@@ -48,6 +49,60 @@ func sendLogMessage(container string, message string) {
 	// 	fmt.Println("ERROR: Response status from host is " + resp.Status) // TODO: Improve text with host response body
 	// 	fmt.Println("WARN: Message is not sent: " + message)
 	// }
+}
+
+func CreateDaemonToHostStream(containerName string) {
+	connection, _ := net.Dial("unix", "/var/run/docker.sock")
+	fmt.Fprintf(
+		connection,
+		"GET /containers/"+containerName+"/logs?stdout=true&stderr=true&timestamps=true&follow=true&since="+strconv.FormatInt(time.Now().Unix(), 10)+" HTTP/1.0\r\n\r\n",
+	)
+
+	mes := createLogMessage(nil, "ONLOGS: Container listening started!")
+	sendLogMessage(containerName, mes)
+
+	reader := bufio.NewReader(connection)
+	lastSleep := time.Now().Unix()
+
+	for { // reading resp header
+		tmp, _ := reader.ReadString('\n')
+		if tmp[:len(tmp)-2] == "" {
+			tmp, _ = reader.ReadString('\n')
+			break
+		}
+	}
+
+	for { // reading body
+		logLine, get_string_error := reader.ReadString('\n')
+		if get_string_error != nil {
+			newDaemonStreams := []string{}
+			for _, stream := range vars.Active_Daemon_Streams {
+				if stream != containerName {
+					newDaemonStreams = append(newDaemonStreams, stream)
+				}
+			}
+			vars.Active_Daemon_Streams = newDaemonStreams
+			mes := createLogMessage(nil, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")")
+			sendLogMessage(containerName, mes)
+			return
+		}
+
+		to_put := []byte(logLine)
+		if len(to_put) < 31 {
+			continue
+		}
+
+		if []byte(logLine)[0] < 32 || []byte(logLine)[0] > 126 { // is it ok?
+			to_put = to_put[8:]
+		}
+
+		sendLogMessage(containerName, string(to_put))
+
+		if time.Now().Unix()-lastSleep > 1 {
+			time.Sleep(5 * time.Millisecond)
+			lastSleep = time.Now().Unix()
+		}
+	}
 }
 
 // creates stream that writes logs from every docker container to leveldb
@@ -96,15 +151,11 @@ func CreateDaemonToDBStream(containerName string) {
 			to_put = to_put[8:]
 		}
 
-		if os.Getenv("CLIENT") != "" {
-			sendLogMessage(containerName, string(to_put))
-		} else {
-			putLogMessage(db, string(to_put))
+		putLogMessage(db, string(to_put))
 
-			to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31 : len(to_put)-1])})
-			for _, c := range vars.Connections[containerName] {
-				c.WriteMessage(1, to_send)
-			}
+		to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31 : len(to_put)-1])})
+		for _, c := range vars.Connections[containerName] {
+			c.WriteMessage(1, to_send)
 		}
 
 		if time.Now().Unix()-lastSleep > 1 {

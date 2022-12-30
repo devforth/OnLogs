@@ -1,6 +1,7 @@
 package streamer
 
 import (
+	"os"
 	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
@@ -44,14 +45,18 @@ func checkConnections() { // TODO improve
 func StreamLogs() {
 	containers := daemon.GetContainersList()
 	vars.All_Containers = containers
-	go checkConnections()
 	for {
 		for _, container := range containers {
 			if !util.Contains(container, vars.Active_Daemon_Streams) {
 				newDB, _ := leveldb.OpenFile("leveldb/logs/"+container, nil)
 				vars.ActiveDBs[container] = newDB
 				vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
-				go daemon.CreateDaemonToDBStream(container)
+				if os.Getenv("CLIENT") != "" {
+					go daemon.CreateDaemonToHostStream(container)
+				} else {
+					go checkConnections()
+					go daemon.CreateDaemonToDBStream(container)
+				}
 			}
 		}
 		time.Sleep(20 * time.Second)
