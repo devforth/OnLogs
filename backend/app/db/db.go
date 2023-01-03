@@ -117,7 +117,7 @@ func DeleteContainerLogs(host string, container string) { // UNDER TEST
 	// 	os.RemoveAll("leveldb/logs/" + container)
 	// 	vars.ActiveDBs[container], _ = leveldb.OpenFile("leveldb/logs/"+container, nil)
 	// }
-	if host == "" {
+	if host == "" || host == util.GetHost() {
 		// db, _ := leveldb.OpenFile("leveldb/logs/"+container, nil)
 		// iter := db.NewIterator(nil, nil)
 		// iter.Last()
