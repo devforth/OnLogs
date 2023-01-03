@@ -1,4 +1,5 @@
 <script>
+  import { onMount, afterUpdate } from "svelte";
   export let discribeText = "";
   import {
     lastChosenHost,
@@ -10,22 +11,28 @@
   const fetchApi = new FetchApi();
   export let isAllLogs = false;
   let logsSize = 0;
+  let fetchCount = 0;
+
+  async function fetchAllLogs() {
+    const data = await fetchApi.getAllLogsSize();
+    logsSize = data.sizeMiB;
+  }
+  async function fetchServiceLogs() {
+    const data = await fetchApi.getServiceLogsSize(
+      $lastChosenHost,
+      $lastChosenService
+    );
+    logsSize = data.sizeMiB;
+  }
+
   $: {
-    if (isAllLogs) {
-      console.log("all");
-      (async () => {
-        const data = await fetchApi.getAllLogsSize();
-        logsSize = data.sizeMiB;
-      })();
-    } else {
-      console.log("service");
-      (async () => {
-        const data = await fetchApi.getServiceLogsSize(
-          $lastChosenHost,
-          $lastChosenService
-        );
-        logsSize = data.sizeMiB;
-      })();
+    if ($lastChosenService && !isAllLogs) {
+      fetchServiceLogs();
+    }
+  }
+  $: {
+    if ($lastChosenHost && !isAllLogs) {
+      // fetchAllLogs();
     }
   }
 </script>

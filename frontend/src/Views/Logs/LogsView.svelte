@@ -40,9 +40,7 @@
           searchText,
           logLinesCount,
           0,
-          !$store.caseInSensitive,
-          "",
-          $lastChosenHost
+          !$store.caseInSensitive
         );
         simpleScrollToBottom();
       }
