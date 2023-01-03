@@ -2,6 +2,9 @@ package db
 
 import (
 	"errors"
+	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/devforth/OnLogs/app/util"
@@ -106,6 +109,52 @@ func GetLogs(host string, container string, message string, limit int, offset in
 
 func EditUser(login string, password string) {
 	vars.UsersDB.Put([]byte(login), []byte(password), nil)
+}
+
+func DeleteContainerLogs(host string, container string) { // UNDER TEST
+	// if host == "" {
+	// 	db := vars.ActiveDBs[container]
+	// 	db.Close()
+	// 	os.RemoveAll("leveldb/logs/" + container)
+	// 	vars.ActiveDBs[container], _ = leveldb.OpenFile("leveldb/logs/"+container, nil)
+	// }
+	if host == "" {
+		// db, _ := leveldb.OpenFile("leveldb/logs/"+container, nil)
+		// iter := db.NewIterator(nil, nil)
+		// iter.Last()
+		// for iter.Prev() {
+		// 	toDelete := iter.Key()
+		// 	fmt.Println(string(toDelete))
+		// 	db.Delete(toDelete, nil)
+		// }
+
+		// iter.Release()
+		// db.Close()
+
+		fmt.Println(container)
+		files, _ := os.ReadDir("leveldb/logs/" + container)
+		last := 0
+		var lastName string
+		for _, file := range files {
+			if strings.HasSuffix(file.Name(), "ldb") {
+				num, _ := strconv.Atoi(file.Name()[:len(file.Name())-4])
+				if num > last {
+					last = num
+					lastName = file.Name()
+				}
+				fmt.Println(lastName)
+				fmt.Println(last)
+			}
+			// if strings.HasSuffix(file.Name(), ".log") {
+			// 	os.Remove("leveldb/logs/" + container + "/" + file.Name())
+			// }
+		}
+		for _, file := range files {
+			if strings.HasSuffix(file.Name(), "ldb") && file.Name() != lastName {
+				os.Remove(file.Name())
+			}
+		}
+	}
 }
 
 func DeleteUser(login string, password string) error {

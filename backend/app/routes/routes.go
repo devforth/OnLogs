@@ -343,6 +343,17 @@ func EditUser(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
+func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
+	var logItem struct {
+		Host      string
+		Container string
+	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&logItem)
+
+	go db.DeleteContainerLogs(logItem.Host, logItem.Container)
+}
+
 func DeleteUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
