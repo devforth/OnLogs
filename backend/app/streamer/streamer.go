@@ -54,7 +54,7 @@ func StreamLogs() {
 				if os.Getenv("CLIENT") != "" {
 					go daemon.CreateDaemonToHostStream(container)
 				} else {
-					go checkConnections()
+					// go checkConnections()
 					go daemon.CreateDaemonToDBStream(container)
 				}
 			}
