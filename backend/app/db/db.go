@@ -141,13 +141,10 @@ func DeleteContainerLogs(host string, container string) { // UNDER TEST
 					lastName = file.Name()
 				}
 			}
-			// if strings.HasSuffix(file.Name(), ".log") {
-			// 	os.Remove("leveldb/logs/" + container + "/" + file.Name())
-			// }
 		}
 		for _, file := range files {
-			if strings.HasSuffix(file.Name(), "ldb") && file.Name() != lastName {
-				os.Remove(file.Name())
+			if (strings.HasSuffix(file.Name(), "ldb") && file.Name() != lastName) || strings.HasSuffix(file.Name(), ".log") {
+				os.Remove("leveldb/logs/" + container + "/" + file.Name())
 			}
 		}
 	}
