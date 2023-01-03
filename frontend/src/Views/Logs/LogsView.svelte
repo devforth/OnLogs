@@ -29,22 +29,36 @@
   const api = new fetchApi();
   $: logString = undefined;
   $: logsDiv = undefined;
-  $: {
-    (async () => {
-      if (searchText !== "") {
-        searchLogs = [];
-        searchOffset = 0;
-        startWith = "";
-        const data = await getLogsWithSearch(
-          $lastChosenService,
-          searchText,
-          logLinesCount,
-          0,
-          !$store.caseInSensitive
-        );
-        simpleScrollToBottom();
+  function resetAfterFilter() {
+    searchLogs = [];
+    searchOffset = 0;
+    startWith = "";
+    console.log("searchReset");
+  }
+  async function getAllSearchLogs(searchText) {
+    if (searchText !== "") {
+      const data = await getLogsWithSearch(
+        $lastChosenService,
+        searchText,
+        logLinesCount,
+        searchOffset,
+        !$store.caseInSensitive
+      );
+      if (
+        logsContEl &&
+        logsContEl.scrollHeight <= logsContEl.clientHeight &&
+        data.length === logLinesCount
+      ) {
+        getAllSearchLogs(searchText);
       }
-    })();
+
+      simpleScrollToBottom();
+    }
+  }
+
+  $: {
+    resetAfterFilter();
+    getAllSearchLogs(searchText);
   }
 
   afterUpdate(() => {
@@ -134,18 +148,19 @@
     service = "",
     search = "",
     limit = logLinesCount,
-    offset = 0,
+    offset,
     caseSens = false
   ) {
     isUploading = true;
     const newLogs = (
       await api.getLogs(service, search, limit, offset, "", "", $lastChosenHost)
     ).reverse();
-    startWith = newLogs?.at(0).at(0);
+    startWith = newLogs?.at(0)?.at(0);
     offset += newLogs.length;
+
     isUploading = false;
     allLogs = [...newLogs, ...allLogs];
-    console.log(allLogs, "alllogs");
+
     return newLogs;
   }
   async function getLogsWithSearch(serv, search, limit, offset, caseSenset) {
@@ -187,7 +202,30 @@
       offset
     );
     offset += newLogs.length;
-    tmpLogs = allLogs;
+    let numberOfLogs = 0;
+    async function fillTheLogsContainer() {
+      if (logsContEl && logsContEl.scrollHeight <= logsContEl.clientHeight) {
+        console.log("decond request", offset);
+        const data = await getLogs(
+          $lastChosenService,
+          "",
+          logLinesCount,
+          offset,
+          !$store.caseInSensitive
+        );
+        numberOfLogs = data.length;
+
+        offset += data.length;
+        tmpLogs = [...allLogs];
+        if (numberOfLogs === logLinesCount) {
+          fillTheLogsContainer();
+        }
+      }
+    }
+    tmpLogs = [...allLogs];
+
+    fillTheLogsContainer();
+
     webSocket = new WebSocket(`${api.wsUrl}getLogsStream?id=${service}`); // maybe should move to fetch
     webSocket.onmessage = (event) => {
       if (event.data !== "PING") {
