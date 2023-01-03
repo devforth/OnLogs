@@ -138,19 +138,21 @@ func DeleteContainerLogs(host string, container string) { // UNDER TEST
 
 	files, _ := os.ReadDir(path)
 	last := 0
-	var lastName string
 	for _, file := range files {
-		if strings.HasSuffix(file.Name(), "ldb") {
-			num, _ := strconv.Atoi(file.Name()[:len(file.Name())-4])
-			if num > last {
-				last = num
-				lastName = file.Name()
-			}
-		}
-	}
-	for _, file := range files {
-		if (strings.HasSuffix(file.Name(), "ldb") && file.Name() != lastName) || strings.HasSuffix(file.Name(), ".log") {
+		if strings.HasSuffix(file.Name(), ".log") {
 			os.Remove(path + "/" + file.Name())
+			continue
+		}
+
+		if !strings.HasSuffix(file.Name(), "ldb") {
+			continue
+		}
+
+		num, _ := strconv.Atoi(file.Name()[:len(file.Name())-4])
+		if num < last {
+			os.Remove(path + "/" + file.Name())
+		} else {
+			last = num
 		}
 	}
 }
