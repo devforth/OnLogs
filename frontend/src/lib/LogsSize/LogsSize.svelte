@@ -32,7 +32,7 @@
   }
   $: {
     if ($lastChosenHost && !isAllLogs) {
-      // fetchAllLogs();
+      fetchAllLogs();
     }
   }
 </script>
