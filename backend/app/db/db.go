@@ -110,31 +110,13 @@ func EditUser(login string, password string) {
 	vars.UsersDB.Put([]byte(login), []byte(password), nil)
 }
 
-func DeleteContainerLogs(host string, container string) { // UNDER TEST
-	// if host == "" {
-	// 	db := vars.ActiveDBs[container]
-	// 	db.Close()
-	// 	os.RemoveAll("leveldb/logs/" + container)
-	// 	vars.ActiveDBs[container], _ = leveldb.OpenFile("leveldb/logs/"+container, nil)
-	// }
+func DeleteContainerLogs(host string, container string) {
 	var path string
 	if host == "" || host == util.GetHost() {
 		path = "leveldb/logs/" + container
 	} else {
 		path = "leveldb/" + host + "/" + container
 	}
-
-	// db, _ := leveldb.OpenFile("leveldb/logs/"+container, nil)
-	// iter := db.NewIterator(nil, nil)
-	// iter.Last()
-	// for iter.Prev() {
-	// 	toDelete := iter.Key()
-	// 	fmt.Println(string(toDelete))
-	// 	db.Delete(toDelete, nil)
-	// }
-
-	// iter.Release()
-	// db.Close()
 
 	files, _ := os.ReadDir(path)
 	last := 0
