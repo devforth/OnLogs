@@ -2,7 +2,6 @@ package db
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -131,7 +130,6 @@ func DeleteContainerLogs(host string, container string) { // UNDER TEST
 		// iter.Release()
 		// db.Close()
 
-		fmt.Println(container)
 		files, _ := os.ReadDir("leveldb/logs/" + container)
 		last := 0
 		var lastName string
@@ -142,8 +140,6 @@ func DeleteContainerLogs(host string, container string) { // UNDER TEST
 					last = num
 					lastName = file.Name()
 				}
-				fmt.Println(lastName)
-				fmt.Println(last)
 			}
 			// if strings.HasSuffix(file.Name(), ".log") {
 			// 	os.Remove("leveldb/logs/" + container + "/" + file.Name())
