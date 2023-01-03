@@ -1,6 +1,7 @@
 package streamer
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -48,7 +49,10 @@ func StreamLogs() {
 	for {
 		for _, container := range containers {
 			if !util.Contains(container, vars.Active_Daemon_Streams) {
-				newDB, _ := leveldb.OpenFile("leveldb/logs/"+container, nil)
+				newDB, err := leveldb.OpenFile("leveldb/logs/"+container, nil)
+				if err != nil {
+					fmt.Println(err)
+				}
 				vars.ActiveDBs[container] = newDB
 				vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
 				if os.Getenv("CLIENT") != "" {
