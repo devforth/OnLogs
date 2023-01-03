@@ -118,10 +118,8 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
-	fmt.Println(logItem)
 
-	db, err := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
-	fmt.Print(err)
+	db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
 	db.Put([]byte(logItem.LogLine[0]), []byte(logItem.LogLine[1]), nil)
 	defer db.Close()
 }
@@ -153,7 +151,7 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var to_return []vars.HostsList
-	to_return = append(to_return, vars.HostsList{Host: util.GetHost(), Services: vars.All_Containers})
+	to_return = append(to_return, vars.HostsList{Host: util.GetHost(), Services: vars.DockerContainers})
 
 	hosts, _ := os.ReadDir("leveldb/hosts/")
 	for _, host := range hosts {
@@ -170,7 +168,28 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 }
 
 func GetSizeByAll(w http.ResponseWriter, req *http.Request) {
-	// os.
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	var totalSize float64
+	hosts, _ := os.ReadDir("leveldb/hosts/")
+	for _, host := range hosts {
+		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name())
+		for _, container := range containers {
+			totalSize += util.GetDirSize(host.Name(), container.Name())
+		}
+	}
+
+	hostContainers, _ := os.ReadDir("leveldb/logs/")
+	for _, hostContainer := range hostContainers {
+		totalSize += util.GetDirSize("", hostContainer.Name())
+	}
+
+	if totalSize < 0.1 && totalSize != 0.0 {
+		totalSize = 0.1
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", totalSize)}) // MiB
 }
 
 func GetSizeByService(w http.ResponseWriter, req *http.Request) {
@@ -178,30 +197,17 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var size int64
 	params := req.URL.Query()
 	if params.Get("service") == "" {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
-	if params.Get("host") != util.GetHost() {
-		filepath.Walk("leveldb/hosts/"+params.Get("host")+"/"+params.Get("service"), func(_ string, info os.FileInfo, err error) error {
-			if !info.IsDir() {
-				size += info.Size()
-			}
-			return err
-		})
-		size = size / (1024 * 1024 * 1024) // MiB
-	} else {
-		filepath.Walk("leveldb/logs/"+params.Get("service"), func(_ string, info os.FileInfo, err error) error {
-			if !info.IsDir() {
-				size += info.Size()
-			}
-			return err
-		})
+	size := util.GetDirSize(params.Get("host"), params.Get("service"))
+	if size < 0.1 && size != 0.0 {
+		size = 0.1
 	}
-	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": strconv.FormatInt(size, 10)})
+	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
 func GetLogs(w http.ResponseWriter, req *http.Request) {

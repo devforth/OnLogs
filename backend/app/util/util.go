@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -71,6 +72,25 @@ func GetHost() string {
 		host = host[:len(host)-1]
 	}
 	return host
+}
+
+func GetDirSize(host string, container string) float64 {
+	var size int64
+	var path string
+	if host != GetHost() && host != "" {
+		path = "leveldb/hosts/" + host + "/" + container
+	} else {
+		path = "leveldb/logs/" + container
+	}
+
+	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			size += info.Size()
+		}
+		return err
+	})
+
+	return float64(size) / (1024.0 * 1024.0)
 }
 
 func GetUserFromJWT(req http.Request) (string, error) {
