@@ -54,7 +54,7 @@ func StreamLogs() {
 				if os.Getenv("CLIENT") != "" {
 					go daemon.CreateDaemonToHostStream(container)
 				} else {
-					// go checkConnections()
+					// go checkConnections() // TMP MEMORY TEST
 					go daemon.CreateDaemonToDBStream(container)
 				}
 			}
