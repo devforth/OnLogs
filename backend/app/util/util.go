@@ -83,12 +83,15 @@ func GetDirSize(host string, container string) float64 {
 		path = "leveldb/logs/" + container
 	}
 
-	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			size += info.Size()
 		}
 		return err
 	})
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	return float64(size) / (1024.0 * 1024.0)
 }
