@@ -170,7 +170,28 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 }
 
 func GetSizeByAll(w http.ResponseWriter, req *http.Request) {
-	// os.
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	var totalSize float64
+	hosts, _ := os.ReadDir("leveldb/hosts/")
+	for _, host := range hosts {
+		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name())
+		for _, container := range containers {
+			totalSize += util.GetDirSize(host.Name(), container.Name())
+		}
+	}
+
+	hostContainers, _ := os.ReadDir("leveldb/logs/")
+	for _, hostContainer := range hostContainers {
+		totalSize += util.GetDirSize("", hostContainer.Name())
+	}
+
+	if totalSize < 0.1 && totalSize != 0.0 {
+		totalSize = 0.1
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", totalSize)}) // MiB
 }
 
 func GetSizeByService(w http.ResponseWriter, req *http.Request) {
@@ -184,7 +205,11 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": util.GetDirSize(params.Get("host"), params.Get("service"))}) // MiB
+	size := util.GetDirSize(params.Get("host"), params.Get("service"))
+	if size < 0.1 && size != 0.0 {
+		size = 0.1
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
 func GetLogs(w http.ResponseWriter, req *http.Request) {

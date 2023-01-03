@@ -74,10 +74,10 @@ func GetHost() string {
 	return host
 }
 
-func GetDirSize(host string, container string) string {
+func GetDirSize(host string, container string) float64 {
 	var size int64
 	var path string
-	if host != GetHost() {
+	if host != GetHost() && host != "" {
 		path = "leveldb/hosts/" + host + "/" + container
 	} else {
 		path = "leveldb/logs/" + container
@@ -90,7 +90,7 @@ func GetDirSize(host string, container string) string {
 		return err
 	})
 
-	return fmt.Sprintf("%f", float64(size)/(1024.0*1024.0))
+	return float64(size) / (1024.0 * 1024.0)
 }
 
 func GetUserFromJWT(req http.Request) (string, error) {
