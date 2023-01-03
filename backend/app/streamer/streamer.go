@@ -44,7 +44,7 @@ func checkConnections() { // TODO improve
 
 func StreamLogs() {
 	containers := daemon.GetContainersList()
-	vars.All_Containers = containers
+	vars.DockerContainers = containers
 	for {
 		for _, container := range containers {
 			if !util.Contains(container, vars.Active_Daemon_Streams) {
@@ -61,6 +61,6 @@ func StreamLogs() {
 		}
 		time.Sleep(20 * time.Second)
 		containers = daemon.GetContainersList()
-		vars.All_Containers = containers
+		vars.DockerContainers = containers
 	}
 }

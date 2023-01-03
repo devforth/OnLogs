@@ -8,7 +8,7 @@ import (
 var (
 	UsersDB, _            = leveldb.OpenFile("leveldb/users", nil) // should i ever close it?
 	Connections           = map[string][]websocket.Conn{}
-	All_Containers        = []string{}
+	DockerContainers      = []string{}
 	Active_Daemon_Streams = []string{}
 	ActiveDBs             = map[string]*leveldb.DB{}
 )
