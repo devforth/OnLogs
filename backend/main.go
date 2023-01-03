@@ -37,6 +37,7 @@ func main() {
 	http.HandleFunc("/api/v1/login", routes.Login)
 	http.HandleFunc("/api/v1/logout", routes.Logout)
 	http.HandleFunc("/api/v1/editUser", routes.EditUser)
+	http.HandleFunc("/api/v1/deleteContainerLogs", routes.DeleteContainerLogs)
 	http.HandleFunc("/api/v1/deleteUser", routes.DeleteUser)
 
 	fmt.Println("ONLOGS: ", http.ListenAndServe(":"+string(os.Getenv("PORT")), nil))

@@ -2,6 +2,8 @@ package db
 
 import (
 	"errors"
+	"os"
+	"strconv"
 	"strings"
 
 	"github.com/devforth/OnLogs/app/util"
@@ -106,6 +108,35 @@ func GetLogs(host string, container string, message string, limit int, offset in
 
 func EditUser(login string, password string) {
 	vars.UsersDB.Put([]byte(login), []byte(password), nil)
+}
+
+func DeleteContainerLogs(host string, container string) {
+	var path string
+	if host == "" || host == util.GetHost() {
+		path = "leveldb/logs/" + container
+	} else {
+		path = "leveldb/" + host + "/" + container
+	}
+
+	files, _ := os.ReadDir(path)
+	last := 0
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), ".log") {
+			os.Remove(path + "/" + file.Name())
+			continue
+		}
+
+		if !strings.HasSuffix(file.Name(), "ldb") {
+			continue
+		}
+
+		num, _ := strconv.Atoi(file.Name()[:len(file.Name())-4])
+		if num < last {
+			os.Remove(path + "/" + file.Name())
+		} else {
+			last = num
+		}
+	}
 }
 
 func DeleteUser(login string, password string) error {
