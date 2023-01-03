@@ -118,10 +118,8 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
-	fmt.Println(logItem)
 
-	db, err := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
-	fmt.Print(err)
+	db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
 	db.Put([]byte(logItem.LogLine[0]), []byte(logItem.LogLine[1]), nil)
 	defer db.Close()
 }
@@ -153,7 +151,7 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var to_return []vars.HostsList
-	to_return = append(to_return, vars.HostsList{Host: util.GetHost(), Services: vars.All_Containers})
+	to_return = append(to_return, vars.HostsList{Host: util.GetHost(), Services: vars.DockerContainers})
 
 	hosts, _ := os.ReadDir("leveldb/hosts/")
 	for _, host := range hosts {
