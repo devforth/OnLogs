@@ -117,35 +117,40 @@ func DeleteContainerLogs(host string, container string) { // UNDER TEST
 	// 	os.RemoveAll("leveldb/logs/" + container)
 	// 	vars.ActiveDBs[container], _ = leveldb.OpenFile("leveldb/logs/"+container, nil)
 	// }
+	var path string
 	if host == "" || host == util.GetHost() {
-		// db, _ := leveldb.OpenFile("leveldb/logs/"+container, nil)
-		// iter := db.NewIterator(nil, nil)
-		// iter.Last()
-		// for iter.Prev() {
-		// 	toDelete := iter.Key()
-		// 	fmt.Println(string(toDelete))
-		// 	db.Delete(toDelete, nil)
-		// }
+		path = "leveldb/logs/" + container
+	} else {
+		path = "leveldb/" + host + "/" + container
+	}
 
-		// iter.Release()
-		// db.Close()
+	// db, _ := leveldb.OpenFile("leveldb/logs/"+container, nil)
+	// iter := db.NewIterator(nil, nil)
+	// iter.Last()
+	// for iter.Prev() {
+	// 	toDelete := iter.Key()
+	// 	fmt.Println(string(toDelete))
+	// 	db.Delete(toDelete, nil)
+	// }
 
-		files, _ := os.ReadDir("leveldb/logs/" + container)
-		last := 0
-		var lastName string
-		for _, file := range files {
-			if strings.HasSuffix(file.Name(), "ldb") {
-				num, _ := strconv.Atoi(file.Name()[:len(file.Name())-4])
-				if num > last {
-					last = num
-					lastName = file.Name()
-				}
+	// iter.Release()
+	// db.Close()
+
+	files, _ := os.ReadDir(path)
+	last := 0
+	var lastName string
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), "ldb") {
+			num, _ := strconv.Atoi(file.Name()[:len(file.Name())-4])
+			if num > last {
+				last = num
+				lastName = file.Name()
 			}
 		}
-		for _, file := range files {
-			if (strings.HasSuffix(file.Name(), "ldb") && file.Name() != lastName) || strings.HasSuffix(file.Name(), ".log") {
-				os.Remove("leveldb/logs/" + container + "/" + file.Name())
-			}
+	}
+	for _, file := range files {
+		if (strings.HasSuffix(file.Name(), "ldb") && file.Name() != lastName) || strings.HasSuffix(file.Name(), ".log") {
+			os.Remove(path + "/" + file.Name())
 		}
 	}
 }
