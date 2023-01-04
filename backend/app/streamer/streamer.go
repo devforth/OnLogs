@@ -8,40 +8,8 @@ import (
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
-	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
 )
-
-func messageHandler(connection websocket.Conn, gotPong *bool) {
-	_, m, _ := connection.ReadMessage()
-	if string(m) == "PONG" {
-		*gotPong = true
-	}
-}
-
-func checkConnections() { // TODO improve
-	for {
-		for container := range vars.Connections {
-			newConnectionsList := []websocket.Conn{}
-			for connectionIdx, connection := range vars.Connections[container] {
-				gotPong := false
-
-				connection.WriteMessage(1, []byte("PING"))
-				go messageHandler(connection, &gotPong)
-				time.Sleep(1 * time.Minute)
-
-				if !gotPong {
-					newConnectionsList = append(vars.Connections[container][:connectionIdx], vars.Connections[container][connectionIdx+1:]...)
-				} else {
-					newConnectionsList = vars.Connections[container]
-				}
-			}
-			vars.Connections[container] = newConnectionsList
-			newConnectionsList = []websocket.Conn{}
-		}
-		time.Sleep(1 * time.Minute)
-	}
-}
 
 func StreamLogs() {
 	containers := daemon.GetContainersList()
@@ -51,14 +19,20 @@ func StreamLogs() {
 			if !util.Contains(container, vars.Active_Daemon_Streams) {
 				newDB, err := leveldb.OpenFile("leveldb/logs/"+container, nil)
 				if err != nil {
-					fmt.Println(err)
+					fmt.Println("ERROR: " + container + ": " + err.Error())
+					newDB, err = leveldb.RecoverFile("leveldb/logs/"+container, nil)
+					fmt.Println("INFO: " + container + ": recovering db...")
+					if err == nil {
+						fmt.Println("INFO: " + container + ": db recovered!")
+					} else {
+						fmt.Println("ERROR: " + container + ": " + err.Error())
+					}
 				}
 				vars.ActiveDBs[container] = newDB
 				vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
 				if os.Getenv("CLIENT") != "" {
 					go daemon.CreateDaemonToHostStream(container)
 				} else {
-					// go checkConnections() // TMP MEMORY TEST
 					go daemon.CreateDaemonToDBStream(container)
 				}
 			}
