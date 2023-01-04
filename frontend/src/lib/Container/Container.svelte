@@ -10,7 +10,7 @@
     ? 'paddingOff'
     : ''}"
   style:min-height={`${minHeightVh}vh`}
-  style="max-height: ${maxHeightVh};"
+  style="max-height: {maxHeightVh}vh;"
 >
   <slot />
 </div>

@@ -38,3 +38,6 @@ export const addHostMenuIsVisible = writable(false);
 
 //snippet modal
 export const snipetModalIsVisible = writable(false);
+
+//hosts list scroll is visible
+export const listScrollIsVisible = writable(false);

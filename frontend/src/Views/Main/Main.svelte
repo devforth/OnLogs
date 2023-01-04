@@ -15,6 +15,7 @@
     theme,
     snipetModalIsVisible,
     addHostMenuIsVisible,
+    listScrollIsVisible,
   } from "../../Stores/stores.js";
   import UserMenu from "../../lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
@@ -99,48 +100,58 @@
 </script>
 
 <div class="contentContainer">
-  <div class="subContainerLeft subContainer">
-    <Container
-      highlighted={$theme !== "dark"}
-      minHeightVh={79.3}
-      paddingOff={true}
+  <div class="subContainerLeft subContainer ">
+    <div
+      id="listContainer"
+      on:mouseenter={() => {
+        listScrollIsVisible.set(true);
+      }}
+      on:mouseleave={() => {
+        listScrollIsVisible.set(false);
+      }}
     >
-      <div class="onLogsPanel">
-        <div class="onLogsPanelHeader">
-          <h1
-            on:click={() => {
-              navigate(`/view/${$lastChosenHost}/${$lastChosenService}`, {
-                replace: true,
-              });
-              activeMenuOption.set("home");
-            }}
-          >
-            onLogs
-          </h1>
-          <div
-            style:position={"relative"}
-            use:clickOutside
-            on:click_outside={() => {
-              addHostMenuIsVisible.set(false);
-            }}
-          >
-            <Button
-              title=""
-              border={false}
-              highlighted
-              minWidth={0}
-              minHeight={0}
-              icon="log log-Plus"
-              iconHeight={18}
-              CB={() => {
-                addHostMenuIsVisible.update((v) => !v);
+      <Container
+        highlighted={$theme !== "dark"}
+        minHeightVh={79.3}
+        paddingOff={true}
+        maxHeightVh={79.3}
+      >
+        <div class="onLogsPanel">
+          <div class="onLogsPanelHeader">
+            <h1
+              on:click={() => {
+                navigate(`/view/${$lastChosenHost}/${$lastChosenService}`, {
+                  replace: true,
+                });
+                activeMenuOption.set("home");
               }}
-            />
-            {#if $addHostMenuIsVisible}
-              <DropDownAddHost />{/if}
+            >
+              onLogs
+            </h1>
+            <div
+              style:position={"relative"}
+              use:clickOutside
+              on:click_outside={() => {
+                addHostMenuIsVisible.set(false);
+              }}
+            >
+              <Button
+                title=""
+                border={false}
+                highlighted
+                minWidth={0}
+                minHeight={0}
+                icon="log log-Plus"
+                iconHeight={18}
+                CB={() => {
+                  addHostMenuIsVisible.update((v) => !v);
+                }}
+              />
+              {#if $addHostMenuIsVisible}
+                <DropDownAddHost />{/if}
+            </div>
           </div>
-        </div>
-        <div class="listwrapper">
+
           {#if location.pathname.includes("/view") || location.pathname === "/"}
             <ListWithChoise
               listData={hostList}
@@ -153,8 +164,8 @@
               listData={[{ name: "Logout", ico: "Logout", callBack: logout }]}
             />{/if}
         </div>
-      </div></Container
-    >
+      </Container>
+    </div>
     <Container minHeightVh={10.97}>
       <ClientPanel />
     </Container>

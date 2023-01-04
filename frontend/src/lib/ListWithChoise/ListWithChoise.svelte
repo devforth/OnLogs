@@ -11,7 +11,11 @@
   export let customActiveElClass = "";
   export let headerButton = "";
   export let listElementButton = "";
-  import { lastChosenHost, lastChosenService } from "../../Stores/stores.js";
+  import {
+    lastChosenHost,
+    lastChosenService,
+    listScrollIsVisible,
+  } from "../../Stores/stores.js";
   let initialVisitcounter = 0;
 
   $: {
@@ -45,7 +49,7 @@
   onMount(() => {});
 </script>
 
-<div class="listWithChoise">
+<div class="listWithChoise {$listScrollIsVisible ? 'active' : ''}">
   <ul class={customListClass}>
     {#each listData as listEl, index}
       <li class="listElement">

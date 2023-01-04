@@ -16,6 +16,12 @@
     width: 15vw;
     justify-content: space-between;
     position: relative;
+    .container {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      height: 100%;
+    }
   }
   &Right {
     width: 10.12vw;
@@ -28,9 +34,6 @@
       height: 100%;
     }
   }
-  .listWrapper {
-    height: 100%;
-  }
 }
 
 .subContainerThumb {
@@ -41,6 +44,7 @@
 }
 
 .onLogsPanelHeader {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   justify-items: center;
@@ -72,10 +76,18 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    overflow: hidden;
   }
 }
 
 button:hover {
   transform: scale(1.1);
   opacity: 0.8;
+}
+
+.onLogsPanel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 16px;
 }
