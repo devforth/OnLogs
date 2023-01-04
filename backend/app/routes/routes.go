@@ -145,6 +145,14 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 	os.MkdirAll("leveldb/hosts/"+addReq.Hostname, 0700)
 }
 
+func GetSecret(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"token": os.Getenv("ONLOGS_TOKEN")})
+}
+
 func GetHosts(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
