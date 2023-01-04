@@ -350,14 +350,18 @@ func EditUser(w http.ResponseWriter, req *http.Request) {
 }
 
 func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
 	var logItem struct {
-		Host      string
-		Container string
+		Host    string
+		Service string
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
 
-	go db.DeleteContainerLogs(logItem.Host, logItem.Container)
+	go db.DeleteContainerLogs(logItem.Host, logItem.Service)
 }
 
 func DeleteUser(w http.ResponseWriter, req *http.Request) {
