@@ -372,6 +372,21 @@ func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
 	go db.DeleteContainerLogs(logItem.Host, logItem.Service)
 }
 
+func DeleteContainer(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	var logItem struct {
+		Host    string
+		Service string
+	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&logItem)
+
+	go db.DeleteContainer(logItem.Host, logItem.Service)
+}
+
 func DeleteUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
