@@ -51,19 +51,28 @@ func sendLogMessage(container string, message string) {
 	// }
 }
 
-func CreateDaemonToHostStream(containerName string) {
+func validateMessage(message string) ([]byte, bool) {
+	to_put := []byte(message)[:len(message)-1]
+	if len(to_put) < 31 {
+		return nil, false
+	}
+
+	if []byte(message)[0] < 32 || []byte(message)[0] > 126 { // is it ok?
+		to_put = to_put[8:]
+	}
+	return to_put, true
+}
+
+func createConnection(containerName string) net.Conn {
 	connection, _ := net.Dial("unix", "/var/run/docker.sock")
 	fmt.Fprintf(
 		connection,
 		"GET /containers/"+containerName+"/logs?stdout=true&stderr=true&timestamps=true&follow=true&since="+strconv.FormatInt(time.Now().Unix(), 10)+" HTTP/1.0\r\n\r\n",
 	)
+	return connection
+}
 
-	mes := createLogMessage(nil, "ONLOGS: Container listening started!")
-	sendLogMessage(containerName, mes)
-
-	reader := bufio.NewReader(connection)
-	lastSleep := time.Now().Unix()
-
+func readHeader(reader bufio.Reader) {
 	for { // reading resp header
 		tmp, _ := reader.ReadString('\n')
 		if tmp[:len(tmp)-2] == "" {
@@ -71,29 +80,37 @@ func CreateDaemonToHostStream(containerName string) {
 			break
 		}
 	}
+}
 
+func closeActiveStream(containerName string) {
+	newDaemonStreams := []string{}
+	for _, stream := range vars.Active_Daemon_Streams {
+		if stream != containerName {
+			newDaemonStreams = append(newDaemonStreams, stream)
+		}
+	}
+	vars.Active_Daemon_Streams = newDaemonStreams
+}
+
+func CreateDaemonToHostStream(containerName string) {
+	connection := createConnection(containerName)
+	reader := bufio.NewReader(connection)
+	readHeader(*reader)
+
+	sendLogMessage(containerName, createLogMessage(nil, "ONLOGS: Container listening started!"))
+
+	lastSleep := time.Now().Unix()
 	for { // reading body
-		logLine, get_string_error := reader.ReadString('\n')
+		logLine, get_string_error := reader.ReadString('\n') // TODO read bytes instead of strings
 		if get_string_error != nil {
-			newDaemonStreams := []string{}
-			for _, stream := range vars.Active_Daemon_Streams {
-				if stream != containerName {
-					newDaemonStreams = append(newDaemonStreams, stream)
-				}
-			}
-			vars.Active_Daemon_Streams = newDaemonStreams
-			mes := createLogMessage(nil, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")")
-			sendLogMessage(containerName, mes)
+			closeActiveStream(containerName)
+			sendLogMessage(containerName, createLogMessage(nil, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")"))
 			return
 		}
 
-		to_put := []byte(logLine)
-		if len(to_put) < 31 {
+		to_put, valid := validateMessage(logLine)
+		if !valid {
 			continue
-		}
-
-		if []byte(logLine)[0] < 32 || []byte(logLine)[0] > 126 { // is it ok?
-			to_put = to_put[8:]
 		}
 
 		sendLogMessage(containerName, string(to_put))
@@ -107,48 +124,26 @@ func CreateDaemonToHostStream(containerName string) {
 
 // creates stream that writes logs from every docker container to leveldb
 func CreateDaemonToDBStream(containerName string) {
-	db := vars.ActiveDBs[containerName]
-	connection, _ := net.Dial("unix", "/var/run/docker.sock")
-	fmt.Fprintf(
-		connection,
-		"GET /containers/"+containerName+"/logs?stdout=true&stderr=true&timestamps=true&follow=true&since="+strconv.FormatInt(time.Now().Unix(), 10)+" HTTP/1.0\r\n\r\n",
-	)
+	connection := createConnection(containerName)
+	reader := bufio.NewReader(connection)
+	readHeader(*reader)
 
+	db := vars.ActiveDBs[containerName]
+	defer db.Close()
 	createLogMessage(db, "ONLOGS: Container listening started!")
 
-	reader := bufio.NewReader(connection)
 	lastSleep := time.Now().Unix()
-	defer db.Close()
-
-	for { // reading resp header
-		tmp, _ := reader.ReadString('\n')
-		if tmp[:len(tmp)-2] == "" {
-			reader.ReadString('\n')
-			break
-		}
-	}
-
 	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n')
 		if get_string_error != nil {
-			newDaemonStreams := []string{}
-			for _, stream := range vars.Active_Daemon_Streams {
-				if stream != containerName {
-					newDaemonStreams = append(newDaemonStreams, stream)
-				}
-			}
-			vars.Active_Daemon_Streams = newDaemonStreams
+			closeActiveStream(containerName)
 			createLogMessage(db, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")")
 			return
 		}
 
-		to_put := []byte(logLine)
-		if len(to_put) < 31 {
+		to_put, valid := validateMessage(logLine)
+		if !valid {
 			continue
-		}
-
-		if []byte(logLine)[0] < 32 || []byte(logLine)[0] > 126 { // is it ok?
-			to_put = to_put[8:]
 		}
 
 		putLogMessage(db, string(to_put))
