@@ -151,7 +151,13 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var to_return []vars.HostsList
-	to_return = append(to_return, vars.HostsList{Host: util.GetHost(), Services: vars.DockerContainers})
+
+	containers, _ := os.ReadDir("leveldb/logs/")
+	hostContainers := []string{}
+	for _, container := range containers {
+		hostContainers = append(hostContainers, container.Name())
+	}
+	to_return = append(to_return, vars.HostsList{Host: util.GetHost(), Services: hostContainers})
 
 	hosts, _ := os.ReadDir("leveldb/hosts/")
 	for _, host := range hosts {
