@@ -51,12 +51,23 @@ func GetUsers() []string {
 
 func GetLogs(host string, container string, message string, limit int, offset int, startWith string, caseSensetivity bool) [][]string {
 	var db *leveldb.DB
-	if host == util.GetHost() {
-		db = vars.ActiveDBs[container]
-	} else {
-		db, _ = leveldb.OpenFile("leveldb/hosts/"+host+"/"+container, nil)
+	var err error
+	var path string
+	db = vars.ActiveDBs[container]
+	if db == nil {
+		if host == util.GetHost() {
+			path = "leveldb/logs/" + container
+		} else {
+			path = "leveldb/hosts/" + host + "/" + container
+		}
+
+		db, err = leveldb.OpenFile(path, nil)
+		if err != nil {
+			db, _ = leveldb.RecoverFile(path, nil)
+		}
 		defer db.Close()
 	}
+
 	iter := db.NewIterator(nil, nil)
 	position := 0
 	counter := 0
@@ -112,14 +123,15 @@ func EditUser(login string, password string) {
 
 func DeleteContainerLogs(host string, container string) {
 	var path string
-	if host == "" || host == util.GetHost() {
+	if host == util.GetHost() {
 		path = "leveldb/logs/" + container
 	} else {
 		path = "leveldb/" + host + "/" + container
 	}
 
 	files, _ := os.ReadDir(path)
-	last := 0
+	lastNum := 0
+	var lastName string
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), ".log") {
 			os.Remove(path + "/" + file.Name())
@@ -131,11 +143,18 @@ func DeleteContainerLogs(host string, container string) {
 		}
 
 		num, _ := strconv.Atoi(file.Name()[:len(file.Name())-4])
-		if num < last {
-			os.Remove(path + "/" + file.Name())
-		} else {
-			last = num
+		if num > lastNum {
+			lastNum = num
+			lastName = file.Name()
 		}
+	}
+
+	for _, file := range files {
+		if !strings.HasSuffix(file.Name(), "ldb") || file.Name() == lastName {
+			continue
+		}
+
+		os.Remove(path + "/" + file.Name())
 	}
 }
 
