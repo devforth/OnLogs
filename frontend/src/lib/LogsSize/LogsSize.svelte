@@ -13,6 +13,11 @@
   let logsSize = 0;
   let fetchCount = 0;
 
+  async function clearLogs() {
+    const data = await fetchApi.cleanLogs($lastChosenHost, $lastChosenService);
+    console.log("data", data);
+  }
+
   async function fetchAllLogs() {
     const data = await fetchApi.getAllLogsSize();
     logsSize = data.sizeMiB;
@@ -46,6 +51,7 @@
         minWidth={40}
         border={true}
         highlighted={$theme === "dark" ? true : false}
+        CB={clearLogs}
       />
     </div>
   {/if}

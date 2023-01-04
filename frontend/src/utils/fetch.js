@@ -104,6 +104,12 @@ class fetchApi {
       `${this.url}getSizeByService?host=${host}&service=${service}`
     );
   }
+  async cleanLogs(host, service) {
+    return await this.doFetch("POST", `${this.url}deleteContainerLogs`, {
+      host,
+      service,
+    });
+  }
 
   async createUser({ login, password }) {
     return await this.doFetch("POST", `${this.url}createUser`, {
