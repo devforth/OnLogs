@@ -1,7 +1,7 @@
 .dropDownContainer {
   box-shadow: $main-shadow;
   border-radius: $main-border-radius;
-  background-color: $block-bg-color;
+  background-color: $block-bg-color-dark;
   padding: 20px;
   color: $text-dark-color;
   position: absolute;
@@ -16,8 +16,8 @@
     vertical-align: middle;
   }
   &.addHost {
-    right: 50%;
-    transform: translate(100%);
+    right: 100%;
+    transform: translate(25%);
     .dropDownRawEl.text {
       margin-right: 0px;
     }

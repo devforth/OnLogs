@@ -153,7 +153,15 @@
   ) {
     isUploading = true;
     const newLogs = (
-      await api.getLogs(service, search, limit, offset, "", "", $lastChosenHost)
+      await api.getLogs(
+        service,
+        search,
+        limit,
+        offset,
+        false,
+        "",
+        $lastChosenHost
+      )
     ).reverse();
     startWith = newLogs?.at(0)?.at(0);
     offset += newLogs.length;

@@ -31,7 +31,7 @@
     }
   }
   $: {
-    if ($lastChosenHost && !isAllLogs) {
+    if ($lastChosenHost && isAllLogs) {
       fetchAllLogs();
     }
   }
