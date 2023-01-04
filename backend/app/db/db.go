@@ -121,6 +121,21 @@ func EditUser(login string, password string) {
 	vars.UsersDB.Put([]byte(login), []byte(password), nil)
 }
 
+func DeleteContainer(host string, container string) {
+	var path string
+	if host == util.GetHost() {
+		db := vars.ActiveDBs[container]
+		if db != nil {
+			db.Close()
+		}
+		path = "leveldb/logs/" + container
+	} else {
+		path = "leveldb/" + host + "/" + container
+	}
+
+	os.RemoveAll(path)
+}
+
 func DeleteContainerLogs(host string, container string) {
 	var path string
 	if host == util.GetHost() {
