@@ -1,10 +1,13 @@
 <script>
+  // @ts-nocheck
+
   import { onMount, afterUpdate } from "svelte";
   export let discribeText = "";
   import {
     lastChosenHost,
     lastChosenService,
     theme,
+    confirmationObj,
   } from "../../Stores/stores";
   import FetchApi from "../../utils/fetch.js";
   import Button from "../Button/Button.svelte";
@@ -14,8 +17,25 @@
   let fetchCount = 0;
 
   async function clearLogs() {
-    const data = await fetchApi.cleanLogs($lastChosenHost, $lastChosenService);
-    console.log("data", data);
+    confirmationObj.set({
+      action: async function () {
+        const data = await fetchApi.cleanLogs(
+          $lastChosenHost,
+          $lastChosenService
+        );
+        if (data) {
+          confirmationObj.update((pv) => {
+            return { ...pv, isVisible: false };
+          });
+        }
+        console.log("data", data);
+        console.log("helo.world");
+      },
+      message:
+        "You want to delete host service logs. This data will be lost. This action cannot be undone.",
+
+      isVisible: true,
+    });
   }
 
   async function fetchAllLogs() {

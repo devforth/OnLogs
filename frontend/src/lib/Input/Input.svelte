@@ -9,10 +9,10 @@
 
 <div class={thumbClass}>
   <input
+    bind:value
     class={customClass}
     type="text"
-    {value}
-    placeholder="Password"
+    {placeholder}
     style:width={`${width}px`}
     style:height={`${height}px`}
   />

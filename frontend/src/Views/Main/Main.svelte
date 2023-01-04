@@ -16,6 +16,7 @@
     snipetModalIsVisible,
     addHostMenuIsVisible,
     listScrollIsVisible,
+    confirmationObj,
   } from "../../Stores/stores.js";
   import UserMenu from "../../lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
@@ -29,6 +30,7 @@
   import DropDownAddHost from "../../lib/DropDown/DropDownAddHost.svelte";
   import SecretModal from "../../lib/SecretModal/SecretModal.svelte";
   import LogsSize from "../../lib/LogsSize/LogsSize.svelte";
+  import ConfirmationMenu from "../../lib/ConfirmationMenu/ConfirmationMenu.svelte";
 
   let api = new fetchApi();
   let hostList = [];
@@ -175,13 +177,6 @@
     <Container minHeightVh={92.6}>
       {#if location.pathname === "/users"}
         <UserMenu {userForAdding} />
-        <Modal modalIsOpen={addUserModOpen} storeProp={addUserModalOpen}
-          ><UserManageForm
-            bind:userData={newUserData}
-            createHandler={createUser}
-            {closeModal}
-          /></Modal
-        >
       {:else}<LogsView />
       {/if}
     </Container>
@@ -205,3 +200,20 @@
     </div>
   </div>
 </div>
+<Modal
+  modalIsOpen={$confirmationObj.isVisible}
+  closeFunction={() => {
+    confirmationObj.update((pv) => {
+      return { ...pv, isVisible: false };
+    });
+  }}
+>
+  <ConfirmationMenu /></Modal
+>
+<Modal modalIsOpen={addUserModOpen} storeProp={addUserModalOpen}
+  ><UserManageForm
+    bind:userData={newUserData}
+    createHandler={createUser}
+    {closeModal}
+  /></Modal
+>

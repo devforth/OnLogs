@@ -3,6 +3,7 @@
 
   export let modalIsOpen = false;
   export let storeProp = {};
+  export let closeFunction = null;
 
   function handleKeydown(e) {
     if (e.key === "Escape") {
@@ -10,7 +11,8 @@
     }
   }
   function closeModal() {
-    storeProp && storeProp.set(false);
+    (storeProp.set && storeProp.set(false)) ||
+      (closeFunction && closeFunction());
   }
 </script>
 

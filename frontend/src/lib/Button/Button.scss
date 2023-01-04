@@ -28,4 +28,9 @@
   .iconWidthText {
     padding-right: $normal-padding;
   }
+  &:disabled {
+    opacity: 0.6;
+    transform: none;
+    cursor: auto;
+  }
 }

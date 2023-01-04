@@ -16,9 +16,11 @@
   export let CB = () => {};
   export let iconHeight = 12;
   export let type = "button";
+  export let disabled = false;
 </script>
 
 <button
+  {disabled}
   on:click={(e) => {
     CB();
     return e;
