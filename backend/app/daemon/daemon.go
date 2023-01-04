@@ -60,6 +60,11 @@ func validateMessage(message string) ([]byte, bool) {
 	if []byte(message)[0] < 32 || []byte(message)[0] > 126 { // is it ok?
 		to_put = to_put[8:]
 	}
+
+	// if []byte(message)[0] != 50 { // is it ok?
+	// 	to_put = to_put[6:]
+	// }
+
 	return to_put, true
 }
 
