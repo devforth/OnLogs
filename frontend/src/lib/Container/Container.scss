@@ -9,6 +9,7 @@
   padding-top: $container-vertical-padding;
   padding-bottom: $container-vertical-padding;
   box-sizing: border-box;
+  height: 100%;
 
   &.highlighted {
     background-color: $active-color;
