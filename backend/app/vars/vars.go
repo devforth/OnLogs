@@ -14,8 +14,8 @@ var (
 )
 
 type HostsList struct {
-	Host     string   `json:"host"`
-	Services []string `json:"services"`
+	Host     string                   `json:"host"`
+	Services []map[string]interface{} `json:"services"`
 }
 
 type UserData struct {

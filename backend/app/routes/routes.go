@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
@@ -55,13 +56,6 @@ func verifyUser(w *http.ResponseWriter, req *http.Request) bool {
 		(*w).WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(*w).Encode(map[string]string{"error": err.Error()})
 		return false
-	}
-	return true
-}
-
-func verifyOnlogsToken(token string) bool {
-	if token == util.GetOnLogsToken() {
-		return true
 	}
 	return true
 }
@@ -137,7 +131,7 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&addReq)
 
-	if !verifyOnlogsToken(addReq.Token) {
+	if !db.IsTokenExists(addReq.Token) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -150,7 +144,7 @@ func GetSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{"token": util.GetOnLogsToken()})
+	json.NewEncoder(w).Encode(map[string]string{"token": db.CreateOnLogsToken()})
 }
 
 func GetHosts(w http.ResponseWriter, req *http.Request) {
@@ -160,19 +154,25 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 
 	var to_return []vars.HostsList
 
+	activeContainers := daemon.GetContainersList()
+
 	containers, _ := os.ReadDir("leveldb/logs/")
-	hostContainers := []string{}
+	hostContainers := []map[string]interface{}{}
 	for _, container := range containers {
-		hostContainers = append(hostContainers, container.Name())
+		if util.Contains(container.Name(), activeContainers) {
+			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false})
+		} else {
+			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true})
+		}
 	}
 	to_return = append(to_return, vars.HostsList{Host: util.GetHost(), Services: hostContainers})
 
 	hosts, _ := os.ReadDir("leveldb/hosts/")
 	for _, host := range hosts {
 		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name())
-		allContainers := []string{}
+		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
-			allContainers = append(allContainers, container.Name())
+			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true})
 		}
 		to_return = append(to_return, vars.HostsList{Host: host.Name(), Services: allContainers})
 	}
@@ -370,6 +370,7 @@ func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
 	decoder.Decode(&logItem)
 
 	go db.DeleteContainerLogs(logItem.Host, logItem.Service)
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
 func DeleteContainer(w http.ResponseWriter, req *http.Request) {
@@ -385,6 +386,7 @@ func DeleteContainer(w http.ResponseWriter, req *http.Request) {
 	decoder.Decode(&logItem)
 
 	go db.DeleteContainer(logItem.Host, logItem.Service)
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
 func DeleteUser(w http.ResponseWriter, req *http.Request) {

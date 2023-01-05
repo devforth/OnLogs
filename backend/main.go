@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/routes"
 	"github.com/devforth/OnLogs/app/streamer"
 	"github.com/devforth/OnLogs/app/util"
@@ -20,7 +21,7 @@ func main() {
 		streamer.StreamLogs()
 	}
 
-	util.CreateOnLogsToken()
+	go db.DeleteUnusedTokens()
 
 	go streamer.StreamLogs()
 	util.CreateInitUser()
