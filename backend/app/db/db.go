@@ -94,6 +94,11 @@ func GetLogs(host string, container string, message string, limit int, offset in
 			path = "leveldb/hosts/" + host + "/" + container
 		}
 
+		_, pathErr := os.Stat(path)
+		if os.IsNotExist(pathErr) {
+			return [][]string{}
+		}
+
 		db, err = leveldb.OpenFile(path, nil)
 		if err != nil {
 			db, _ = leveldb.RecoverFile(path, nil)
