@@ -13,7 +13,7 @@
   box-sizing: border-box;
 
   &Left {
-    width: 15vw;
+    width: 20vw;
     justify-content: space-between;
     position: relative;
     .container {
@@ -24,14 +24,15 @@
     }
   }
   &Right {
-    width: 10.12vw;
+    width: 12vw;
     justify-content: space-between;
   }
   &Middle {
-    width: 68vw;
+    width: 60vw;
     justify-content: space-between;
+    height: 100%;
     .container {
-      height: 100%;
+      max-height: 100% !important;
     }
   }
 }

@@ -11,11 +11,13 @@
   import { onMount, onDestroy } from "svelte";
   import Modal from "../Modal/Modal.svelte";
   import Input from "../Input/Input.svelte";
+
   let usersList = [];
 
   let chosenUserLogin = "";
   let deleteModalIsOpen = false;
   let editModalIsOpen = false;
+  let userPasswordValue = "";
 
   export let userForAdding = "";
 
@@ -36,15 +38,38 @@
     }
   }
 
-  async function editUser(login) {
-    const data = await api.editUser(login);
+  async function editUser(login, password) {
+    if (password) {
+      const data = await api.editUser(login, password);
 
-    if (!data.error) {
-      editUserOpen.update((v) => !v);
+      if (!data.error) {
+        editUserOpen.update((v) => !v);
+        toastIsVisible.set(true);
+        toast.set({
+          message: "Password was changed",
+          tittle: "Success",
+          status: "debug",
+          position: "",
+        });
+        setTimeout(() => {
+          toastIsVisible.set(false);
+        }, 5000);
+      } else {
+        toastIsVisible.set(true);
+        toast.set({
+          message: data.error,
+          tittle: "Error",
+          status: "error",
+          position: "",
+        });
+        setTimeout(() => {
+          toastIsVisible.set(false);
+        }, 5000);
+      }
     } else {
       toastIsVisible.set(true);
       toast.set({
-        message: data.error,
+        message: "Type a new password.",
         tittle: "Error",
         status: "error",
         position: "",
@@ -179,13 +204,14 @@
       placeholder={"Password"}
       customClass={"editInput"}
       thumbClass={"editInputContainer"}
+      bind:value={userPasswordValue}
     />
 
     <span class="buttonModalContainer"
       ><span
         class="buttonSpan"
         on:click={() => {
-          editUser("admin");
+          editUser(chosenUserLogin, userPasswordValue);
         }}><Button title={"Edit"} minWidth={86} highlighted /></span
       >
       <span class="buttonSpan"

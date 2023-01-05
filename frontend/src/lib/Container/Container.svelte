@@ -1,7 +1,7 @@
 <script>
   export let highlighted = false;
   export let minHeightVh = 10;
-  export let maxHeightVh = 10;
+  export let maxHeightVh = 1;
   export let paddingOff = false;
 </script>
 

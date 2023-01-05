@@ -2,7 +2,7 @@
   import { Router, Link, Route } from "svelte-routing";
   import Main from "./Views/Main/Main.svelte";
   import Login from "./Views/Login/Login.svelte";
-  import { theme } from "./Stores/stores.js";
+  import { theme, activeMenuOption } from "./Stores/stores.js";
   import { onMount, onDestroy } from "svelte";
   import Toast from "./lib/Toast/Toast.svelte";
   import Notfound from "./lib/NotFound/Notfound.svelte";
@@ -27,6 +27,11 @@
     const LStheme = window.localStorage.getItem("theme");
     if (LStheme) {
       theme.set(LStheme);
+    }
+
+    //set active menu option after page refresh
+    if (location.pathname.split("/").at(1) === "users") {
+      activeMenuOption.set("user");
     }
   });
   onDestroy(unsubscribe);

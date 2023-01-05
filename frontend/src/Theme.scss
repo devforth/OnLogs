@@ -145,6 +145,11 @@
       color: $block-bg-color-dark;
     }
   }
+  .confirmationContainer {
+    .attentionZone {
+      background-color: $inpun-color-dark;
+    }
+  }
 }
 
 .dark-mode {

@@ -85,7 +85,7 @@ class fetchApi {
   }
 
   async editUser(login, password) {
-    return await this.doFetch("POST", `${this.url}deleteUser`, {
+    return await this.doFetch("POST", `${this.url}editUser`, {
       login,
       password,
     });
