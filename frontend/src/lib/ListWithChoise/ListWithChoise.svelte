@@ -1,8 +1,11 @@
 <script>
+  // @ts-nocheck
+
   import { each } from "svelte/internal";
   import { onMount } from "svelte";
 
   export let listData = [];
+  let sortedData = [];
   import { navigate } from "svelte-routing";
   export let openHeaderIndexs = [0];
   export let activeElementName = "";
@@ -35,6 +38,22 @@
     }
   }
 
+  $: {
+    sortedData = listData.map((h) => {
+      let activeServices = h.services.filter((s) => {
+        return !s.isDisabled;
+      });
+      let inActiveServices = h.services.filter((s) => {
+        return s.isDisabled;
+      });
+      let newHost = {
+        ...h,
+        services: [...activeServices, ...inActiveServices],
+      };
+      return newHost;
+    });
+  }
+
   function toggleSublistVisible(i) {
     if (openHeaderIndexs.includes(i)) {
       openHeaderIndexs = openHeaderIndexs.filter((e) => e !== i);
@@ -53,7 +72,7 @@
 
 <div class="listWithChoise {$listScrollIsVisible ? 'active' : ''}">
   <ul class={customListClass}>
-    {#each listData as listEl, index}
+    {#each sortedData as listEl, index}
       <li class="listElement">
         <div
           class="hostHeader"
@@ -84,13 +103,13 @@
                 on:click={() => {
                   choseSublistEl(listEl.host, service.serviceName);
                   lastChosenHost.set(listEl.host);
-                  lastChosenService.set(service);
+                  lastChosenService.set(service.serviceName);
 
                   initialVisitcounter = 1;
                 }}
               >
                 <div class="hostRow {customListElClass}">
-                  <p>
+                  <p class={service.isDisabled ? "disabled" : ""}>
                     {service.serviceName}
                   </p>
                   {#if listElementButton}

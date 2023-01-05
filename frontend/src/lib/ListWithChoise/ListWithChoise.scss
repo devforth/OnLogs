@@ -66,6 +66,9 @@
       z-index: 3;
       cursor: pointer;
     }
+    .disabled {
+      opacity: 0.2;
+    }
   }
   .highlightedOverlay {
     position: absolute;

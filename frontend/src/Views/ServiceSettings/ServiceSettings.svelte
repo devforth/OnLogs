@@ -7,6 +7,7 @@
     lastChosenService,
     confirmationObj,
   } from "../../Stores/stores.js";
+  import { navigate } from "svelte-routing";
 
   import FetchApi from "../../utils/fetch";
   const fetchApi = new FetchApi();
@@ -14,12 +15,18 @@
   async function deleteService() {
     confirmationObj.set({
       action: async function () {
-        console.log("action");
         const data = await fetchApi.deleteService(
           $lastChosenHost,
           $lastChosenService
         );
         if (data) {
+          const data = await fetchApi.getHosts();
+          const newServiceName = data.filter((h) => {
+            return h["host"] === $lastChosenHost;
+          })[0]?.services[0]?.serviceName;
+
+          lastChosenService.set(newServiceName || "");
+          navigate(`/`, { replace: true });
           confirmationObj.update((pv) => {
             return { ...pv, isVisible: false };
           });
