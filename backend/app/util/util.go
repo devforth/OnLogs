@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,28 +23,6 @@ func Contains(a string, list []string) bool {
 		}
 	}
 	return false
-}
-
-func CreateOnLogsToken() string {
-	tokenLen := 25
-	content, _ := ioutil.ReadFile("leveldb/onLogsToken")
-	if len(content) == tokenLen {
-		return ""
-	}
-
-	file, _ := os.Create("leveldb/onLogsToken")
-	letterBytes := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()_+,.:'{}[]"
-	b := make([]byte, tokenLen)
-
-	s1 := rand.NewSource(time.Now().UnixNano())
-	r1 := rand.New(s1)
-	for i := range b {
-		b[i] = letterBytes[r1.Int63()%int64(len(letterBytes))]
-	}
-	token := string(b)
-
-	file.WriteString(token)
-	return token
 }
 
 func CreateInitUser() {
@@ -80,15 +57,6 @@ func CreateJWT(login string) string {
 	tokenString, _ := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
 	return tokenString
-}
-
-func GetOnLogsToken() string {
-	tokenLen := 25
-	content, _ := ioutil.ReadFile("leveldb/onLogsToken")
-	if len(content) != tokenLen {
-		return CreateOnLogsToken()
-	}
-	return string(content)
 }
 
 func GetHost() string {

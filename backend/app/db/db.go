@@ -2,9 +2,11 @@ package db
 
 import (
 	"errors"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/devforth/OnLogs/app/util"
 	vars "github.com/devforth/OnLogs/app/vars"
@@ -27,6 +29,37 @@ func containStr(a string, b string, caseSens bool) bool {
 func IsUserExists(login string) bool {
 	isExists, _ := vars.UsersDB.Has([]byte(login), nil)
 	return isExists
+}
+
+func IsTokenExists(token string) bool {
+	db, _ := leveldb.OpenFile("leveldb/tokens", nil)
+	defer db.Close()
+	isExists, _ := db.Has([]byte(token), nil)
+	if isExists {
+		db.Put([]byte(token), []byte("was used"), nil)
+	}
+
+	return isExists
+}
+
+func CreateOnLogsToken() string {
+	tokenLen := 25
+	db, _ := leveldb.OpenFile("leveldb/tokens", nil)
+	defer db.Close()
+
+	letterBytes := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()_+,.:'{}[]"
+	b := make([]byte, tokenLen)
+
+	s1 := rand.NewSource(time.Now().UnixNano())
+	r1 := rand.New(s1)
+	for i := range b {
+		b[i] = letterBytes[r1.Int63()%int64(len(letterBytes))]
+	}
+	token := string(b)
+
+	to_put := time.Now().UTC().Add(24 * time.Hour).String()
+	db.Put(b, []byte(to_put), nil)
+	return token
 }
 
 func CreateUser(login string, password string) error {
@@ -119,6 +152,31 @@ func GetLogs(host string, container string, message string, limit int, offset in
 
 func EditUser(login string, password string) {
 	vars.UsersDB.Put([]byte(login), []byte(password), nil)
+}
+
+func DeleteUnusedTokens() {
+	for {
+		db, r := leveldb.OpenFile("leveldb/tokens", nil)
+		if r != nil {
+			panic(r)
+		}
+
+		iter := db.NewIterator(nil, nil)
+		for iter.Next() {
+			wasUsed := string(iter.Value())
+			if wasUsed == "was used" {
+				continue
+			}
+
+			created, _ := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", string(wasUsed))
+			if created.Before(time.Now()) {
+				db.Delete(iter.Key(), nil)
+			}
+		}
+		iter.Release()
+		db.Close()
+		time.Sleep(time.Hour * 1)
+	}
 }
 
 func DeleteContainer(host string, container string) {

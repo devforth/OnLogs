@@ -59,13 +59,6 @@ func verifyUser(w *http.ResponseWriter, req *http.Request) bool {
 	return true
 }
 
-func verifyOnlogsToken(token string) bool {
-	if token == util.GetOnLogsToken() {
-		return true
-	}
-	return true
-}
-
 func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
 	enableCors(w)
 	if req.Method == "OPTIONS" {
@@ -137,7 +130,7 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&addReq)
 
-	if !verifyOnlogsToken(addReq.Token) {
+	if !db.IsTokenExists(addReq.Token) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -150,7 +143,7 @@ func GetSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{"token": util.GetOnLogsToken()})
+	json.NewEncoder(w).Encode(map[string]string{"token": db.CreateOnLogsToken()})
 }
 
 func GetHosts(w http.ResponseWriter, req *http.Request) {
