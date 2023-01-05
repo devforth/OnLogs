@@ -20,6 +20,8 @@ func main() {
 		streamer.StreamLogs()
 	}
 
+	util.CreateOnLogsToken()
+
 	go streamer.StreamLogs()
 	util.CreateInitUser()
 

@@ -60,7 +60,7 @@ func verifyUser(w *http.ResponseWriter, req *http.Request) bool {
 }
 
 func verifyOnlogsToken(token string) bool {
-	if token == os.Getenv("ONLOGS_TOKEN") {
+	if token == util.GetOnLogsToken() {
 		return true
 	}
 	return true
@@ -150,7 +150,7 @@ func GetSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]string{"token": os.Getenv("ONLOGS_TOKEN")})
+	json.NewEncoder(w).Encode(map[string]string{"token": util.GetOnLogsToken()})
 }
 
 func GetHosts(w http.ResponseWriter, req *http.Request) {
