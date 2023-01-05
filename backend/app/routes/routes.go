@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
@@ -153,19 +154,25 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 
 	var to_return []vars.HostsList
 
+	activeContainers := daemon.GetContainersList()
+
 	containers, _ := os.ReadDir("leveldb/logs/")
-	hostContainers := []string{}
+	hostContainers := []map[string]interface{}{}
 	for _, container := range containers {
-		hostContainers = append(hostContainers, container.Name())
+		if util.Contains(container.Name(), activeContainers) {
+			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false})
+		} else {
+			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true})
+		}
 	}
 	to_return = append(to_return, vars.HostsList{Host: util.GetHost(), Services: hostContainers})
 
 	hosts, _ := os.ReadDir("leveldb/hosts/")
 	for _, host := range hosts {
 		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name())
-		allContainers := []string{}
+		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
-			allContainers = append(allContainers, container.Name())
+			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true})
 		}
 		to_return = append(to_return, vars.HostsList{Host: host.Name(), Services: allContainers})
 	}
