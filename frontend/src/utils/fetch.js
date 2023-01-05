@@ -117,6 +117,12 @@ class fetchApi {
       password,
     });
   }
+  async deleteService(host, service) {
+    return await this.doFetch("POST", `${this.url}deleteContainer`, {
+      host,
+      service,
+    });
+  }
 }
 
 export default fetchApi;

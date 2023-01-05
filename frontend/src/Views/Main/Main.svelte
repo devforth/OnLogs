@@ -31,6 +31,8 @@
   import SecretModal from "../../lib/SecretModal/SecretModal.svelte";
   import LogsSize from "../../lib/LogsSize/LogsSize.svelte";
   import ConfirmationMenu from "../../lib/ConfirmationMenu/ConfirmationMenu.svelte";
+  import ServiceSettings from "../ServiceSettings/ServiceSettings.svelte";
+  import ServiceSettingsLeft from "../ServiceSettings/ServiceSettingsLeft.svelte";
 
   let api = new fetchApi();
   let hostList = [];
@@ -84,7 +86,7 @@
     if (service) {
       lastChosenService.set(service);
     } else {
-      lastChosenService.set(hostList.at(0)["services"].at(0));
+      lastChosenService.set(hostList.at(0)["services"].at(0).serviceName);
     }
     if (host) {
       lastChosenHost.set(host);
@@ -165,6 +167,8 @@
             />{:else if location.pathname.includes("/users")}<CommonList
               listData={[{ name: "Logout", ico: "Logout", callBack: logout }]}
             />{/if}
+          {#if location.pathname.includes("/servicesettings")}
+            <ServiceSettingsLeft />{/if}
         </div>
       </Container>
     </div>
@@ -177,8 +181,11 @@
     <Container minHeightVh={92.6}>
       {#if location.pathname === "/users"}
         <UserMenu {userForAdding} />
-      {:else}<LogsView />
+      {:else if location.pathname.includes("/view") || location.pathname === "/"}<LogsView
+        />
       {/if}
+      {#if location.pathname.includes("/servicesettings")}
+        <ServiceSettings>1</ServiceSettings>{/if}
     </Container>
   </div>
   {#if $snipetModalIsVisible}

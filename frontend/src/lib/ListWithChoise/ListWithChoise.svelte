@@ -11,6 +11,7 @@
   export let customActiveElClass = "";
   export let headerButton = "";
   export let listElementButton = "";
+  let chosenElSettings = "";
   import {
     lastChosenHost,
     lastChosenService,
@@ -22,7 +23,8 @@
     {
       if (!initialVisitcounter && !activeElementName) {
         const chosenHost = listData[0] && listData[0].host;
-        const chosenService = listData[0] && listData[0].services[0];
+        const chosenService =
+          listData[0] && listData[0].services[0].serviceName;
         activeElementName = listData[0] && `${chosenHost}-${chosenService}`;
 
         lastChosenHost.set(chosenHost);
@@ -42,7 +44,7 @@
   }
   function choseSublistEl(firstEl, secondEl) {
     activeElementName = `${firstEl.trim()}-${secondEl.trim()}`;
-    console.log(activeElementName);
+
     navigate(`/view/${firstEl}/${secondEl}`, { replace: true });
   }
 
@@ -80,7 +82,7 @@
                 class="serviceListItem  "
                 id={listEl.host}
                 on:click={() => {
-                  choseSublistEl(listEl.host, service);
+                  choseSublistEl(listEl.host, service.serviceName);
                   lastChosenHost.set(listEl.host);
                   lastChosenService.set(service);
 
@@ -89,10 +91,20 @@
               >
                 <div class="hostRow {customListElClass}">
                   <p>
-                    {service}
+                    {service.serviceName}
                   </p>
                   {#if listElementButton}
-                    <div class="listElementButton">
+                    <div
+                      class="listElementButton"
+                      on:click={() => {
+                        navigate(
+                          `/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
+                          { replace: true }
+                        );
+
+                        chosenElSettings = `${listEl.host.trim()}-${service.serviceName.trim()}`;
+                      }}
+                    >
                       <i class="log log-Wheel" />
                     </div>
                   {/if}
@@ -100,7 +112,7 @@
                 <div
                   class={`highlightedOverlay ${
                     `${activeElementName}` ===
-                    `${listEl.host.trim()}-${service.trim()}`
+                    `${listEl.host.trim()}-${service.serviceName.trim()}`
                       ? "active"
                       : ``
                   }`}

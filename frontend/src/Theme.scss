@@ -150,6 +150,12 @@
       background-color: $inpun-color-dark;
     }
   }
+
+  .serviceSettings {
+    .title {
+      border-bottom: 1px solid $lines-color-dark;
+    }
+  }
 }
 
 .dark-mode {
