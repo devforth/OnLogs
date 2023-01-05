@@ -370,6 +370,7 @@ func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
 	decoder.Decode(&logItem)
 
 	go db.DeleteContainerLogs(logItem.Host, logItem.Service)
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
 func DeleteContainer(w http.ResponseWriter, req *http.Request) {
