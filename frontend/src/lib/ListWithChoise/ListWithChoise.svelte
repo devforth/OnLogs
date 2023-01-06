@@ -55,6 +55,23 @@
     });
   }
 
+  $: {
+    if (!initialVisitcounter) {
+      const openedStopedServiceIndex = sortedData
+        .map((e) => {
+          return e.services.map((s) => s.isDisabled && s.serviceName);
+        })
+        .findIndex((el) => {
+          return el.includes($lastChosenService);
+        });
+      console.log(openedStopedServiceIndex);
+      if (openedStopedServiceIndex !== -1) {
+        openStopedServIndexes.push(openedStopedServiceIndex);
+        openStopedServIndexes = [...new Set(openStopedServIndexes)];
+      }
+    }
+  }
+
   function toggleSublistVisible(i) {
     if (openHeaderIndexs.includes(i)) {
       openHeaderIndexs = openHeaderIndexs.filter((e) => e !== i);
@@ -160,10 +177,12 @@
             <i class="log log-Archive" />
             <p class="stopedServices">stoped services</p>
             <i
-              class="log log-Pointer"
+              class="log log-Pointer {!openStopedServIndexes.includes(index)
+                ? 'rotated'
+                : ''}"
               on:click={() => {
                 toggleArchivedVisible(index);
-                console.log(index);
+                initialVisitcounter = 1;
               }}
             />
           </div>

@@ -122,8 +122,11 @@
     .log-Pointer {
       font-size: 10px;
       cursor: pointer;
-
       padding: 6px;
+      transform: rotate(0);
+      &.rotated {
+        transform: rotate(-90deg);
+      }
     }
   }
 }
