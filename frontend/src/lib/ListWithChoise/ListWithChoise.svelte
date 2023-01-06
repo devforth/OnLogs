@@ -8,7 +8,7 @@
   let sortedData = [];
   import { navigate } from "svelte-routing";
   export let openHeaderIndexs = [0];
-  let openStopedServIndexes = [0];
+  let openStopedServIndexes = [];
   export let activeElementName = "";
   export let customListClass = "";
   export let customListElClass = "";
