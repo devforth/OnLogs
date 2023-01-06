@@ -63,6 +63,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      font-size: $main-font-s;
       z-index: 3;
       cursor: pointer;
     }
@@ -107,5 +108,22 @@
     margin-left: -20px;
     margin-right: -20px;
     position: relative;
+  }
+
+  .stopedServices {
+    font-weight: 700;
+    font-size: $main-font-s;
+    padding-left: 12px;
+  }
+  .stopedServicesBox {
+    margin-top: 4px;
+    margin-bottom: 4px;
+    cursor: default;
+    .log-Pointer {
+      font-size: 10px;
+      cursor: pointer;
+
+      padding: 6px;
+    }
   }
 }

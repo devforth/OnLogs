@@ -96,3 +96,11 @@ button:hover {
 .relative {
   position: relative;
 }
+.flex {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.flex-start {
+  justify-content: start;
+}
