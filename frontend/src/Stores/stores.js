@@ -52,3 +52,6 @@ export const confirmationObj = writable({
 
   isVisible: false,
 });
+
+//serviceSettings
+export const lastChosenSetting = writable("General");

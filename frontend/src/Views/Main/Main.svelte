@@ -197,7 +197,7 @@
         />
       {/if}
       {#if location.pathname.includes("/servicesettings")}
-        <ServiceSettings>1</ServiceSettings>{/if}
+        <ServiceSettings />{/if}
     </Container>
   </div>
   {#if $snipetModalIsVisible}
