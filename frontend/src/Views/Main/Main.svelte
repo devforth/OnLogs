@@ -42,6 +42,8 @@
   let addUserModOpen = false;
   let newUserData = { login: "", password: "" };
   let userForAdding = "";
+  let withoutRightPanel = false;
+  let withoutRightPanelRoutesArr = ["users", "servicesettings"];
 
   export let host = "";
   export let service = "";
@@ -101,6 +103,12 @@
       })
       .at(0)["services"];
   });
+
+  $: {
+    if (withoutRightPanelRoutesArr.includes(location.pathname.split("/")[1])) {
+      withoutRightPanel = true;
+    }
+  }
 </script>
 
 <div class="contentContainer">
@@ -138,6 +146,7 @@
               on:click_outside={() => {
                 addHostMenuIsVisible.set(false);
               }}
+              class={withoutRightPanel && "visuallyHidden"}
             >
               <Button
                 title=""
@@ -176,7 +185,10 @@
       <ClientPanel />
     </Container>
   </div>
-  <div class="subContainerMiddle subContainer">
+  <div
+    class="subContainerMiddle subContainer {withoutRightPanel &&
+      'withoutRightPanel'}"
+  >
     <!-- <Container minHeightVh={17.36}>1213414</Container> -->
     <Container minHeightVh={92.6}>
       {#if location.pathname === "/users"}
@@ -191,7 +203,11 @@
   {#if $snipetModalIsVisible}
     <SecretModal />
   {/if}
-  <div class="subContainerRight  subContainer">
+  <div
+    class="subContainerRight  subContainer {withoutRightPanel
+      ? 'visuallyHidden'
+      : ''}"
+  >
     <Container minHeightVh={15}
       ><LogsSize
         discribeText={"Space used by all logs"}

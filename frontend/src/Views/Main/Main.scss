@@ -35,6 +35,9 @@
       max-height: 100% !important;
     }
   }
+  &Middle.withoutRightPanel {
+    width: 73vw;
+  }
 }
 
 .subContainerThumb {
