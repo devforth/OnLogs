@@ -35,6 +35,9 @@
       max-height: 100% !important;
     }
   }
+  &Middle.withoutRightPanel {
+    width: 73vw;
+  }
 }
 
 .subContainerThumb {
@@ -95,4 +98,12 @@ button:hover {
 
 .relative {
   position: relative;
+}
+.flex {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.flex-start {
+  justify-content: start;
 }

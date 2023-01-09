@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?f1e2b53c223e82d27c3c39669748d1ce?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?f1e2b53c223e82d27c3c39669748d1ce") format("woff2"),
-url("onLogsFont.woff?f1e2b53c223e82d27c3c39669748d1ce") format("woff"),
-url("onLogsFont.ttf?f1e2b53c223e82d27c3c39669748d1ce") format("truetype"),
-url("onLogsFont.svg?f1e2b53c223e82d27c3c39669748d1ce#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?d8d51cac994f08e1d0f592ee4df13100?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?d8d51cac994f08e1d0f592ee4df13100") format("woff2"),
+url("onLogsFont.woff?d8d51cac994f08e1d0f592ee4df13100") format("woff"),
+url("onLogsFont.ttf?d8d51cac994f08e1d0f592ee4df13100") format("truetype"),
+url("onLogsFont.svg?d8d51cac994f08e1d0f592ee4df13100#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -26,87 +26,93 @@ url("onLogsFont.svg?f1e2b53c223e82d27c3c39669748d1ce#onLogsFont") format("svg");
 .log-Alert:before {
 	content: "\f101";
 }
-.log-ArrowRight:before {
+.log-Archive:before {
 	content: "\f102";
 }
-.log-Break:before {
+.log-ArrowRight:before {
 	content: "\f103";
 }
-.log-Clean:before {
+.log-Break:before {
 	content: "\f104";
 }
-.log-Clock:before {
+.log-Clean:before {
 	content: "\f105";
 }
-.log-Close:before {
+.log-Clock:before {
 	content: "\f106";
 }
-.log-Colums:before {
+.log-Close:before {
 	content: "\f107";
 }
-.log-Combine:before {
+.log-Colums:before {
 	content: "\f108";
 }
-.log-Copy:before {
+.log-Combine:before {
 	content: "\f109";
 }
-.log-Cut:before {
+.log-Copy:before {
 	content: "\f10a";
 }
-.log-Data:before {
+.log-Cut:before {
 	content: "\f10b";
 }
-.log-Down:before {
+.log-Data:before {
 	content: "\f10c";
 }
-.log-Eye:before {
+.log-Down:before {
 	content: "\f10d";
 }
-.log-Filter:before {
+.log-Eye:before {
 	content: "\f10e";
 }
-.log-Group:before {
+.log-Filter:before {
 	content: "\f10f";
 }
-.log-Home:before {
+.log-Group:before {
 	content: "\f110";
 }
-.log-Info:before {
+.log-Home:before {
 	content: "\f111";
 }
-.log-Last:before {
+.log-Info:before {
 	content: "\f112";
 }
-.log-Leters:before {
+.log-Last:before {
 	content: "\f113";
 }
-.log-Logout:before {
+.log-Leters:before {
 	content: "\f114";
 }
-.log-Moon:before {
+.log-Logout:before {
 	content: "\f115";
 }
-.log-Pencil:before {
+.log-Moon:before {
 	content: "\f116";
 }
-.log-Plus:before {
+.log-Pencil:before {
 	content: "\f117";
 }
-.log-Refresh:before {
+.log-Plus:before {
 	content: "\f118";
 }
-.log-Search:before {
+.log-Pointer:before {
 	content: "\f119";
 }
-.log-Server:before {
+.log-Refresh:before {
 	content: "\f11a";
 }
-.log-Sun:before {
+.log-Search:before {
 	content: "\f11b";
 }
-.log-User:before {
+.log-Server:before {
 	content: "\f11c";
 }
-.log-Wheel:before {
+.log-Sun:before {
 	content: "\f11d";
+}
+.log-User:before {
+	content: "\f11e";
+}
+.log-Wheel:before {
+	content: "\f11f";
 }

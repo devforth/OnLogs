@@ -43,15 +43,18 @@
     logsSize = data.sizeMiB;
   }
   async function fetchServiceLogs() {
-    const data = await fetchApi.getServiceLogsSize(
-      $lastChosenHost,
-      $lastChosenService
-    );
-    logsSize = data.sizeMiB;
+    if ($lastChosenService) {
+      const data = await fetchApi.getServiceLogsSize(
+        $lastChosenHost,
+        $lastChosenService
+      );
+      logsSize = data.sizeMiB;
+    }
   }
 
   $: {
     if ($lastChosenService && !isAllLogs) {
+      console.log($lastChosenService);
       fetchServiceLogs();
     }
   }

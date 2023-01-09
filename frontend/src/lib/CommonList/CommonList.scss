@@ -6,6 +6,9 @@
     margin: 0;
     position: relative;
     cursor: default;
+    &.clickable {
+      cursor: pointer;
+    }
   }
   li:hover {
     opacity: 0.8;

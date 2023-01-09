@@ -1,49 +1,14 @@
 <script>
-  // @ts-nocheck
-
-  import Button from "../../lib/Button/Button.svelte";
-  import {
-    lastChosenHost,
-    lastChosenService,
-    confirmationObj,
-  } from "../../Stores/stores.js";
-
-  import FetchApi from "../../utils/fetch";
-  const fetchApi = new FetchApi();
-
-  async function deleteService() {
-    confirmationObj.set({
-      action: async function () {
-        console.log("action");
-        const data = await fetchApi.deleteService(
-          $lastChosenHost,
-          $lastChosenService
-        );
-        if (data) {
-          confirmationObj.update((pv) => {
-            return { ...pv, isVisible: false };
-          });
-        }
-      },
-      message:
-        "You want to delete host service. This data will be lost. This action cannot be undone.",
-
-      isVisible: true,
-    });
-  }
+  import General from "./General.svelte";
+  import Acess from "./Acess.svelte";
+  import { lastChosenSetting } from "../../Stores/stores.js";
 </script>
 
 <div class="serviceSettings">
-  <h3 class="title">Change settings for current service:</h3>
-  <p class="text">HOST: <span>{$lastChosenHost}</span></p>
-  <p class="text">SERVICE: <span>{$lastChosenService}</span></p>
-  <div class="actionThumb">
-    <p class="actionTitle">
-      <span>Delete this service </span>
-      Once you delete a service, there is no going back. Please be certain.
-    </p>
-    <div>
-      <Button title={"Delete service"} minWidth={160} CB={deleteService} />
-    </div>
-  </div>
+  {#if $lastChosenSetting.trim() === "General"}
+    <General />
+  {/if}
+  {#if $lastChosenSetting.trim() === "Acess"}
+    <Acess />
+  {/if}
 </div>
