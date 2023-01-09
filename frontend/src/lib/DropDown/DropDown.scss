@@ -21,11 +21,24 @@
     padding-top: 12px;
     vertical-align: middle;
   }
-  &.addHost {
+  & {
     right: 100%;
     transform: translate(25%);
     .dropDownRawEl.text {
       margin-right: 0px;
+    }
+  }
+
+  &.addHost#addHost {
+    @include for-mobile {
+      padding: 12px;
+      position: fixed;
+      left: 0;
+      right: 0;
+      width: auto;
+      top: 0;
+      z-index: 150;
+      transform: none;
     }
   }
 }

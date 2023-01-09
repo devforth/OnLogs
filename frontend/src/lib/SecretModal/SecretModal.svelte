@@ -90,7 +90,7 @@
     />
   </div>
 </div>
-<div class="modalOverlay" />
+<div class="modalOverlay" id="modalOverlay" />
 <svelte:window
   on:keydown={(e) => {
     handleKeydown(e, "Escape", () => {

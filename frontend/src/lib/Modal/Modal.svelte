@@ -18,7 +18,7 @@
 
 {#if modalIsOpen}
   <div>
-    <div class="modalOverlay" />
+    <div class="modalOverlay" id="modalOverlay" />
     <div class="modalContainer" use:clickOutside on:click_outside={closeModal}>
       <div class="closeButton" on:click={closeModal}>
         <i class="log log-Close" />

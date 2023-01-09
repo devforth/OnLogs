@@ -21,6 +21,9 @@
     z-index: 4;
     color: $text-onactive-color;
   }
+  @include for-mobile {
+    bottom: 110px;
+  }
 }
 
 .subContainerMiddle .subContainer {

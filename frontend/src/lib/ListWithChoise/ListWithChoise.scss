@@ -107,7 +107,14 @@
   .serviceListItem {
     margin-left: -20px;
     margin-right: -20px;
+
     position: relative;
+    div & {
+      @include for-mobile {
+        margin-left: 0px;
+        margin-right: 0px;
+      }
+    }
   }
 
   .inactiveServices {

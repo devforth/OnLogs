@@ -45,6 +45,21 @@
 
 <div class="clientPanel">
   <ul class="clientPanelOptionsList">
+    <li
+      on:click={() => {
+        if ($activeMenuOption === "burger") {
+          activeMenuOption.set("home");
+        } else {
+          activeMenuOption.set("burger");
+        }
+      }}
+      class="{$activeMenuOption === 'burger' && 'active'} burger"
+    >
+      <i class="log log-Burger " />
+      <div
+        class="higlightedOverlay {$activeMenuOption === 'burger' && 'active'}"
+      />
+    </li>
     <li on:click={goToHome} class={$activeMenuOption === "home" && "active"}>
       <i class="log log-Home " />
       <div

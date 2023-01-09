@@ -95,3 +95,9 @@ input {
   left: 0;
   z-index: 6;
 }
+
+@include for-mobile {
+}
+#modalOverlay {
+  z-index: 14;
+}

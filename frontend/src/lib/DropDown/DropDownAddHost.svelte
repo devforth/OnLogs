@@ -6,7 +6,7 @@
   } from "../../Stores/stores.js";
 </script>
 
-<div class="dropDownContainer addHost ">
+<div class="dropDownContainer addHost " id="addHost">
   <table class="dropDownTable">
     <thbody>
       <DropDownRow

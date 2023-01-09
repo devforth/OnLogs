@@ -112,6 +112,13 @@ h2.noLogsMessage {
 .logs {
   overflow-y: scroll;
   padding-right: 16px;
+  @include for-mobile {
+    &#logs {
+      padding-left: 0;
+      padding-right: 0;
+      overflow: overlay;
+    }
+  }
 }
 
 .logs::-webkit-scrollbar {

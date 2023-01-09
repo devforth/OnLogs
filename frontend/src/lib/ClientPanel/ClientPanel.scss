@@ -56,4 +56,10 @@ div.clientPanel {
     display: flex;
     justify-content: space-between;
   }
+
+  .burger {
+    @media screen and (min-width: 600px) {
+      @include hide;
+    }
+  }
 }

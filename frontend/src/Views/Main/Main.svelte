@@ -114,6 +114,7 @@
 <div class="contentContainer">
   <div class="subContainerLeft subContainer ">
     <div
+      class={$activeMenuOption === "burger" && "active"}
       id="listContainer"
       on:mouseenter={() => {
         listScrollIsVisible.set(true);
@@ -181,9 +182,11 @@
         </div>
       </Container>
     </div>
-    <Container minHeightVh={10.97}>
-      <ClientPanel />
-    </Container>
+    <div class="clientPanelBox">
+      <Container minHeightVh={10.97}>
+        <ClientPanel />
+      </Container>
+    </div>
   </div>
   <div
     class="subContainerMiddle subContainer {withoutRightPanel &&
