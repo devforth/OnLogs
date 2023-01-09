@@ -30,6 +30,7 @@ func main() {
 	http.HandleFunc("/api/v1/checkCookie", routes.CheckCookie)
 	http.HandleFunc("/api/v1/addHost", routes.AddHost)
 	http.HandleFunc("/api/v1/addLogLine", routes.AddLogLine)
+	http.HandleFunc("/api/v1/toggleFavourite", routes.ToggleFavourite)
 	http.HandleFunc("/api/v1/createUser", routes.CreateUser)
 	http.HandleFunc("/api/v1/getSecret", routes.GetSecret)
 	http.HandleFunc("/api/v1/getHosts", routes.GetHosts)

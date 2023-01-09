@@ -139,6 +139,31 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 	os.MkdirAll("leveldb/hosts/"+addReq.Hostname, 0700)
 }
 
+func ToggleFavourite(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "POST" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	var container struct {
+		Host string
+		Name string
+	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&container)
+
+	key := []byte(container.Host + "/" + container.Name)
+	db, _ := leveldb.OpenFile("leveldb/favourites", nil)
+	isAlreadyFavourite, _ := db.Has(key, nil)
+	if isAlreadyFavourite {
+		db.Delete(key, nil)
+	} else {
+		db.Put(key, nil, nil)
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+}
+
 func GetSecret(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
