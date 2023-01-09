@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?d8d51cac994f08e1d0f592ee4df13100?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?d8d51cac994f08e1d0f592ee4df13100") format("woff2"),
-url("onLogsFont.woff?d8d51cac994f08e1d0f592ee4df13100") format("woff"),
-url("onLogsFont.ttf?d8d51cac994f08e1d0f592ee4df13100") format("truetype"),
-url("onLogsFont.svg?d8d51cac994f08e1d0f592ee4df13100#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?f629c1fdca2bff16e5688f161ed62d2c?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?f629c1fdca2bff16e5688f161ed62d2c") format("woff2"),
+url("onLogsFont.woff?f629c1fdca2bff16e5688f161ed62d2c") format("woff"),
+url("onLogsFont.ttf?f629c1fdca2bff16e5688f161ed62d2c") format("truetype"),
+url("onLogsFont.svg?f629c1fdca2bff16e5688f161ed62d2c#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -62,57 +62,63 @@ url("onLogsFont.svg?d8d51cac994f08e1d0f592ee4df13100#onLogsFont") format("svg");
 .log-Down:before {
 	content: "\f10d";
 }
-.log-Eye:before {
+.log-EmptyHeart:before {
 	content: "\f10e";
 }
-.log-Filter:before {
+.log-Eye:before {
 	content: "\f10f";
 }
-.log-Group:before {
+.log-Filter:before {
 	content: "\f110";
 }
-.log-Home:before {
+.log-Group:before {
 	content: "\f111";
 }
-.log-Info:before {
+.log-Heart:before {
 	content: "\f112";
 }
-.log-Last:before {
+.log-Home:before {
 	content: "\f113";
 }
-.log-Leters:before {
+.log-Info:before {
 	content: "\f114";
 }
-.log-Logout:before {
+.log-Last:before {
 	content: "\f115";
 }
-.log-Moon:before {
+.log-Leters:before {
 	content: "\f116";
 }
-.log-Pencil:before {
+.log-Logout:before {
 	content: "\f117";
 }
-.log-Plus:before {
+.log-Moon:before {
 	content: "\f118";
 }
-.log-Pointer:before {
+.log-Pencil:before {
 	content: "\f119";
 }
-.log-Refresh:before {
+.log-Plus:before {
 	content: "\f11a";
 }
-.log-Search:before {
+.log-Pointer:before {
 	content: "\f11b";
 }
-.log-Server:before {
+.log-Refresh:before {
 	content: "\f11c";
 }
-.log-Sun:before {
+.log-Search:before {
 	content: "\f11d";
 }
-.log-User:before {
+.log-Server:before {
 	content: "\f11e";
 }
-.log-Wheel:before {
+.log-Sun:before {
 	content: "\f11f";
+}
+.log-User:before {
+	content: "\f120";
+}
+.log-Wheel:before {
+	content: "\f121";
 }

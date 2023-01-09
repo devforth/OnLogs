@@ -10,6 +10,10 @@
   padding-bottom: $container-vertical-padding;
   box-sizing: border-box;
   height: 100%;
+  @media screen and (min-width: 375px) and (max-width: 600px) {
+    padding: 12px;
+    border-radius: 0px;
+  }
 
   &.highlighted {
     background-color: $active-color;

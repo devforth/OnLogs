@@ -21,7 +21,10 @@
     lastChosenService,
     listScrollIsVisible,
   } from "../../Stores/stores.js";
+  import FetchApi from "../../utils/fetch.js";
   let initialVisitcounter = 0;
+
+  const fetchApi = new FetchApi();
 
   $: {
     {
@@ -41,12 +44,34 @@
 
   $: {
     sortedData = listData.map((h) => {
-      let activeServices = h.services.filter((s) => {
-        return !s.isDisabled;
-      });
-      let inActiveServices = h.services.filter((s) => {
-        return s.isDisabled;
-      });
+      let activeServices = h.services
+        .filter((s) => {
+          return !s.isDisabled;
+        })
+        .sort(function (a, b) {
+          if (a.isFavorite < b.isFavorite) {
+            return 1;
+          }
+          if (a.isFavorite > b.isFavorite) {
+            return -1;
+          }
+          // a должно быть равным b
+          return 0;
+        });
+      let inActiveServices = h.services
+        .filter((s) => {
+          return s.isDisabled;
+        })
+        .sort(function (a, b) {
+          if (a.isFavorite > b.isFavorite) {
+            return 1;
+          }
+          if (a.isFavorite < b.isFavorite) {
+            return -1;
+          }
+          // a должно быть равным b
+          return 0;
+        });
       let newHost = {
         ...h,
         services: [...activeServices, ...inActiveServices],
@@ -70,6 +95,23 @@
         openStopedServIndexes = [...new Set(openStopedServIndexes)];
       }
     }
+  }
+
+  async function favoriteToggle(host, service) {
+    $lastChosenHost, $lastChosenService;
+    console.log("click on vaorite");
+    const hostIndex = listData.findIndex((h) => h.host === host);
+    const serviceIndex = listData[hostIndex].services.findIndex((s) => {
+      return s.serviceName === service;
+    });
+    if (hostIndex !== -1) {
+      if (listData[hostIndex].services[serviceIndex]) {
+        listData[hostIndex].services[serviceIndex].isFavorite =
+          !listData[hostIndex].services[serviceIndex].isFavorite;
+      }
+    }
+    console.log(listData);
+    const data = await fetchApi.changeFavorite(host, service);
   }
 
   function toggleSublistVisible(i) {
@@ -139,18 +181,32 @@
                       {service.serviceName}
                     </p>
                     {#if listElementButton}
-                      <div
-                        class="listElementButton"
-                        on:click={() => {
-                          navigate(
-                            `/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
-                            { replace: true }
-                          );
+                      <div class="buttonBox flex">
+                        <div
+                          class="listElementButton"
+                          on:click={() => {
+                            favoriteToggle(listEl.host, service.serviceName);
+                          }}
+                        >
+                          <i
+                            class="log {service.isFavorite
+                              ? 'log-Heart'
+                              : 'log-EmptyHeart'}"
+                          />
+                        </div>
+                        <div
+                          class="listElementButton"
+                          on:click={() => {
+                            navigate(
+                              `/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
+                              { replace: true }
+                            );
 
-                          chosenElSettings = `${listEl.host.trim()}-${service.serviceName.trim()}`;
-                        }}
-                      >
-                        <i class="log log-Wheel" />
+                            chosenElSettings = `${listEl.host.trim()}-${service.serviceName.trim()}`;
+                          }}
+                        >
+                          <i class="log log-Wheel" />
+                        </div>
                       </div>
                     {/if}
                   </div>
@@ -166,7 +222,7 @@
               {/if}{/each}
           </ul>
           <div
-            class="flex flex-start stopedServicesBox {listEl.services.find(
+            class="flex flex-start stopedServicesBox  inactiveServices {listEl.services.find(
               (e) => {
                 return e.isDisabled;
               }
@@ -188,7 +244,9 @@
           </div>
 
           <ul
-            class="activeServices {!openStopedServIndexes.includes(index)
+            class="activeServices inactiveServices {!openStopedServIndexes.includes(
+              index
+            )
               ? 'visuallyHidden'
               : ''}"
           >
@@ -209,18 +267,32 @@
                       {service.serviceName}
                     </p>
                     {#if listElementButton}
-                      <div
-                        class="listElementButton"
-                        on:click={() => {
-                          navigate(
-                            `/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
-                            { replace: true }
-                          );
+                      <div class="buttonBox flex">
+                        <div
+                          class="listElementButton"
+                          on:click={() => {
+                            favoriteToggle(listEl.host, service.serviceName);
+                          }}
+                        >
+                          <i
+                            class="log {service.isFavorite
+                              ? 'log-Heart'
+                              : 'log-EmptyHeart'}"
+                          />
+                        </div>
+                        <div
+                          class="listElementButton"
+                          on:click={() => {
+                            navigate(
+                              `/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
+                              { replace: true }
+                            );
 
-                          chosenElSettings = `${listEl.host.trim()}-${service.serviceName.trim()}`;
-                        }}
-                      >
-                        <i class="log log-Wheel" />
+                            chosenElSettings = `${listEl.host.trim()}-${service.serviceName.trim()}`;
+                          }}
+                        >
+                          <i class="log log-Wheel" />
+                        </div>
                       </div>
                     {/if}
                   </div>

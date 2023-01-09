@@ -8,6 +8,17 @@
   padding-top: 5px;
   border-top: solid 1px $lines-color;
 
+  @include for-mobile {
+    display: block;
+    line-height: 1.5;
+
+    .message {
+      // float: left;
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
   .error {
     color: #ff4242;
   }

@@ -110,6 +110,10 @@
     position: relative;
   }
 
+  .inactiveServices {
+    margin-left: 18px;
+  }
+
   .stopedServices {
     font-weight: 700;
     font-size: $main-font-s;
@@ -127,6 +131,16 @@
       &.rotated {
         transform: rotate(-90deg);
       }
+    }
+  }
+  .buttonBox {
+    display: flex;
+    gap: 8px;
+  }
+
+  .listElementButton {
+    &:hover {
+      transform: scale(1.15);
     }
   }
 }

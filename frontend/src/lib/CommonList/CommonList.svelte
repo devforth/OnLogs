@@ -1,4 +1,6 @@
 <script>
+  // @ts-nocheck
+
   export let listData = [];
   export let isRowClickable = false;
   export let storeProp = {};

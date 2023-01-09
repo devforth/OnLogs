@@ -4,6 +4,7 @@
   import DropDown from "../../../lib/DropDown/DropDown.svelte";
   import { clickOutside } from "../../../lib/OutsideClicker/OutsideClicker.js";
   let dropDownIsVisible = false;
+  let isSearchVIsible = false;
   function dropDownToggle() {
     dropDownIsVisible = !dropDownIsVisible;
   }
@@ -22,23 +23,47 @@
             <i class={"log log-Eye"} />
         </div>
     </button> -->
-  <div
-    style:position={"relative"}
-    use:clickOutside
-    on:click_outside={handleClickOutside}
-  >
+  {#if !isSearchVIsible}
+    <div
+      style:position={"relative"}
+      use:clickOutside
+      on:click_outside={handleClickOutside}
+    >
+      <Button
+        icon={"log log-Eye"}
+        minWidth={55}
+        minHeight={40}
+        iconHeight={20}
+        CB={dropDownToggle}
+      />
+      {#if dropDownIsVisible}
+        <DropDown />
+      {/if}
+    </div>
+    <div class="filterButtonContainer">
+      <Button
+        icon={"log log-Filter"}
+        minWidth={55}
+        minHeight={40}
+        iconHeight={20}
+        CB={() => {
+          console.log("filter");
+        }}
+      />
+    </div>
+  {/if}
+  <div class="searchButtonContainer">
     <Button
-      icon={"log log-Eye"}
+      icon={"log log-Search"}
       minWidth={55}
       minHeight={40}
       iconHeight={20}
-      CB={dropDownToggle}
+      CB={() => {
+        isSearchVIsible = !isSearchVIsible;
+      }}
     />
-    {#if dropDownIsVisible}
-      <DropDown />
-    {/if}
   </div>
-  <div class="header search">
+  <div class="header search {!isSearchVIsible && 'hidden'}">
     {#if !searchText}<div class="searchIcoContainer">
         <i class={"log log-Search"} />
       </div>{/if}

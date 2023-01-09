@@ -2,14 +2,34 @@
   display: flex;
   align-items: center;
   gap: 20px;
+  .searchButtonContainer {
+    @include hide;
+  }
 
   i {
     display: flex;
+  }
+  @include for-mobile {
+    p {
+      @include hide;
+    }
+    h2 {
+      font-size: $main-font-m;
+    }
+    .header.search.hidden {
+      @include hide;
+    }
+    .searchButtonContainer {
+      @include visible;
+    }
   }
 }
 .logsTable {
   width: 100%;
   height: 100%;
+  border-collapse: separate;
+  border-spacing: 0 1em;
+
   .message {
     white-space: nowrap;
   }

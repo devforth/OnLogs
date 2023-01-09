@@ -50,3 +50,27 @@ $line-height: 2.5;
 $normal-padding: 12px;
 $container-padding: 20px;
 $container-vertical-padding: 16px;
+
+//mixins
+@mixin hide {
+  position: absolute;
+  opacity: 0;
+  left: -99999px;
+  right: -99999px;
+  height: 1px;
+  width: 1px;
+}
+@mixin visible {
+  position: static;
+  opacity: 1;
+  left: 0px;
+  right: 0px;
+  height: auto;
+  width: auto;
+}
+
+@mixin for-mobile {
+  @media (min-width: 375px) and (max-width: 600px) {
+    @content;
+  }
+}

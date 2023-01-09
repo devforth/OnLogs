@@ -16,17 +16,38 @@
     width: 20vw;
     justify-content: space-between;
     position: relative;
+    @media screen and (min-width: 375px) and (max-width: 600px) {
+      position: absolute;
+      opacity: 0;
+      height: 1px;
+      width: 1px;
+    }
     .container {
       display: flex;
       flex-direction: column;
       overflow: hidden;
       height: 100%;
+      div {
+        @media screen and (min-width: 375px) and (max-width: 600px) {
+          border-radius: none;
+          padding: 0px;
+        }
+      }
     }
   }
   &Right {
     width: 12vw;
     justify-content: space-between;
+    @media screen and (min-width: 375px) and (max-width: 600px) {
+      position: absolute;
+      opacity: 0;
+      left: -99999px;
+      right: -99999px;
+      height: 1px;
+      width: 1px;
+    }
   }
+
   &Middle {
     width: 60vw;
     justify-content: space-between;
@@ -37,6 +58,10 @@
   }
   &Middle.withoutRightPanel {
     width: 73vw;
+  }
+  @media screen and (min-width: 375px) and (max-width: 600px) {
+    width: 100%;
+    border-radius: none;
   }
 }
 
@@ -106,4 +131,11 @@ button:hover {
 }
 .flex-start {
   justify-content: start;
+}
+div {
+  .contentContainer {
+    @media screen and (min-width: 375px) and (max-width: 600px) {
+      padding: 0px;
+    }
+  }
 }

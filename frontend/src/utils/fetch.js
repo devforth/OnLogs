@@ -123,6 +123,12 @@ class fetchApi {
       service,
     });
   }
+  async changeFavorite(host, service) {
+    return await this.doFetch("POST", `${this.url}changeFavorite`, {
+      host,
+      service,
+    });
+  }
 }
 
 export default fetchApi;

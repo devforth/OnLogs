@@ -10,6 +10,12 @@
   right: 50%;
   top: 110%;
   transform: translate(50%);
+  @include for-mobile {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    transform: translate(20%, 0);
+  }
 
   td {
     padding-top: 12px;
