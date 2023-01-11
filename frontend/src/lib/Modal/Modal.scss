@@ -11,6 +11,21 @@
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 6;
+  @include for-mobile {
+    z-index: 15;
+    max-width: 96vw;
+    min-width: 40vw;
+    .modalContainer {
+      max-width: 86vw;
+      min-width: 40vw;
+      overflow-x: auto;
+    }
+    .attentionZone {
+      width: 86vw;
+      min-width: 40vw;
+      overflow-x: auto;
+    }
+  }
 }
 
 .closeButton {

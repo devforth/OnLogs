@@ -3,7 +3,7 @@
 
   export let listData = [];
   export let isRowClickable = false;
-  export let storeProp = {};
+  export let storeProp = null;
   let initialActive = listData && listData[0].name;
 </script>
 
@@ -13,7 +13,7 @@
       <li
         class="listElement {isRowClickable && 'clickable'}"
         on:click={() => {
-          isRowClickable && storeProp.set && storeProp.set(listEl.name);
+          isRowClickable && storeProp?.set && storeProp.set(listEl.name);
           initialActive = null;
         }}
       >

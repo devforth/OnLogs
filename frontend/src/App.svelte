@@ -8,6 +8,7 @@
   import Notfound from "./lib/NotFound/Notfound.svelte";
   export let url = "";
   let themeState = "dark";
+
   const unsubscribe = theme.subscribe((v) => {
     themeState = v;
   });

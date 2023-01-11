@@ -1,6 +1,9 @@
 .confirmationContainer {
   padding: $normal-padding;
   max-width: 450px;
+  @include for-mobile {
+    width: 80vw;
+  }
   .confirmationName {
     margin: 20px 0 20px 0;
   }

@@ -2,7 +2,7 @@
   // @ts-ignore
   import Container from "@/lib/Container/Container.svelte";
   import HostList from "../../lib/HostList/HostList.svelte";
-  import LogsView from "../Logs/LogsView.svelte";
+  import NewLogsView from "../Logs/NewLogsView.svelte";
   import Button from "../../lib/Button/Button.svelte";
   import fetchApi from "../../utils/fetch";
   import ClientPanel from "../../lib/ClientPanel/ClientPanel.svelte";
@@ -114,7 +114,9 @@
 <div class="contentContainer">
   <div class="subContainerLeft subContainer ">
     <div
-      class={$activeMenuOption === "burger" && "active"}
+      class={$activeMenuOption === "burger" &&
+        !location.pathname.includes("/servicesettings") &&
+        "active"}
       id="listContainer"
       on:mouseenter={() => {
         listScrollIsVisible.set(true);
@@ -196,7 +198,7 @@
     <Container minHeightVh={92.6}>
       {#if location.pathname === "/users"}
         <UserMenu {userForAdding} />
-      {:else if location.pathname.includes("/view") || location.pathname === "/"}<LogsView
+      {:else if location.pathname.includes("/view") || location.pathname === "/"}<NewLogsView
         />
       {/if}
       {#if location.pathname.includes("/servicesettings")}
