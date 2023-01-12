@@ -76,12 +76,12 @@ export const scrollToBottom = () => {
   }
 };
 
-export const scrollToNewLogsEnd = () => {
-  const el = document.querySelector(".newLogsEnd");
+export const scrollToNewLogsEnd = (selector, alignToTop) => {
+  const el = document.querySelector(selector);
   console.log(el);
   if (!el) {
     return;
   } else {
-    el.scrollIntoView();
+    el.scrollIntoView(!alignToTop);
   }
 };

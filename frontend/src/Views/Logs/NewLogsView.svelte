@@ -26,78 +26,99 @@
   let allLogs = [];
   let logsFromWS = [];
   let searchText = "";
-  let elements = {};
-  let unElement = document.querySelector("#unfetch");
-  let intersects = {};
-  let unintersecting;
+  let elements = [];
+
+  let intersects = [];
   let initialScroll = 0;
-  let beforeScrollPosition = 0;
+  let lastScrollTop = 0;
+  let scrollDirection = "up";
 
   //fetch params:
 
   let search = "";
-  let limit = 30;
+  let limit = 50;
   let offset = 0;
+  let negativeOffset = 0;
   let caseSens = false;
   let startWith = "";
 
   //functions
-  const fetchedLogs = async () => {
-    const data = await getLogs({
-      containerName: $lastChosenService,
-      search,
-      limit,
-      offset,
-      caseSens,
-      startWith,
-      hostName: $lastChosenHost,
-    });
-    if (data.length === limit) {
-      previousLogs = [...visibleLogs];
-      visibleLogs = [...newLogs];
-      newLogs = [...data];
+  const fetchedLogs = async (needScroll) => {
+    if (scrollDirection === "up") {
+      // if (negativeOffset === offset - limit * 3) {
+      //   offset = offset - limit;
+      // }
+      const data = await getLogs({
+        containerName: $lastChosenService,
+        search,
+        limit,
+        offset,
+        caseSens,
+        startWith,
+        hostName: $lastChosenHost,
+      });
+      if (data.length === limit) {
+        previousLogs = [...visibleLogs];
+        visibleLogs = [...newLogs];
+        newLogs = [...data];
 
-      allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
 
-      offset = offset + limit;
+        offset = offset + limit;
+        console.log("offset", offset, "negativeOffset", negativeOffset);
+      }
+      setTimeout(() => {
+        if (!needScroll) {
+          scrollToNewLogsEnd(".newLogsEnd");
+        }
+      }, 50);
+
+      return data;
     }
-    scrollToNewLogsEnd();
-
-    return data;
   };
 
   const unfetchedLogs = async () => {
-    const data = await getLogs({
-      containerName: $lastChosenService,
-      search,
-      limit,
-      offset: offset - limit,
-      caseSens,
-      startWith,
-      hostName: $lastChosenHost,
-    });
-    if (data.length === limit) {
-      previousLogs = [...visibleLogs];
-      visibleLogs = [...newLogs];
-      newLogs = [...data];
+    if (scrollDirection === "down") {
+      // if (negativeOffset === offset) {
+      //   negativeOffset = negativeOffset - limit * 4;
+      // }
+      const data = await getLogs({
+        containerName: $lastChosenService,
+        search,
+        limit,
+        offset: negativeOffset,
+        caseSens,
+        startWith,
+        hostName: $lastChosenHost,
+      });
 
-      allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+      if (data.length === limit) {
+        newLogs = [...visibleLogs];
+        visibleLogs = [...previousLogs];
 
-      offset = offset - limit;
+        previousLogs = [...data];
+
+        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+
+        negativeOffset = negativeOffset - limit;
+      }
+
+      console.log("offset", offset, "negativeOffset", negativeOffset);
+      scrollToNewLogsEnd(".newLogsStart", true);
+
+      return data;
     }
-    scrollToNewLogsEnd();
-
-    return data;
   };
 
   //
-
+  $: negativeOffset = offset - limit * 3;
   $: {
     (async () => {
       if ($lastChosenHost && $lastChosenService) {
         initialScroll = 0;
-        const data = await fetchedLogs();
-        const data2 = await fetchedLogs();
+        const data = await fetchedLogs(true);
+        const data2 = await fetchedLogs(true);
+        const data3 = await fetchedLogs(true);
 
         setTimeout(() => {
           const el = document.querySelector("#endOfScroll");
@@ -105,21 +126,21 @@
           scrollToBottom();
           setTimeout(() => {
             initialScroll = 1;
-          }, 2000);
+          }, 4000);
         });
       }
     })();
   }
   $: {
     (async () => {
-      if (intersecting && initialScroll) {
+      if (intersects[0] && initialScroll) {
         const data = await fetchedLogs();
       }
     })();
   }
   $: {
     (async () => {
-      if (unintersecting && initialScroll) {
+      if (intersects[1] && initialScroll) {
         const data = await unfetchedLogs();
       }
     })();
@@ -127,16 +148,30 @@
   onMount(() => {
     const logsContEl = document.querySelector("#logs");
 
-    logsContEl.addEventListener("scroll", () => {
-      element = document.querySelector("#fetch");
-      unElement = document.querySelector("#unfetch");
-    });
+    logsContEl.addEventListener(
+      "scroll",
+      function () {
+        // or window.addEventListener("scroll"....
+        let st = window.pageYOffset || logsContEl.scrollTop; // Credits: "https://github.com/qeremy/so/blob/master/so.dom.js#L426"
+        if (st > lastScrollTop) {
+          scrollDirection = "down";
+        } else {
+          scrollDirection = "up";
+        }
+        lastScrollTop = st <= 0 ? 0 : st; // For Mobile or negative scrolling
+      },
+      false
+    );
+
+    setTimeout(() => {
+      console.log("intersects", intersects);
+    }, 5000);
   });
 </script>
 
 <LogsViewHeder bind:searchText />
-<h2>{intersecting}</h2>
-<h2>{unintersecting}</h2>
+<h2>{intersects[0]}</h2>
+
 {#if allLogs.length === 0}
   <h2 class="noLogsMessage">No logs written yet</h2>
 {/if}
@@ -154,25 +189,36 @@
       <div id="startOfLogs" />
       {#if searchText.length === 0}
         {#each allLogs as logItem, i}
-          <IntersectionObserver
-            element={elements[logItem]}
-            bind:intersecting={intersects[]}
+          <div
+            class={i === limit * 1.5
+              ? "newLogsEnd"
+              : i === allLogs.length + 1 - limit * 1.5
+              ? "newLogsStart"
+              : i === limit / 2
+              ? "interseptor"
+              : ""}
+            bind:this={elements[i]}
           >
-            <div
-              id={logItem[1] === newLogs.at(15)?.[1]
-                ? "fetch"
-                : logItem[1] === previousLogs.at(15)?.[1]
-                ? "unfetch"
-                : ""}
-              class={logItem[1] === visibleLogs.at(-1)?.[1] ? "newLogsEnd" : ""}
-            >
-              <LogsString
-                time={transformLogString(logItem, $store.UTCtime)}
-                message={logItem.at(1)}
-                status={getLogLineStatus(logItem.at(1))}
-              />
-            </div>
-          </IntersectionObserver>
+            <LogsString
+              time={transformLogString(logItem, $store.UTCtime)}
+              message={logItem.at(1)}
+              status={getLogLineStatus(logItem.at(1))}
+            />
+            {#if i === limit / 2}
+              <IntersectionObserver
+                element={elements[0]}
+                bind:intersecting={intersects[0]}
+              >
+                <div class="observer" bind:this={elements[0]} />
+              </IntersectionObserver>{/if}
+            {#if i === allLogs.length - limit / 2 && offset > limit * 2}
+              <IntersectionObserver
+                element={elements[1]}
+                bind:intersecting={intersects[1]}
+              >
+                <div class="observer" bind:this={elements[1]} />
+              </IntersectionObserver>{/if}
+          </div>
         {/each}
       {/if}
       <div id="endOfLogs" />
