@@ -32,11 +32,12 @@
   let initialScroll = 0;
   let lastScrollTop = 0;
   let scrollDirection = "up";
+  let lastFetchActionIsFetch = true;
 
   //fetch params:
 
   let search = "";
-  let limit = 50;
+  let limit = 30;
   let offset = 0;
   let negativeOffset = 0;
   let caseSens = false;
@@ -48,45 +49,49 @@
       // if (negativeOffset === offset - limit * 3) {
       //   offset = offset - limit;
       // }
+      if (!lastFetchActionIsFetch) {
+        offset = offset + limit * 4;
+      }
+    }
+    const data = await getLogs({
+      containerName: $lastChosenService,
+      search,
+      limit,
+      offset,
+      caseSens,
+      startWith,
+      hostName: $lastChosenHost,
+    });
+    if (data.length === limit) {
+      previousLogs = [...visibleLogs];
+      visibleLogs = [...newLogs];
+      newLogs = [...data];
+
+      allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+
+      offset = offset + limit;
+
+      lastFetchActionIsFetch = true;
+    }
+
+    setTimeout(() => {
+      if (!needScroll) {
+        scrollToNewLogsEnd(".newLogsEnd");
+      }
+    }, 50);
+
+    return data;
+  };
+  const unfetchedLogs = async () => {
+    if (scrollDirection === "down" && offset >= 0) {
+      if (lastFetchActionIsFetch) {
+        offset = offset - limit * 4;
+      }
       const data = await getLogs({
         containerName: $lastChosenService,
         search,
         limit,
         offset,
-        caseSens,
-        startWith,
-        hostName: $lastChosenHost,
-      });
-      if (data.length === limit) {
-        previousLogs = [...visibleLogs];
-        visibleLogs = [...newLogs];
-        newLogs = [...data];
-
-        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-
-        offset = offset + limit;
-        console.log("offset", offset, "negativeOffset", negativeOffset);
-      }
-      setTimeout(() => {
-        if (!needScroll) {
-          scrollToNewLogsEnd(".newLogsEnd");
-        }
-      }, 50);
-
-      return data;
-    }
-  };
-
-  const unfetchedLogs = async () => {
-    if (scrollDirection === "down") {
-      // if (negativeOffset === offset) {
-      //   negativeOffset = negativeOffset - limit * 4;
-      // }
-      const data = await getLogs({
-        containerName: $lastChosenService,
-        search,
-        limit,
-        offset: negativeOffset,
         caseSens,
         startWith,
         hostName: $lastChosenHost,
@@ -100,10 +105,10 @@
 
         allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
 
-        negativeOffset = negativeOffset - limit;
+        offset = offset - limit;
+        lastFetchActionIsFetch = false;
       }
 
-      console.log("offset", offset, "negativeOffset", negativeOffset);
       scrollToNewLogsEnd(".newLogsStart", true);
 
       return data;
@@ -111,7 +116,7 @@
   };
 
   //
-  $: negativeOffset = offset - limit * 3;
+
   $: {
     (async () => {
       if ($lastChosenHost && $lastChosenService) {
@@ -170,7 +175,7 @@
 </script>
 
 <LogsViewHeder bind:searchText />
-<h2>{intersects[0]}</h2>
+<h2>{intersects[1]}</h2>
 
 {#if allLogs.length === 0}
   <h2 class="noLogsMessage">No logs written yet</h2>
@@ -211,7 +216,7 @@
               >
                 <div class="observer" bind:this={elements[0]} />
               </IntersectionObserver>{/if}
-            {#if i === allLogs.length - limit / 2 && offset > limit * 2}
+            {#if i === allLogs.length - limit / 2 && allLogs.length >= 3 * limit}
               <IntersectionObserver
                 element={elements[1]}
                 bind:intersecting={intersects[1]}
