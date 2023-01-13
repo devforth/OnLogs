@@ -49,7 +49,7 @@ export const getLogs = async function ({
   offset,
   caseSens = false,
   hostName = "",
-  startWith,
+  startWith = "",
 }) {
   const newLogs = (
     await api.getLogs({
@@ -68,17 +68,16 @@ export const getLogs = async function ({
 
 export const scrollToBottom = () => {
   const el = document.querySelector("#endOfLogs");
-  console.log(el);
   if (!el) {
     return;
   } else {
-    el.scrollIntoView({ behavior: "smooth" });
+    el.scrollIntoView();
   }
 };
 
 export const scrollToNewLogsEnd = (selector, alignToTop) => {
   const el = document.querySelector(selector);
-  console.log(el);
+
   if (!el) {
     return;
   } else {
