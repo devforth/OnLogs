@@ -51,58 +51,108 @@
 
   //functions
   function getLogsFromWS() {
-    if (webSocket) {
-      webSocket.close();
-    } else {
-      webSocket = new WebSocket(
-        `${api.wsUrl}getLogsStream?id=${$lastChosenService}`
-      );
-      webSocket.onmessage = (event) => {
-        if (event.data !== "PING") {
-          const logfromWS = JSON.parse(event.data);
-          console.log(logfromWS);
+    function checkLogsFromWs() {
+      if (logsFromWS.length >= 3 * limit) {
+        let newAllLogs = [
+          ...logsFromWS.filter((el, i) => {
+            return i < 3 * limit;
+          }),
+        ];
+        newLogs = [...newAllLogs.splice(0, limit)];
+        visibleLogs = [...newAllLogs.splice(0, limit)];
+        previousLogs = [...newAllLogs.splice(0, limit)];
+        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
 
-          if (endOffLogsIntersect) {
-            if (newLogs.length === limit) {
-              newLogs.splice(-1, 1);
-              newLogs.push(visibleLogs.at(-1));
-            }
-            if (visibleLogs.length === limit) {
-              visibleLogs.splice(-1, 1);
-              visibleLogs.push(previousLogs.at(-1));
-            }
-            if (previousLogs.length === limit) {
-              previousLogs.splice(-1, 1);
-            }
+        return;
+      } else {
+        if (logsFromWS.length >= 2 * limit) {
+          {
+            newLogs.splice(0, logsFromWS.length - 2 * limit);
+            newLogs = [
+              ...logsFromWS.splice(0, logsFromWS.length - 2 * limit),
+              ...newLogs,
+            ];
+            visibleLogs = [...logsFromWS.splice(0, limit)];
+            previousLogs = [...logsFromWS.splice(0, limit)];
+          }
+          if (logsFromWS.length >= limit) {
+            const logsToNew = visibleLogs.splice(0, logsFromWS.length - limit);
+            newLogs.splice(0, logsToNew.length);
+            newLogs = [...newLogs, logsToNew];
+            visibleLogs = [
+              ...logsFromWS.splice(0, logsFromWS.length - limit),
+              ...visibleLogs,
+            ];
+            previousLogs = [...logsFromWS.splice(0, limit)];
+          }
+          if (logsFromWS.length <= limit) {
+            const logsToVisible = previousLogs.splice(0, logsFromWS.length);
+            const logsToNew = visibleLogs.splice(0, logsFromWS.length);
+            newLogs.splice(0, logsToVisible.length);
+            newLogs = [...newLogs, logsToNew];
+            visibleLogs = [...visibleLogs, logsToVisible];
+            previousLogs = [...previousLogs, logsFromWS];
+          }
+          allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+        }
+      }
+      logsFromWS = [];
+    }
+    webSocket = new WebSocket(
+      `${api.wsUrl}getLogsStream?id=${$lastChosenService}`
+    );
+    webSocket.onmessage = (event) => {
+      if (event.data !== "PING") {
+        const logfromWS = JSON.parse(event.data);
+
+        if (endOffLogsIntersect) {
+          if (logsFromWS.length) {
+            checkLogsFromWs();
+            console.log("push logs", logsFromWS);
+            return;
+          }
+
+          if (newLogs.length === limit) {
+            newLogs.splice(0, 1);
+            newLogs.push(visibleLogs.at(0));
+          }
+          if (visibleLogs.length === limit) {
+            visibleLogs.splice(0, 1);
+            visibleLogs.push(previousLogs.at(0));
+          }
+          if (previousLogs.length === limit) {
+            previousLogs.splice(0, 1);
             previousLogs.push(logfromWS);
           }
 
           allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+        } else {
+          logsFromWS = [...logsFromWS, logfromWS];
         }
+      }
 
-        // if (!$store.caseInSensitive) {
-        //   if (searchText !== "" && logfromWS[1].includes(searchText)) {
-        //     searchLogs = [...searchLogs, logfromWS];
-        //     searchOffset++;
-        //   }
-        // } else {
-        //   if (
-        //     searchText !== "" &&
-        //     logfromWS[1].toLowerCase().includes(searchText.toLowerCase())
-        //   ) {
-        //     searchLogs = [...searchLogs, logfromWS];
-        //     searchOffset++;
-        //     console.log(tmpSearchLogs), "tmp";
-        //   }
-        // }
+      // if (!$store.caseInSensitive) {
+      //   if (searchText !== "" && logfromWS[1].includes(searchText)) {
+      //     searchLogs = [...searchLogs, logfromWS];
+      //     searchOffset++;
+      //   }
+      // } else {
+      //   if (
+      //     searchText !== "" &&
+      //     logfromWS[1].toLowerCase().includes(searchText.toLowerCase())
+      //   ) {
+      //     searchLogs = [...searchLogs, logfromWS];
+      //     searchOffset++;
+      //     console.log(tmpSearchLogs), "tmp";
+      //   }
+      // }
 
-        // tmpLogs = allLogs;
-        // scrollToBottom();
-        else {
-          webSocket.send("PONG");
-        }
-      };
-    }
+      // tmpLogs = allLogs;
+      // scrollToBottom();
+      else {
+        webSocket.send("PONG");
+      }
+    };
   }
 
   function resetParams() {
@@ -114,6 +164,11 @@
 
   function resetSearchParams() {
     searchText = "";
+  }
+  function closeWS() {
+    if (webSocket) {
+      webSocket.close();
+    }
   }
 
   function isInterceptorVIsible(inter, cb) {
@@ -228,7 +283,8 @@
             break;
           }
         }
-        // getLogsFromWS();
+        closeWS();
+        getLogsFromWS();
 
         setTimeout(() => {
           scrollToBottom();
@@ -311,6 +367,7 @@
             : ""}
           bind:this={elements[i]}
         >
+          {i}
           <LogsString
             time={transformLogString(logItem, $store.UTCtime)}
             message={logItem.at(1)}
@@ -344,6 +401,7 @@
     </table>
     <div class={offset <= limit * 3 ? "visuallyHidden" : ""}>
       <ButtonToBottom
+        number={logsFromWS.length}
         ico={"Down"}
         callBack={async () => {
           offset = 0;
