@@ -26,11 +26,13 @@
   let allLogs = [];
   let webSocket = null;
   let logsFromWS = [];
-
-  let elements = [];
   let logsOverflow = [];
 
+  let elements = [];
   let intersects = [];
+  let endOffLogs = null;
+  let endOffLogsIntersect = null;
+
   let initialScroll = 0;
   let lastScrollTop = 0;
   let scrollDirection = "up";
@@ -52,31 +54,51 @@
     if (webSocket) {
       webSocket.close();
     } else {
-      webSocket = new WebSocket(`${api.wsUrl}getLogsStream?id=${service}`);
+      webSocket = new WebSocket(
+        `${api.wsUrl}getLogsStream?id=${$lastChosenService}`
+      );
       webSocket.onmessage = (event) => {
         if (event.data !== "PING") {
           const logfromWS = JSON.parse(event.data);
-          allLogs.push(logfromWS);
-          offset++;
-          if (!$store.caseInSensitive) {
-            if (searchText !== "" && logfromWS[1].includes(searchText)) {
-              searchLogs = [...searchLogs, logfromWS];
-              searchOffset++;
+          console.log(logfromWS);
+
+          if (endOffLogsIntersect) {
+            if (newLogs.length === limit) {
+              newLogs.splice(-1, 1);
+              newLogs.push(visibleLogs.at(-1));
             }
-          } else {
-            if (
-              searchText !== "" &&
-              logfromWS[1].toLowerCase().includes(searchText.toLowerCase())
-            ) {
-              searchLogs = [...searchLogs, logfromWS];
-              searchOffset++;
-              console.log(tmpSearchLogs), "tmp";
+            if (visibleLogs.length === limit) {
+              visibleLogs.splice(-1, 1);
+              visibleLogs.push(previousLogs.at(-1));
             }
+            if (previousLogs.length === limit) {
+              previousLogs.splice(-1, 1);
+            }
+            previousLogs.push(logfromWS);
           }
 
-          tmpLogs = allLogs;
-          scrollToBottom();
-        } else {
+          allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+        }
+
+        // if (!$store.caseInSensitive) {
+        //   if (searchText !== "" && logfromWS[1].includes(searchText)) {
+        //     searchLogs = [...searchLogs, logfromWS];
+        //     searchOffset++;
+        //   }
+        // } else {
+        //   if (
+        //     searchText !== "" &&
+        //     logfromWS[1].toLowerCase().includes(searchText.toLowerCase())
+        //   ) {
+        //     searchLogs = [...searchLogs, logfromWS];
+        //     searchOffset++;
+        //     console.log(tmpSearchLogs), "tmp";
+        //   }
+        // }
+
+        // tmpLogs = allLogs;
+        // scrollToBottom();
+        else {
           webSocket.send("PONG");
         }
       };
@@ -206,6 +228,7 @@
             break;
           }
         }
+        // getLogsFromWS();
 
         setTimeout(() => {
           scrollToBottom();
@@ -253,7 +276,7 @@
       "scroll",
       function () {
         // or window.addEventListener("scroll"....
-        let st = window.pageYOffset || logsContEl.scrollTop; // Credits: "https://github.com/qeremy/so/blob/master/so.dom.js#L426"
+        let st = window.pageYOffset || logsContEl.scrollTop;
         if (st > lastScrollTop) {
           scrollDirection = "down";
         } else {
@@ -309,6 +332,13 @@
             </IntersectionObserver>{/if}
         </div>
       {/each}
+
+      <IntersectionObserver
+        element={endOffLogs}
+        bind:intersecting={endOffLogsIntersect}
+      >
+        <div id="endOfLogs" bind:this={endOffLogs} />
+      </IntersectionObserver>
 
       <div id="endOfLogs" />
     </table>
