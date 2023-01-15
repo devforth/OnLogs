@@ -30,13 +30,16 @@ func createLogMessage(db *leveldb.DB, message string) string {
 }
 
 func putLogMessage(db *leveldb.DB, message string) {
-	db.Put([]byte(message[:30]), []byte(message[31:len(message)-1]), nil)
+	if len(message) < 31 {
+		return
+	}
+	db.Put([]byte(message[:30]), []byte(message[31:]), nil)
 }
 
 func sendLogMessage(container string, message string) {
 	postBody, _ := json.Marshal(map[string]interface{}{
 		"Host":      util.GetHost(),
-		"LogLine":   []string{message[:30], message[31 : len(message)-1]},
+		"LogLine":   []string{message[:30], message[31:]},
 		"Container": container,
 	})
 	http.Post(os.Getenv("HOST")+"/api/v1/addLogLine", "application/json", bytes.NewBuffer(postBody))
@@ -52,7 +55,7 @@ func sendLogMessage(container string, message string) {
 }
 
 func validateMessage(message string) ([]byte, bool) {
-	to_put := []byte(message)[:len(message)-1]
+	to_put := []byte(message)[:len(message)]
 	if len(to_put) < 31 {
 		return nil, false
 	}
@@ -153,7 +156,7 @@ func CreateDaemonToDBStream(containerName string) {
 
 		putLogMessage(db, string(to_put))
 
-		to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31 : len(to_put)-1])})
+		to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31:])})
 		for _, c := range vars.Connections[containerName] {
 			c.WriteMessage(1, to_send)
 		}
