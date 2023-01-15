@@ -20,7 +20,7 @@ Light docker logs listener that makes easier to debug your containers
     volumes:
      - /var/run/docker.sock:/var/run/docker.sock
      - /etc/hostname:/etc/hostname
-     - onlogs-volume:backend/leveldb
+     - onlogs-volume:/leveldb
 
 volumes:
   onlogs-volume:

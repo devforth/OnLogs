@@ -13,9 +13,13 @@
   box-sizing: border-box;
 
   &Left {
+    min-width: 175px;
     width: 20vw;
     justify-content: space-between;
     position: relative;
+    .clientPanelBox {
+      height: 90px;
+    }
     @include for-mobile {
       &.subContainer {
         width: 1px;
@@ -62,10 +66,20 @@
         }
       }
     }
+    #listContainer {
+      flex: 1;
+      margin-bottom: $normal-padding;
+    }
   }
   &Right {
     width: 12vw;
-    justify-content: space-between;
+    justify-content: start;
+    @include for-mobile {
+      @include hide;
+    }
+    @include for-tablet {
+      @include hide;
+    }
     @media screen and (min-width: 375px) and (max-width: 600px) {
       position: absolute;
       opacity: 0;
@@ -77,9 +91,18 @@
   }
 
   &Middle {
-    width: 60vw;
     justify-content: space-between;
     height: 100%;
+    margin-left: $normal-padding;
+    margin-right: $normal-padding;
+    @include for-mobile {
+      margin-right: 0;
+    }
+    @include for-tablet {
+      margin-right: 0;
+    }
+
+    flex: 1;
     .container {
       max-height: 100% !important;
       @include for-mobile {
@@ -179,4 +202,7 @@ div {
       padding: 0px;
     }
   }
+}
+.logSizeInformation {
+  margin-bottom: 16px;
 }

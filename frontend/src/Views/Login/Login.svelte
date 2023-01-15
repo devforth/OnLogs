@@ -39,7 +39,7 @@
   }
 </script>
 
-<div class="login contentContainer">
+<div class="login loginContainer">
   <Container minHeightVh={25}>
     <div class="loginForm">
       <h1 id="title">onLogs</h1>
