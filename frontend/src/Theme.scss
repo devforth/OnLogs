@@ -156,6 +156,11 @@
       border-bottom: 1px solid $lines-color-dark;
     }
   }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: #f8f0f020;
+    border-radius: 10px;
+  }
 }
 
 .dark-mode {

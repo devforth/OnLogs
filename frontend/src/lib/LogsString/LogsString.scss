@@ -7,8 +7,20 @@
   padding-bottom: 5px;
   padding-top: 5px;
   border-top: solid 1px $lines-color;
+  font-size: $main-font-s;
 
   @include for-mobile {
+    display: block;
+    line-height: 1.5;
+
+    .message {
+      // float: left;
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
+  @include for-tablet {
     display: block;
     line-height: 1.5;
 
@@ -39,10 +51,9 @@
   }
 
   .status {
-    min-width: 75px;
     vertical-align: middle;
     margin-right: 12px;
-    min-width: 100px;
+    min-width: 85px;
 
     span {
       font-size: 19px;
@@ -51,8 +62,13 @@
   }
 
   .time {
-    min-width: 160px;
+    width: 84px;
+    min-width: 84px;
     margin-right: 12px;
+    text-align: center;
+    @include for-tablet {
+      width: 150px;
+    }
   }
 
   &:after {

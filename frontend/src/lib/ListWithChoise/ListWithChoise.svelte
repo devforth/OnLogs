@@ -177,7 +177,10 @@
                   }}
                 >
                   <div class="hostRow {customListElClass}">
-                    <p class={service.isDisabled ? "disabled" : ""}>
+                    <p
+                      class={service.isDisabled ? "disabled" : ""}
+                      title={service.serviceName}
+                    >
                       {service.serviceName}
                     </p>
                     {#if listElementButton}
@@ -263,7 +266,10 @@
                   }}
                 >
                   <div class="hostRow {customListElClass}">
-                    <p class={service.isDisabled ? "disabled" : ""}>
+                    <p
+                      class={service.isDisabled ? "disabled" : ""}
+                      title={service.serviceName}
+                    >
                       {service.serviceName}
                     </p>
                     {#if listElementButton}

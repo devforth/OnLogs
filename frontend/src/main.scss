@@ -41,7 +41,7 @@ h1 {
 }
 
 .contentContainer {
-  padding: 1.8vw;
+  padding: $normal-padding;
   box-sizing: border-box;
   height: 100vh;
 }
@@ -100,4 +100,9 @@ input {
 }
 #modalOverlay {
   z-index: 14;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #00000020;
+  border-radius: 10px;
 }

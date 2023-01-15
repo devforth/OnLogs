@@ -56,8 +56,8 @@
   .hostRow {
     @include center;
     justify-content: space-between;
-    margin-left: 20px;
-    margin-right: 20px;
+    margin-left: $normal-padding;
+    margin-right: $normal-padding;
 
     p {
       overflow: hidden;
@@ -105,8 +105,8 @@
   }
 
   .serviceListItem {
-    margin-left: -20px;
-    margin-right: -20px;
+    margin-left: -$normal-padding;
+    margin-right: -$normal-padding;
 
     position: relative;
     div & {

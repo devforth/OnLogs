@@ -48,7 +48,7 @@ $line-height: 2.5;
 
 //paddings
 $normal-padding: 12px;
-$container-padding: 20px;
+$container-padding: 12px;
 $container-vertical-padding: 16px;
 
 //mixins
@@ -70,7 +70,19 @@ $container-vertical-padding: 16px;
 }
 
 @mixin for-mobile {
-  @media (min-width: 375px) and (max-width: 600px) {
+  @media (min-width: 200px) and (max-width: 600px) {
+    @content;
+  }
+}
+
+@mixin for-tablet {
+  @media (min-width: 600px) and (max-width: 950px) {
+    @content;
+  }
+}
+
+@mixin for-desctop {
+  @media (min-width: 950px) {
     @content;
   }
 }

@@ -1,7 +1,7 @@
 #top-line {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: $normal-padding;
   .searchButtonContainer {
     @include hide;
   }
@@ -111,7 +111,7 @@ h2.noLogsMessage {
 
 .logs {
   overflow-y: scroll;
-  padding-right: 16px;
+
   @include for-mobile {
     &#logs {
       padding-left: 0;
@@ -124,12 +124,7 @@ h2.noLogsMessage {
 .logs::-webkit-scrollbar {
   width: 10px;
   height: 10px;
-  background-color: rgba(0, 0, 0, 0);
-}
-
-.logs::-webkit-scrollbar-thumb {
-  background-color: #0000002a;
-  border-radius: 10px;
+  background-color: rgba(240, 238, 238, 0);
 }
 
 .logs {

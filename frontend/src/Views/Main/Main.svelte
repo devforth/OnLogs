@@ -123,12 +123,7 @@
         listScrollIsVisible.set(false);
       }}
     >
-      <Container
-        highlighted={$theme !== "dark"}
-        minHeightVh={79.3}
-        paddingOff={true}
-        maxHeightVh={79.3}
-      >
+      <Container highlighted={$theme !== "dark"} paddingOff={true}>
         <div class="onLogsPanel">
           <div class="onLogsPanelHeader">
             <h1
@@ -183,7 +178,7 @@
       </Container>
     </div>
     <div class="clientPanelBox">
-      <Container minHeightVh={10.97}>
+      <Container>
         <ClientPanel />
       </Container>
     </div>
@@ -211,19 +206,23 @@
       ? 'visuallyHidden'
       : ''}"
   >
-    <Container minHeightVh={15}
-      ><LogsSize
-        discribeText={"Space used by all logs"}
-        isAllLogs={true}
-      /></Container
-    >
-    <Container minHeightVh={15}
-      ><LogsSize discribeText={"Space used by service"} /></Container
-    >
-    <div class="subContainerThumb">
+    <div class="logSizeInformation">
+      <Container minHeightVh={15} max-height={20}
+        ><LogsSize
+          discribeText={"Space used by all logs"}
+          isAllLogs={true}
+        /></Container
+      >
+    </div>
+    <div class="logSizeInformation">
+      <Container minHeightVh={15}
+        ><LogsSize discribeText={"Space used by service"} /></Container
+      >
+    </div>
+    <!-- <div class="subContainerThumb">
       <Container minHeightVh={17.36}>1213414</Container>
       <Container minHeightVh={12.91} highlighted>1213414</Container>
-    </div>
+    </div> -->
   </div>
 </div>
 <Modal
