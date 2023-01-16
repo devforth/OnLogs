@@ -13,7 +13,7 @@
   li:hover {
     opacity: 0.8;
     .log {
-      font-size: $main-font-xl;
+      font-size: $main-font-l;
       opacity: 1;
       cursor: pointer;
     }
@@ -23,10 +23,10 @@
     justify-content: space-between;
   }
   .name {
-    font-size: $main-font-m;
+    font-size: $main-font-s;
   }
   .log {
-    font-size: $main-font-xl;
+    font-size: $main-font-l;
     opacity: 0;
   }
   .highlightedOverlay {

@@ -70,13 +70,13 @@ $container-vertical-padding: 16px;
 }
 
 @mixin for-mobile {
-  @media (min-width: 200px) and (max-width: 600px) {
+  @media (min-width: 200px) and (max-width: 750px) {
     @content;
   }
 }
 
 @mixin for-tablet {
-  @media (min-width: 600px) and (max-width: 950px) {
+  @media (min-width: 750px) and (max-width: 950px) {
     @content;
   }
 }

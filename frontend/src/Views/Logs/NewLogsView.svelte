@@ -50,106 +50,102 @@
   let tmpStartWith = [];
 
   //functions
-  function getLogsFromWS() {
-    function checkLogsFromWs() {
-      if (logsFromWS.length >= 3 * limit) {
-        let newAllLogs = [
-          ...logsFromWS.filter((el, i) => {
-            return i < 3 * limit;
-          }),
-        ];
-        newLogs = [...newAllLogs.splice(0, limit)];
-        visibleLogs = [...newAllLogs.splice(0, limit)];
-        previousLogs = [...newAllLogs.splice(0, limit)];
-        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-
-        return;
-      } else {
-        if (logsFromWS.length >= 2 * limit) {
-          {
-            newLogs.splice(0, logsFromWS.length - 2 * limit);
-            newLogs = [
-              ...logsFromWS.splice(0, logsFromWS.length - 2 * limit),
-              ...newLogs,
-            ];
-            visibleLogs = [...logsFromWS.splice(0, limit)];
-            previousLogs = [...logsFromWS.splice(0, limit)];
-          }
-          if (logsFromWS.length >= limit) {
-            const logsToNew = visibleLogs.splice(0, logsFromWS.length - limit);
-            newLogs.splice(0, logsToNew.length);
-            newLogs = [...newLogs, logsToNew];
-            visibleLogs = [
-              ...logsFromWS.splice(0, logsFromWS.length - limit),
-              ...visibleLogs,
-            ];
-            previousLogs = [...logsFromWS.splice(0, limit)];
-          }
-          if (logsFromWS.length <= limit) {
-            const logsToVisible = previousLogs.splice(0, logsFromWS.length);
-            const logsToNew = visibleLogs.splice(0, logsFromWS.length);
-            newLogs.splice(0, logsToVisible.length);
-            newLogs = [...newLogs, logsToNew];
-            visibleLogs = [...visibleLogs, logsToVisible];
-            previousLogs = [...previousLogs, logsFromWS];
-          }
-          allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-        }
+  function addLogFromWS(logfromWS) {
+    if (endOffLogsIntersect) {
+      if (newLogs.length === limit) {
+        newLogs.splice(0, 1);
       }
-      logsFromWS = [];
+      newLogs.push(visibleLogs.at(0));
+      if (visibleLogs.length === limit) {
+        visibleLogs.splice(0, 1);
+      }
+      visibleLogs.push(previousLogs.at(0));
+      if (previousLogs.length === limit) {
+        previousLogs.splice(0, 1);
+      }
+      previousLogs.push(logfromWS);
+
+      allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+    } else {
+      logsFromWS = [...logsFromWS, logfromWS];
     }
+  }
+
+  function refreshAllLogs() {
+    previousLogs = [];
+    visibleLogs = [];
+    newLogs = [];
+  }
+  function checkLogsFromWs() {
+    if (logsFromWS.length >= 3 * limit) {
+      let newAllLogs = [
+        ...logsFromWS.filter((el, i) => {
+          return i < 3 * limit;
+        }),
+      ];
+      newLogs = [...newAllLogs.splice(0, limit)];
+      visibleLogs = [...newAllLogs.splice(0, limit)];
+      previousLogs = [...newAllLogs.splice(0, limit)];
+      allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+
+      return;
+    } else {
+      if (logsFromWS.length >= 2 * limit) {
+        newLogs.splice(0, logsFromWS.length - 2 * limit);
+        newLogs = [
+          ...logsFromWS.splice(0, logsFromWS.length - 2 * limit),
+          ...newLogs,
+        ];
+        visibleLogs = [...logsFromWS.splice(0, limit)];
+        previousLogs = [...logsFromWS.splice(0, limit)];
+      }
+      if (logsFromWS.length >= limit) {
+        const logsToNew = visibleLogs.splice(0, logsFromWS.length - limit);
+        newLogs.splice(0, logsToNew.length);
+        newLogs = [...newLogs, ...logsToNew];
+        visibleLogs = [
+          ...logsFromWS.splice(0, logsFromWS.length - limit),
+          ...visibleLogs,
+        ];
+        previousLogs = [...logsFromWS.splice(0, limit)];
+      }
+      if (logsFromWS.length <= limit && logsFromWS.length >= 0) {
+        const logsToVisible = previousLogs.splice(0, logsFromWS.length);
+        const logsToNew = visibleLogs.splice(0, logsFromWS.length);
+        newLogs.splice(0, logsToVisible.length);
+        newLogs = [...newLogs, ...logsToNew];
+        visibleLogs = [...visibleLogs, ...logsToVisible];
+        previousLogs = [...previousLogs, ...logsFromWS];
+      }
+      if (newLogs.at(0) && visibleLogs.at(0) && previousLogs.at(0)) {
+        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+      }
+    }
+
+    logsFromWS = [];
+  }
+
+  function getLogsFromWS() {
     webSocket = new WebSocket(
       `${api.wsUrl}getLogsStream?id=${$lastChosenService}`
     );
     webSocket.onmessage = (event) => {
       if (event.data !== "PING") {
         const logfromWS = JSON.parse(event.data);
-
-        if (endOffLogsIntersect) {
-          if (logsFromWS.length) {
-            checkLogsFromWs();
-            console.log("push logs", logsFromWS);
-            return;
-          }
-
-          if (newLogs.length === limit) {
-            newLogs.splice(0, 1);
-            newLogs.push(visibleLogs.at(0));
-          }
-          if (visibleLogs.length === limit) {
-            visibleLogs.splice(0, 1);
-            visibleLogs.push(previousLogs.at(0));
-          }
-          if (previousLogs.length === limit) {
-            previousLogs.splice(0, 1);
-            previousLogs.push(logfromWS);
-          }
-
-          allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+        if (searchText === "") {
+          addLogFromWS(logfromWS);
         } else {
-          logsFromWS = [...logsFromWS, logfromWS];
+          if (!$store.caseInSensitive) {
+            if (logfromWS[1].includes(searchText)) {
+              addLogFromWS(logfromWS);
+            }
+          } else {
+            if (logfromWS[1].toLowerCase().includes(searchText.toLowerCase())) {
+              addLogFromWS(logfromWS);
+            }
+          }
         }
-      }
-
-      // if (!$store.caseInSensitive) {
-      //   if (searchText !== "" && logfromWS[1].includes(searchText)) {
-      //     searchLogs = [...searchLogs, logfromWS];
-      //     searchOffset++;
-      //   }
-      // } else {
-      //   if (
-      //     searchText !== "" &&
-      //     logfromWS[1].toLowerCase().includes(searchText.toLowerCase())
-      //   ) {
-      //     searchLogs = [...searchLogs, logfromWS];
-      //     searchOffset++;
-      //     console.log(tmpSearchLogs), "tmp";
-      //   }
-      // }
-
-      // tmpLogs = allLogs;
-      // scrollToBottom();
-      else {
+      } else {
         webSocket.send("PONG");
       }
     };
@@ -222,7 +218,11 @@
       }, 50);
     } else {
       logsOverflow = [...data];
-      allLogs = [...logsOverflow, ...allLogs];
+      if (allLogs.length === 3 * limit) {
+        allLogs = [...logsOverflow, ...allLogs];
+      } else {
+        allLogs = logsOverflow;
+      }
     }
 
     return data;
@@ -257,7 +257,11 @@
         lastFetchActionIsFetch = false;
       } else {
         logsOverflow = [...data];
-        allLogs = [...allLogs, ...logsOverflow];
+        if (allLogs.length === 3 * limit) {
+          allLogs = [...logsOverflow, ...allLogs];
+        } else {
+          allLogs = logsOverflow;
+        }
       }
 
       scrollToNewLogsEnd(".newLogsStart", true);
@@ -279,7 +283,7 @@
         resetSearchParams();
         for (let i = 0; i < 3; i++) {
           const data = await fetchedLogs(true);
-          if (!data.length === limit) {
+          if (data.length !== limit) {
             break;
           }
         }
@@ -325,6 +329,11 @@
   $: {
     isInterceptorVIsible(intersects[1], unfetchedLogs);
   }
+  $: {
+    if (endOffLogsIntersect) {
+      checkLogsFromWs();
+    }
+  }
   onMount(() => {
     const logsContEl = document.querySelector("#logs");
 
@@ -367,7 +376,6 @@
             : ""}
           bind:this={elements[i]}
         >
-          {i}
           <LogsString
             time={transformLogString(logItem, $store.UTCtime)}
             message={logItem.at(1)}
@@ -399,23 +407,23 @@
 
       <div id="endOfLogs" />
     </table>
-    <div class={offset <= limit * 3 ? "visuallyHidden" : ""}>
-      <ButtonToBottom
-        number={logsFromWS.length}
-        ico={"Down"}
-        callBack={async () => {
-          offset = 0;
-          scrollFromButton = true;
-          await fetchedLogs(true);
-          await fetchedLogs(true);
-          await fetchedLogs(true);
-          scrollToBottom();
+    {#if !endOffLogsIntersect}
+      <div>
+        <ButtonToBottom
+          number={logsFromWS.length}
+          ico={"Down"}
+          callBack={async () => {
+            offset = 0;
+            scrollFromButton = true;
+            // checkLogsFromWs();
+            scrollToBottom();
 
-          setTimeout(() => {
-            scrollFromButton = false;
-          }, 2000);
-        }}
-      />
-    </div>
+            setTimeout(() => {
+              scrollFromButton = false;
+            }, 500);
+          }}
+        />
+      </div>
+    {/if}
   </div>
 </div>

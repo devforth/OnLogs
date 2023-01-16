@@ -58,7 +58,12 @@ div.clientPanel {
   }
 
   .burger {
-    @media screen and (min-width: 600px) {
+    @include for-tablet {
+      @include hide;
+    }
+  }
+  .burger {
+    @include for-desctop {
       @include hide;
     }
   }

@@ -33,13 +33,31 @@ export const getLogLineStatus = (logLine = "") => {
 
 export const transformLogString = (str, options) => {
   return options
-    ? str.at(0).slice(0, 19).replace("T", " ")
+    ? new Date(
+        new Date().setTime(
+          new Date(str.at(0).slice(0, 19).replace("T", " ")).getTime()
+        )
+      ).toLocaleString("sv-EN", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
     : new Date(
         new Date().setTime(
           new Date(str.at(0).slice(0, 19).replace("T", " ")).getTime() -
             timezoneOffsetSec * 1000
         )
-      ).toLocaleString("sv-SE");
+      ).toLocaleString("sv-EN", {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
 };
 
 export const getLogs = async function ({
