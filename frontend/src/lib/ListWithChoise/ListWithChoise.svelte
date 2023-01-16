@@ -89,7 +89,7 @@
         .findIndex((el) => {
           return el.includes($lastChosenService);
         });
-      console.log(openedStopedServiceIndex);
+
       if (openedStopedServiceIndex !== -1) {
         openStopedServIndexes.push(openedStopedServiceIndex);
         openStopedServIndexes = [...new Set(openStopedServIndexes)];

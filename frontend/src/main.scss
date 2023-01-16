@@ -97,9 +97,9 @@ input {
 }
 
 @include for-mobile {
-}
-#modalOverlay {
-  z-index: 14;
+  #modalOverlay {
+    z-index: 14;
+  }
 }
 
 ::-webkit-scrollbar-thumb {

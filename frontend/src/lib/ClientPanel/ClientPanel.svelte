@@ -17,7 +17,7 @@
   //store management
   function toggleUserMenu() {
     userMenuOpen.update((v) => !v);
-    activeMenuOption.set("user");
+    activeMenuOption.set("users");
 
     navigate("/users", { replace: true });
   }
@@ -48,7 +48,7 @@
     <li
       on:click={() => {
         if ($activeMenuOption === "burger") {
-          activeMenuOption.set("home");
+          activeMenuOption.set(location.pathname.split("/")[1] || "home");
         } else {
           activeMenuOption.set("burger");
         }
@@ -63,16 +63,17 @@
     <li on:click={goToHome} class={$activeMenuOption === "home" && "active"}>
       <i class="log log-Home " />
       <div
-        class="higlightedOverlay {$activeMenuOption === 'home' && 'active'}"
+        class="higlightedOverlay {$activeMenuOption === 'home' ||
+          ($activeMenuOption === 'view' && 'active')}"
       />
     </li>
     <li
       on:click={toggleUserMenu}
-      class={$activeMenuOption === "user" && "active"}
+      class={$activeMenuOption === "users" && "active"}
     >
       <i class="log log-User" />
       <div
-        class="higlightedOverlay {$activeMenuOption === 'user' && 'active'}"
+        class="higlightedOverlay {$activeMenuOption === 'users' && 'active'}"
       />
     </li>
 

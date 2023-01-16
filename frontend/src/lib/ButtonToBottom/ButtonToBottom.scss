@@ -24,6 +24,20 @@
   @include for-mobile {
     bottom: 110px;
   }
+
+  .buttonToBottomNumber {
+    position: absolute;
+    background-color: $background-color-dark;
+    border-radius: 6px;
+
+    top: 0;
+    right: 0;
+
+    width: 50%;
+    height: 50%;
+
+    transform: translate(0, -70%);
+  }
 }
 
 .subContainerMiddle .subContainer {

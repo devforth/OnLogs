@@ -60,7 +60,7 @@
       overflow: hidden;
       height: 100%;
       div {
-        @media screen and (min-width: 375px) and (max-width: 600px) {
+        @include for-mobile {
           border-radius: none;
           padding: 0px;
         }
@@ -80,7 +80,7 @@
     @include for-tablet {
       @include hide;
     }
-    @media screen and (min-width: 375px) and (max-width: 600px) {
+    @include for-mobile {
       position: absolute;
       opacity: 0;
       left: -99999px;
@@ -97,9 +97,16 @@
     margin-right: $normal-padding;
     @include for-mobile {
       margin-right: 0;
+      margin-left: 0;
     }
     @include for-tablet {
       margin-right: 0;
+    }
+    @include for-desctop {
+      max-width: 65vw;
+    }
+    @include for-tablet {
+      max-width: 76vw;
     }
 
     flex: 1;
@@ -112,9 +119,14 @@
     }
   }
   &Middle.withoutRightPanel {
-    width: 73vw;
+    width: 100%;
+    max-width: 100%;
+    margin-right: 0;
+    @include for-mobile {
+      width: 100vw;
+    }
   }
-  @media screen and (min-width: 375px) and (max-width: 600px) {
+  @include for-mobile {
     width: 100%;
     border-radius: none;
   }
@@ -152,6 +164,12 @@
     cursor: pointer;
     padding: 6px;
     padding-left: 0;
+    @include for-mobile {
+      margin-right: 24px;
+    }
+  }
+  @include for-mobile {
+    justify-content: end;
   }
 }
 
@@ -189,7 +207,7 @@ button:hover {
 }
 div {
   .contentContainer {
-    @media screen and (min-width: 375px) and (max-width: 600px) {
+    @include for-mobile {
       padding: 0px;
     }
   }
