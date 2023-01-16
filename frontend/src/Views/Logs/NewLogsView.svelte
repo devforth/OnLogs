@@ -87,6 +87,7 @@
       visibleLogs = [...newAllLogs.splice(0, limit)];
       previousLogs = [...newAllLogs.splice(0, limit)];
       allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+      logsFromWS = [];
 
       return;
     } else {

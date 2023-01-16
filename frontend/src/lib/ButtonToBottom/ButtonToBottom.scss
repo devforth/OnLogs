@@ -29,12 +29,12 @@
     position: absolute;
     background-color: $background-color-dark;
     border-radius: 6px;
+    min-width: 50%;
 
     top: 0;
     right: 0;
 
-    width: 50%;
-    height: 50%;
+    padding: 2px;
 
     transform: translate(0, -70%);
   }
