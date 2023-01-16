@@ -40,7 +40,7 @@
 
 <Router {url}>
   <div>
-    <Route path="view/:host/:service" component={Main} />
+    <Route path="view/:host/:service/:offset/:search" component={Main} />
     <Route path="login" component={Login} />
     <Route path="users" component={Main} />
     <Route path="servicesettings/:host/:service" component={Main} />

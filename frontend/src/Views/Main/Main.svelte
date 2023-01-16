@@ -130,9 +130,12 @@
           <div class="onLogsPanelHeader">
             <h1
               on:click={() => {
-                navigate(`/view/${$lastChosenHost}/${$lastChosenService}`, {
-                  replace: true,
-                });
+                navigate(
+                  `/view/${$lastChosenHost}/${$lastChosenService}/offset=0/searchText=0`,
+                  {
+                    replace: true,
+                  }
+                );
                 activeMenuOption.set("home");
               }}
             >

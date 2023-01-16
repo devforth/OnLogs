@@ -37,7 +37,9 @@
         lastChosenHost.set(chosenHost);
         lastChosenService.set(chosenService);
 
-        navigate(`/view/${chosenHost}/${chosenService}`, { replace: true });
+        navigate(`/view/${chosenHost}/${chosenService}/offset=0/searchText=0`, {
+          replace: true,
+        });
       }
     }
   }
@@ -132,7 +134,7 @@
   function choseSublistEl(firstEl, secondEl) {
     activeElementName = `${firstEl.trim()}-${secondEl.trim()}`;
 
-    navigate(`/view/${firstEl}/${secondEl}`, { replace: true });
+    navigate(`/view/${firstEl}/${secondEl}/offset=0/searchText=0`, { replace: true });
   }
 
   onMount(() => {});

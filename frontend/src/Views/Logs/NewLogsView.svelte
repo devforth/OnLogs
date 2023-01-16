@@ -3,6 +3,7 @@
 
   import LogsString from "../../lib/LogsString/LogsString.svelte";
   import fetchApi from "../../utils/fetch";
+  import { navigate } from "svelte-routing";
   import { afterUpdate, onMount, onDestroy } from "svelte";
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
   import IntersectionObserver from "svelte-intersection-observer";
@@ -205,6 +206,10 @@
       allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
 
       offset = offset + limit;
+      navigate(
+        `${location.pathname.replace(/\/offset=[0-9]+/i, `/offset=${offset}`)}`,
+        { replace: true }
+      );
       if (searchText) {
         startWith = data.at(0).at(0);
         tmpStartWith.push(startWith);
@@ -266,6 +271,10 @@
       }
 
       scrollToNewLogsEnd(".newLogsStart", true);
+      navigate(
+        `${location.pathname.replace(/\/offset=[0-9]+/i, `/offset=${offset}`)}`,
+        { replace: true }
+      );
 
       return data;
     }
