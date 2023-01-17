@@ -11,6 +11,9 @@
   let basePathname = "";
   let availibleRoutes = ["view", "login", "users", "servicesettings"];
 
+  const ASSET_URL = import.meta.env.VITE_ASSET_URL;
+  console.log(ASSET_URL, "env");
+
   const unsubscribe = theme.subscribe((v) => {
     themeState = v;
   });
