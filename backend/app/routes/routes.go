@@ -177,7 +177,12 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var to_return []vars.HostsList
+	type HostsList struct {
+		Host     string                   `json:"host"`
+		Services []map[string]interface{} `json:"services"`
+	}
+
+	var to_return []HostsList
 
 	activeContainers := daemon.GetContainersList()
 
@@ -190,7 +195,7 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true})
 		}
 	}
-	to_return = append(to_return, vars.HostsList{Host: util.GetHost(), Services: hostContainers})
+	to_return = append(to_return, HostsList{Host: util.GetHost(), Services: hostContainers})
 
 	hosts, _ := os.ReadDir("leveldb/hosts/")
 	for _, host := range hosts {
@@ -199,7 +204,7 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 		for _, container := range containers {
 			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true})
 		}
-		to_return = append(to_return, vars.HostsList{Host: host.Name(), Services: allContainers})
+		to_return = append(to_return, HostsList{Host: host.Name(), Services: allContainers})
 	}
 
 	e, _ := json.Marshal(to_return)

@@ -13,11 +13,6 @@ var (
 	ActiveDBs             = map[string]*leveldb.DB{}
 )
 
-type HostsList struct {
-	Host     string                   `json:"host"`
-	Services []map[string]interface{} `json:"services"`
-}
-
 type UserData struct {
 	Login    string `json:"login"`
 	Password string `json:"password"`
