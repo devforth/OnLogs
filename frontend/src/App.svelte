@@ -8,6 +8,8 @@
   import Notfound from "./lib/NotFound/Notfound.svelte";
   export let url = "";
   let themeState = "dark";
+  let basePathname = "";
+  let availibleRoutes = ["view", "login", "users", "servicesettings"];
 
   const unsubscribe = theme.subscribe((v) => {
     themeState = v;
@@ -24,6 +26,7 @@
       bodyEl.classList.remove("dark-mode");
     }
   }
+  async function getBaseHost() {}
   onMount(() => {
     const LStheme = window.localStorage.getItem("theme");
     if (LStheme) {
@@ -34,14 +37,25 @@
     if (location.pathname.split("/").at(1) === "users") {
       activeMenuOption.set("user");
     }
+    if (!availibleRoutes.includes(location.pathname.split("/")?.at(1))) {
+      basePathname = location.pathname.split("/")?.at(1);
+    }
   });
   onDestroy(unsubscribe);
 </script>
 
 <Router {url}>
   <div>
-    <Route path="view/:host/:service/:offset/:search" component={Main} />
-    <Route path="login" component={Login} />
+    <Route
+      path={basePathname
+        ? `${basePathname}/view/:host/:service/:offset/:search`
+        : "view/:host/:service/:offset/:search"}
+      component={Main}
+    />
+    <Route
+      path={basePathname ? `${basePathname}/login` : "login"}
+      component={Login}
+    />
     <Route path="users" component={Main} />
     <Route path="servicesettings/:host/:service" component={Main} />
     <Route component={Notfound} />
