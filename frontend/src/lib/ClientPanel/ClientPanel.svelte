@@ -77,13 +77,11 @@
       />
     </li>
 
-    <li class={$activeMenuOption === "wheel" && "active"}>
+    <!-- <li class={$activeMenuOption === "wheel" && "active"}>
       <i class="log log-Wheel" />
-    </li>
+    </li> -->
     <li on:click={toggleTheme}>
       <i class="log log-{localTheme === 'dark' ? 'Sun' : 'Moon'}" />
     </li>
   </ul>
-  <!-- <i class="log log-Wheel"/>
-    <i class="log log-Moon"/> -->
 </div>

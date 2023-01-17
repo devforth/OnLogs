@@ -26,6 +26,7 @@
     text-align: center;
   }
   .listElement {
+    cursor: default;
   }
   .hostHeader:hover {
     opacity: 0.8;
@@ -117,10 +118,6 @@
     }
   }
 
-  .inactiveServices {
-    margin-left: 18px;
-  }
-
   .stopedServices {
     font-weight: 700;
     font-size: $main-font-s;
@@ -129,7 +126,7 @@
   .stopedServicesBox {
     margin-top: 4px;
     margin-bottom: 4px;
-    cursor: default;
+
     .log-Pointer {
       font-size: 10px;
       cursor: pointer;

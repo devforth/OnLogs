@@ -55,3 +55,7 @@ export const confirmationObj = writable({
 
 //serviceSettings
 export const lastChosenSetting = writable("General");
+
+//make highlightsLogs
+
+export const lastLogTimestamp = writable(0);

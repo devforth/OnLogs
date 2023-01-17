@@ -4,7 +4,7 @@
 </script>
 
 <CommonList
-  listData={[{ name: "General " }, { name: "Acess" }]}
+  listData={[{ name: "General " }]}
   isRowClickable={true}
   storeProp={lastChosenSetting}
 />

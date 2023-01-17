@@ -91,10 +91,11 @@ table {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-  }
-  .addUserButton:hover {
     background-color: $active-color;
     color: $text-onactive-color;
+  }
+  .addUserButton:hover {
+    transform: scale(1.1);
   }
 }
 

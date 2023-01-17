@@ -3,10 +3,15 @@
   export let time = "";
   export let message = "";
   export let width = "";
+  export let isHiglighted = false;
+  import { lastLogTimestamp, store } from "../../Stores/stores.js";
+  import { transformLogString } from "../../Views/Logs/functions.js";
 </script>
 
 <tr
-  class="logsString {message.trim().length === 0 ? 'emptiLogsString' : ''}"
+  class="logsString {isHiglighted ? 'new' : ''} {message.trim().length === 0
+    ? 'emptyLogsString'
+    : ''}"
   style="width: {width}px"
 >
   <td class="status {status ? status : 'hidden'}"

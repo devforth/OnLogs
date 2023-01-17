@@ -11,6 +11,7 @@
     store,
     lastChosenHost,
     lastChosenService,
+    lastLogTimestamp,
   } from "../../Stores/stores";
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
   import {
@@ -51,6 +52,12 @@
   let tmpStartWith = [];
 
   //functions
+  function setLastLogTimestamp() {
+    if (allLogs.at(-1)) {
+      lastLogTimestamp.set(allLogs.at(-1)?.at(0));
+    }
+  }
+
   function addLogFromWS(logfromWS) {
     if (endOffLogsIntersect) {
       if (newLogs.length === limit) {
@@ -134,6 +141,8 @@
     webSocket.onmessage = (event) => {
       if (event.data !== "PING") {
         const logfromWS = JSON.parse(event.data);
+        offset = offset + 1;
+        console.log(offset);
         if (searchText === "") {
           addLogFromWS(logfromWS);
         } else {
@@ -281,8 +290,8 @@
   };
 
   //
-  function consoleLOgs(t) {
-    console.log(t, new Date());
+  function consoleLOgs() {
+    console.log($lastLogTimestamp);
   }
 
   $: {
@@ -291,14 +300,17 @@
         setInitialScroll(0);
         resetParams();
         resetSearchParams();
+        closeWS();
         for (let i = 0; i < 3; i++) {
           const data = await fetchedLogs(true);
           if (data.length !== limit) {
             break;
           }
         }
-        closeWS();
+
         getLogsFromWS();
+        setLastLogTimestamp();
+        consoleLOgs();
 
         setTimeout(() => {
           scrollToBottom();
@@ -339,11 +351,11 @@
   $: {
     isInterceptorVIsible(intersects[1], unfetchedLogs);
   }
-  $: {
-    if (endOffLogsIntersect) {
-      checkLogsFromWs();
-    }
-  }
+  // $: {
+  //   if (endOffLogsIntersect) {
+  //     checkLogsFromWs();
+  //   }
+  // }
   onMount(() => {
     const logsContEl = document.querySelector("#logs");
 
@@ -390,7 +402,10 @@
             time={transformLogString(logItem, $store.UTCtime)}
             message={logItem.at(1)}
             status={getLogLineStatus(logItem.at(1))}
+            isHiglighted={new Date($lastLogTimestamp).getTime() <
+              new Date(logItem.at(0)).getTime()}
           />
+          {logItem[0][14]}{logItem[0][15]}{logItem[0][17]}{logItem[0][18]}
           {#if i === limit / 2}
             <IntersectionObserver
               element={elements[0]}
@@ -427,6 +442,9 @@
             scrollFromButton = true;
             // checkLogsFromWs();
             scrollToBottom();
+            fetchedLogs(true);
+            fetchedLogs(true);
+            fetchedLogs(true);
 
             setTimeout(() => {
               scrollFromButton = false;

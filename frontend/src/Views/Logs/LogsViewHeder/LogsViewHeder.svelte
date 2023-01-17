@@ -40,7 +40,7 @@
         <DropDown />
       {/if}
     </div>
-    <div class="filterButtonContainer">
+    <div class="filterButtonContainer visuallyHidden">
       <Button
         icon={"log log-Filter"}
         minWidth={55}

@@ -134,7 +134,9 @@
   function choseSublistEl(firstEl, secondEl) {
     activeElementName = `${firstEl.trim()}-${secondEl.trim()}`;
 
-    navigate(`/view/${firstEl}/${secondEl}/offset=0/searchText=0`, { replace: true });
+    navigate(`/view/${firstEl}/${secondEl}/offset=0/searchText=0`, {
+      replace: true,
+    });
   }
 
   onMount(() => {});
@@ -145,7 +147,7 @@
     {#each sortedData as listEl, index}
       <li class="listElement">
         <div
-          class="hostHeader"
+          class="hostHeader clickable"
           on:click={() => {
             toggleSublistVisible(index);
           }}
@@ -227,13 +229,17 @@
               {/if}{/each}
           </ul>
           <div
-            class="flex flex-start stopedServicesBox  inactiveServices {listEl.services.find(
+            class="flex flex-start stopedServicesBox clickable inactiveServices {listEl.services.find(
               (e) => {
                 return e.isDisabled;
               }
             )
               ? ''
               : 'visuallyHidden'}"
+            on:click={() => {
+              toggleArchivedVisible(index);
+              initialVisitcounter = 1;
+            }}
           >
             <i class="log log-Archive" />
             <p class="stopedServices">stoped services</p>
@@ -241,10 +247,6 @@
               class="log log-Pointer {!openStopedServIndexes.includes(index)
                 ? 'rotated'
                 : ''}"
-              on:click={() => {
-                toggleArchivedVisible(index);
-                initialVisitcounter = 1;
-              }}
             />
           </div>
 

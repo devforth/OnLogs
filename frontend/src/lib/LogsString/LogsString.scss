@@ -88,7 +88,10 @@
   &:last-child {
     border-bottom: solid 1px $lines-color;
   }
+  &.new {
+    background-color: #c244db10;
+  }
 }
-.emptiLogsString {
+.emptyLogsString {
   border-top: none;
 }

@@ -43,9 +43,7 @@
     border-color: $lines-color-dark;
   }
   .addUserButton {
-    &:hover {
-      background-color: $active-color-dark;
-    }
+    background-color: $active-color-dark;
   }
   .modalContainer {
     background-color: $block-bg-color-dark;
