@@ -20,6 +20,7 @@
     getLogs,
     scrollToBottom,
     scrollToNewLogsEnd,
+    checkLastLogTimeStamp,
   } from "./functions";
   const api = new fetchApi();
   let visibleLogs = [];
@@ -40,6 +41,7 @@
   let scrollDirection = "up";
   let lastFetchActionIsFetch = true;
   let scrollFromButton = false;
+  let stopLogsUnfetch = false;
 
   //fetch params:
 
@@ -142,7 +144,12 @@
       if (event.data !== "PING") {
         const logfromWS = JSON.parse(event.data);
         offset = offset + 1;
-        console.log(offset);
+        if (checkLastLogTimeStamp($lastLogTimestamp, logfromWS[0])) {
+          lastLogTimestamp.set(
+            checkLastLogTimeStamp($lastLogTimestamp, logfromWS[0])
+          );
+        }
+
         if (searchText === "") {
           addLogFromWS(logfromWS);
         } else {
@@ -198,6 +205,7 @@
         offset = offset + limit * 4;
       }
     }
+    stopLogsUnfetch = false;
     const data = await getLogs({
       containerName: $lastChosenService,
       search: searchText,
@@ -243,8 +251,13 @@
     return data;
   };
   const unfetchedLogs = async () => {
-    if (scrollDirection === "down" && offset >= 0 && !scrollFromButton) {
-      if (lastFetchActionIsFetch && !scrollFromButton) {
+    if (
+      scrollDirection === "down" &&
+      offset >= 0 &&
+      !scrollFromButton &&
+      !stopLogsUnfetch
+    ) {
+      if (lastFetchActionIsFetch) {
         offset = offset - limit * 4;
         if (searchText) {
           tmpStartWith.splice(-4, 4);
@@ -267,13 +280,19 @@
         previousLogs = [...data];
 
         allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+        if (offset === 0) {
+          stopLogsUnfetch = true;
+        } else {
+          stopLogsUnfetch = false;
+        }
 
-        offset = offset - limit < 0 ? offset - limit : 0;
+        offset = offset - limit > 0 ? offset - limit : 0;
+
         lastFetchActionIsFetch = false;
       } else {
         logsOverflow = [...data];
         if (allLogs.length === 3 * limit) {
-          allLogs = [...logsOverflow, ...allLogs];
+          allLogs = [...allLogs, ...logsOverflow];
         } else {
           allLogs = logsOverflow;
         }

@@ -33,6 +33,7 @@
   import ConfirmationMenu from "../../lib/ConfirmationMenu/ConfirmationMenu.svelte";
   import ServiceSettings from "../ServiceSettings/ServiceSettings.svelte";
   import ServiceSettingsLeft from "../ServiceSettings/ServiceSettingsLeft.svelte";
+  import { lastLogTimestamp } from "../../Stores/stores.js";
 
   let api = new fetchApi();
   let hostList = [];
@@ -44,6 +45,9 @@
   let userForAdding = "";
   let withoutRightPanel = false;
   let withoutRightPanelRoutesArr = ["users", "servicesettings"];
+  function handleClick() {
+    lastLogTimestamp.set(new Date("12.02.2122").getTime());
+  }
 
   export let host = "";
   export let service = "";
@@ -247,3 +251,4 @@
     {closeModal}
   /></Modal
 >
+<svelte:window on:click={handleClick} />

@@ -102,3 +102,10 @@ export const scrollToNewLogsEnd = (selector, alignToTop) => {
     el.scrollIntoView(!alignToTop);
   }
 };
+
+export const checkLastLogTimeStamp = (lastTimeStamp, newTimestamp) => {
+  const timestamp = new Date(newTimestamp).getTime() - 1;
+  if (lastTimeStamp > timestamp) {
+    return timestamp;
+  }
+};
