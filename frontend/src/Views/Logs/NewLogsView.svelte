@@ -405,7 +405,7 @@
             isHiglighted={new Date($lastLogTimestamp).getTime() <
               new Date(logItem.at(0)).getTime()}
           />
-          {logItem[0][14]}{logItem[0][15]}{logItem[0][17]}{logItem[0][18]}
+
           {#if i === limit / 2}
             <IntersectionObserver
               element={elements[0]}
