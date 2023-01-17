@@ -37,3 +37,4 @@ CMD ["/backend/main"]
 
 # docker run -v /var/run/docker.sock:/var/run/docker.sock --rm -it $(docker build -f Dockerfile .)
 # docker build . -t devforth/onlogs && docker push devforth/onlogs
+# docker run --restart always devforth/onlogs -e PASSWORD=notqwertyplesnever -e JWT_TOKEN=amogus12 -e PORT=2874 -e CLIENT=true -e HOST=onlogs.coposter.me -e ONLOGS_TOKEN=NDBYGFI7OLfgvuDgvoD98  -v /var/run/docker.sock:/var/run/docker.sock -v /etc/hostname:/etc/hostname -v onlogs-volume:/backend/leveldb -"traefik.enable=true"
