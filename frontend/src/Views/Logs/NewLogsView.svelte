@@ -189,7 +189,7 @@
   function setInitialScroll(val) {
     initialScroll = val;
   }
-  const fetchedLogs = async (doNotScroll) => {
+  const fetchedLogs = async (doNotScroll, customOffset) => {
     if (scrollDirection === "up") {
       // if (negativeOffset === offset - limit * 3) {
       //   offset = offset - limit;
@@ -202,7 +202,7 @@
       containerName: $lastChosenService,
       search: searchText,
       limit,
-      offset: searchText ? 0 : offset,
+      offset: customOffset ? customOffset : searchText ? 0 : offset,
       caseSens,
       startWith,
       hostName: $lastChosenHost,
@@ -268,7 +268,7 @@
 
         allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
 
-        offset = offset - limit;
+        offset = offset - limit < 0 ? offset - limit : 0;
         lastFetchActionIsFetch = false;
       } else {
         logsOverflow = [...data];
@@ -351,11 +351,11 @@
   $: {
     isInterceptorVIsible(intersects[1], unfetchedLogs);
   }
-  // $: {
-  //   if (endOffLogsIntersect) {
-  //     checkLogsFromWs();
-  //   }
-  // }
+  $: {
+    if (endOffLogsIntersect) {
+      logsFromWS = [];
+    }
+  }
   onMount(() => {
     const logsContEl = document.querySelector("#logs");
 
@@ -442,9 +442,9 @@
             scrollFromButton = true;
             // checkLogsFromWs();
             scrollToBottom();
-            fetchedLogs(true);
-            fetchedLogs(true);
-            fetchedLogs(true);
+            fetchedLogs(true, 0);
+            fetchedLogs(true, limit * 1);
+            fetchedLogs(true, limit * 2);
 
             setTimeout(() => {
               scrollFromButton = false;
