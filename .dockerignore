@@ -27,5 +27,6 @@ frontend/.gitignore
 
 backend/leveldb
 backend/.gitignore
+backend/dist
 
 README.md

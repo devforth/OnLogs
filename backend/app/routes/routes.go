@@ -70,7 +70,10 @@ func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
 }
 
 func Frontend(w http.ResponseWriter, req *http.Request) {
-	requestedPath := req.URL.String()
+	requestedPath := strings.ReplaceAll(req.URL.String(), os.Getenv("ONLOGS_PATH_PREFIX"), "")
+	fmt.Println(req.URL.String())
+	// requestedPath := req.URL.String()
+
 	dirPath, fileName := filepath.Split(requestedPath)
 	if fileName == "" {
 		fileName = "index.html"
@@ -139,20 +142,22 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 	os.MkdirAll("leveldb/hosts/"+addReq.Hostname, 0700)
 }
 
-func ToggleFavourite(w http.ResponseWriter, req *http.Request) {
+func ChangeFavourite(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
+	fmt.Println(req)
+
 	var container struct {
-		Host string
-		Name string
+		Host    string
+		Service string
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&container)
 
-	key := []byte(container.Host + "/" + container.Name)
+	key := []byte(container.Host + "/" + container.Service)
 	db, _ := leveldb.OpenFile("leveldb/favourites", nil)
 	isAlreadyFavourite, _ := db.Has(key, nil)
 	if isAlreadyFavourite {
