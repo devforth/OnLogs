@@ -13,27 +13,24 @@ import (
 )
 
 func main() {
-	// os.RemoveAll("leveldb")
 	godotenv.Load(".env")
-
 	if os.Getenv("CLIENT") != "" {
 		util.SendInitRequest()
 		streamer.StreamLogs()
 	}
 
+	util.ReplacePrefixVariableForFrontend()
 	go db.DeleteUnusedTokens()
-
 	go streamer.StreamLogs()
 	util.CreateInitUser()
 
 	pathPrefix := os.Getenv("ONLOGS_PATH_PREFIX")
-	// if pathPrefix != "" {
-	// 	http.HandleFunc(pathPrefix, routes.Frontend)
-	// } else {
-	// 	http.HandleFunc("/", routes.Frontend)
-	// }
-
-	http.HandleFunc("/", routes.Frontend)
+	if pathPrefix != "" {
+		http.HandleFunc(pathPrefix+"/", routes.Frontend)
+	} else {
+		http.HandleFunc("/", routes.Frontend)
+	}
+	// http.HandleFunc("/", routes.Frontend)
 	http.HandleFunc(pathPrefix+"/api/v1/checkCookie", routes.CheckCookie)
 	http.HandleFunc(pathPrefix+"/api/v1/addHost", routes.AddHost)
 	http.HandleFunc(pathPrefix+"/api/v1/addLogLine", routes.AddLogLine)

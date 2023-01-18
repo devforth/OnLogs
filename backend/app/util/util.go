@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -27,6 +28,34 @@ func Contains(a string, list []string) bool {
 
 func CreateInitUser() {
 	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
+}
+
+func replaceVarForAllFilesInDir(dirName string, dir_files []fs.DirEntry) {
+	for _, dir_file := range dir_files {
+		if strings.HasSuffix(dir_file.Name(), ".js") || strings.HasSuffix(dir_file.Name(), ".css") || strings.HasSuffix(dir_file.Name(), ".html") {
+			input, err := ioutil.ReadFile("dist/" + dirName + "/" + dir_file.Name())
+			if err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+			output := bytes.Replace(input, []byte("/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION"), []byte(os.Getenv("ONLOGS_PATH_PREFIX")), -1)
+			if err = ioutil.WriteFile("dist/"+dirName+"/"+dir_file.Name(), output, 0666); err != nil {
+				fmt.Println(err)
+				os.Exit(1)
+			}
+		}
+	}
+}
+
+func ReplacePrefixVariableForFrontend() {
+	files, _ := os.ReadDir("dist")
+	for _, file := range files {
+		if file.IsDir() {
+			dir_files, _ := os.ReadDir("dist/" + file.Name())
+			replaceVarForAllFilesInDir(file.Name(), dir_files)
+		}
+	}
+	replaceVarForAllFilesInDir("", files)
 }
 
 func SendInitRequest() {
