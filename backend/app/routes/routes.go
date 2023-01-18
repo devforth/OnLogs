@@ -71,8 +71,6 @@ func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
 
 func Frontend(w http.ResponseWriter, req *http.Request) {
 	requestedPath := strings.ReplaceAll(req.URL.String(), os.Getenv("ONLOGS_PATH_PREFIX"), "")
-	fmt.Println(req.URL.String())
-	// requestedPath := req.URL.String()
 
 	dirPath, fileName := filepath.Split(requestedPath)
 	if fileName == "" {
@@ -143,16 +141,18 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 }
 
 func ChangeFavourite(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
 	if req.Method != "POST" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	fmt.Println(req)
-
 	var container struct {
-		Host    string
-		Service string
+		Host    string `json:"host"`
+		Service string `json:"service"`
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&container)

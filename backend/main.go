@@ -30,11 +30,10 @@ func main() {
 	} else {
 		http.HandleFunc("/", routes.Frontend)
 	}
-	// http.HandleFunc("/", routes.Frontend)
 	http.HandleFunc(pathPrefix+"/api/v1/checkCookie", routes.CheckCookie)
 	http.HandleFunc(pathPrefix+"/api/v1/addHost", routes.AddHost)
 	http.HandleFunc(pathPrefix+"/api/v1/addLogLine", routes.AddLogLine)
-	http.HandleFunc(pathPrefix+"/api/v1/changeFavourite", routes.ChangeFavourite)
+	http.HandleFunc(pathPrefix+"/api/v1/changeFavorite", routes.ChangeFavourite)
 	http.HandleFunc(pathPrefix+"/api/v1/createUser", routes.CreateUser)
 	http.HandleFunc(pathPrefix+"/api/v1/getSecret", routes.GetSecret)
 	http.HandleFunc(pathPrefix+"/api/v1/getHosts", routes.GetHosts)
