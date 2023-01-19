@@ -1,5 +1,5 @@
 import { navigate } from "svelte-routing";
-i;
+
 import { changeKey } from "../utils/changeKey.js";
 let value = "";
 
@@ -8,9 +8,9 @@ console.log(value, "value");
 class fetchApi {
   constructor() {
     this.url = document.location.host.includes("localhost")
-      ? // ? "http://localhost:2874/api/v1/"
-        `${changeKey}/api/v1/`
-      : "";
+      ? "http://localhost:2874/api/v1/"
+      : `${changeKey}/api/v1/`;
+
     this.wsUrl = document.location.host.includes("localhost")
       ? "ws://localhost:2874/api/v1/"
       : `wss://${document.location.host}/api/v1/`;
