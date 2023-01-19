@@ -48,7 +48,11 @@ func replaceVarForAllFilesInDir(dirName string, dir_files []fs.DirEntry) {
 }
 
 func ReplacePrefixVariableForFrontend() {
-	files, _ := os.ReadDir("dist")
+	files, err := os.ReadDir("dist")
+	if err != nil {
+		fmt.Println("INFO: unable to find 'dist' folder")
+		return
+	}
 	for _, file := range files {
 		if file.IsDir() {
 			dir_files, _ := os.ReadDir("dist/" + file.Name())
