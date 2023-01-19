@@ -159,6 +159,7 @@ func ChangeFavourite(w http.ResponseWriter, req *http.Request) {
 
 	key := []byte(container.Host + "/" + container.Service)
 	db, _ := leveldb.OpenFile("leveldb/favourites", nil)
+	defer db.Close()
 	isAlreadyFavourite, _ := db.Has(key, nil)
 	if isAlreadyFavourite {
 		db.Delete(key, nil)
@@ -193,11 +194,14 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 
 	containers, _ := os.ReadDir("leveldb/logs/")
 	hostContainers := []map[string]interface{}{}
+	favourites, _ := leveldb.OpenFile("leveldb/favourites", nil)
+	defer favourites.Close()
 	for _, container := range containers {
+		isFavorite, _ := favourites.Has([]byte(util.GetHost()+"/"+container.Name()), nil)
 		if util.Contains(container.Name(), activeContainers) {
-			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false})
+			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
 		} else {
-			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true})
+			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true, "isFavorite": isFavorite})
 		}
 	}
 	to_return = append(to_return, HostsList{Host: util.GetHost(), Services: hostContainers})
@@ -207,7 +211,8 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name())
 		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
-			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true})
+			isFavorite, _ := favourites.Has([]byte(util.GetHost()+"/"+container.Name()), nil)
+			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true, "isFavorite": isFavorite})
 		}
 		to_return = append(to_return, HostsList{Host: host.Name(), Services: allContainers})
 	}
