@@ -34,6 +34,7 @@
   import ServiceSettings from "../ServiceSettings/ServiceSettings.svelte";
   import ServiceSettingsLeft from "../ServiceSettings/ServiceSettingsLeft.svelte";
   import { lastLogTimestamp } from "../../Stores/stores.js";
+  import { changeKey } from "../../utils/changeKey.js";
 
   let api = new fetchApi();
   let hostList = [];
@@ -46,7 +47,7 @@
   let withoutRightPanel = false;
   let withoutRightPanelRoutesArr = ["users", "servicesettings"];
   function handleClick() {
-    lastLogTimestamp.set(new Date("12.02.2122").getTime());
+    lastLogTimestamp.set(new Date().getTime());
   }
 
   export let host = "";
@@ -67,7 +68,7 @@
 
   async function logout() {
     await api.logout();
-    navigate("/login", { replace: true });
+    navigate(`${changeKey}/login`, { replace: true });
   }
 
   userMenuOpen.subscribe((v) => {
@@ -135,7 +136,7 @@
             <h1
               on:click={() => {
                 navigate(
-                  `/view/${$lastChosenHost}/${$lastChosenService}/offset=0/searchText=0`,
+                  `${changeKey}/view/${$lastChosenHost}/${$lastChosenService}/offset=0/searchText=0`,
                   {
                     replace: true,
                   }
@@ -170,7 +171,7 @@
             </div>
           </div>
 
-          {#if location.pathname.includes("/view") || location.pathname === "/"}
+          {#if location.pathname.includes("/view") || location.pathname === "/" || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION` + `/`}
             <ListWithChoise
               listData={hostList}
               headerButton={"Pencil"}

@@ -7,19 +7,20 @@
     activeMenuOption,
   } from "../../Stores/stores.js";
   import { onDestroy } from "svelte";
+  import { changeKey } from "../../utils/changeKey.js";
 
   let localTheme = "";
   let api = new fetchApi();
   async function logout() {
     await api.logout();
-    navigate("/login", { replace: true });
+    navigate(`${changeKey}/login`, { replace: true });
   }
   //store management
   function toggleUserMenu() {
     userMenuOpen.update((v) => !v);
     activeMenuOption.set("users");
 
-    navigate("/users", { replace: true });
+    navigate(`${changeKey}/users`, { replace: true });
   }
   function toggleTheme() {
     theme.update((v) => {
@@ -33,7 +34,7 @@
     });
   }
   function goToHome() {
-    navigate("/", { replace: true });
+    navigate(`${changeKey}/`, { replace: true });
     activeMenuOption.set("home");
   }
 

@@ -12,7 +12,6 @@
   let availibleRoutes = ["view", "login", "users", "servicesettings"];
 
   const ASSET_URL = import.meta.env.VITE_ASSET_URL;
-  console.log(ASSET_URL, "env");
 
   const unsubscribe = theme.subscribe((v) => {
     themeState = v;
@@ -45,25 +44,23 @@
     }
   });
   onDestroy(unsubscribe);
+  console.log(location.pathname.split("/")[1], "location");
 </script>
 
-<Router {url}>
+<Router
+  {url}
+  basepath={`/${
+    location.pathname.split("/")[1] ? location.pathname.split("/")[1] : ""
+  }`}
+>
   <div>
-    <Route
-      path={basePathname
-        ? `${basePathname}/view/:host/:service/:offset/:search`
-        : "view/:host/:service/:offset/:search"}
-      component={Main}
-    />
-    <Route
-      path={basePathname ? `${basePathname}/login` : "login"}
-      component={Login}
-    />
+    <Route path={`/view/:host/:service/:offset/:search`} component={Main} />
+    <Route path={"/login"} component={Login} />
     <Route path="users" component={Main} />
     <Route path="servicesettings/:host/:service" component={Main} />
     <Route component={Notfound} />
 
-    <Route path="/"><Main /></Route>
+    <Route path={`/`}><Main /></Route>
   </div>
   <Toast />
 </Router>

@@ -8,6 +8,7 @@
     confirmationObj,
   } from "../../Stores/stores.js";
   import { navigate } from "svelte-routing";
+  import { changeKey } from "../../utils/changeKey.js";
 
   import FetchApi from "../../utils/fetch";
   const fetchApi = new FetchApi();
@@ -26,7 +27,7 @@
           })[0]?.services[0]?.serviceName;
 
           lastChosenService.set(newServiceName || "");
-          navigate(`/`, { replace: true });
+          navigate(`${changeKey}/`, { replace: true });
           confirmationObj.update((pv) => {
             return { ...pv, isVisible: false };
           });

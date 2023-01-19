@@ -1,5 +1,6 @@
 <script>
   import { navigate } from "svelte-routing";
+  import { changeKey } from "../../utils/changeKey.js";
 </script>
 
 <div class="textContainer">
@@ -7,14 +8,14 @@
   <div class="linksContainer">
     <p
       on:click={() => {
-        navigate("/", { replace: true });
+        navigate(`${changeKey}/`, { replace: true });
       }}
     >
       Move to home page
     </p>
     <p
       on:click={() => {
-        navigate("/404", { replace: true });
+        navigate(`${changeKey}/404`, { replace: true });
       }}
     >
       Stay here and keep browsing this page

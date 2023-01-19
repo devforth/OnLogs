@@ -22,6 +22,7 @@
     listScrollIsVisible,
   } from "../../Stores/stores.js";
   import FetchApi from "../../utils/fetch.js";
+  import { changeKey } from "../../utils/changeKey.js";
   let initialVisitcounter = 0;
 
   const fetchApi = new FetchApi();
@@ -37,9 +38,12 @@
         lastChosenHost.set(chosenHost);
         lastChosenService.set(chosenService);
 
-        navigate(`/view/${chosenHost}/${chosenService}/offset=0/searchText=0`, {
-          replace: true,
-        });
+        navigate(
+          `${changeKey}/view/${chosenHost}/${chosenService}/offset=0/searchText=0`,
+          {
+            replace: true,
+          }
+        );
       }
     }
   }
@@ -134,7 +138,7 @@
   function choseSublistEl(firstEl, secondEl) {
     activeElementName = `${firstEl.trim()}-${secondEl.trim()}`;
 
-    navigate(`/view/${firstEl}/${secondEl}/offset=0/searchText=0`, {
+    navigate(`${changeKey}/view/${firstEl}/${secondEl}/offset=0/searchText=0`, {
       replace: true,
     });
   }
@@ -205,7 +209,7 @@
                           class="listElementButton"
                           on:click={() => {
                             navigate(
-                              `/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
+                              `${changeKey}/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
                               { replace: true }
                             );
 
@@ -294,7 +298,7 @@
                           class="listElementButton"
                           on:click={() => {
                             navigate(
-                              `/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
+                              `${changeKey}/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
                               { replace: true }
                             );
 

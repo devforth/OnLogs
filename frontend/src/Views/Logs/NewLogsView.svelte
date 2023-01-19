@@ -54,10 +54,17 @@
   let tmpStartWith = [];
 
   //functions
-  function setLastLogTimestamp() {
-    if (allLogs.at(-1)) {
-      lastLogTimestamp.set(allLogs.at(-1)?.at(0));
+  async function getFullLogsSet() {
+    if (initialScroll && logsFromWS.length) {
+      await fetchedLogs(true, "0");
+
+      await fetchedLogs(true, `${limit * 1}`);
+
+      await fetchedLogs(true, `${limit * 2}`);
     }
+  }
+  function setLastLogTimestamp() {
+    lastLogTimestamp.set(new Date().getTime());
   }
 
   function addLogFromWS(logfromWS) {
@@ -144,11 +151,6 @@
       if (event.data !== "PING") {
         const logfromWS = JSON.parse(event.data);
         offset = offset + 1;
-        if (checkLastLogTimeStamp($lastLogTimestamp, logfromWS[0])) {
-          lastLogTimestamp.set(
-            checkLastLogTimeStamp($lastLogTimestamp, logfromWS[0])
-          );
-        }
 
         if (searchText === "") {
           addLogFromWS(logfromWS);
@@ -206,11 +208,12 @@
       }
     }
     stopLogsUnfetch = false;
+
     const data = await getLogs({
       containerName: $lastChosenService,
       search: searchText,
       limit,
-      offset: customOffset ? customOffset : searchText ? 0 : offset,
+      offset: customOffset ? Number(customOffset) : searchText ? 0 : offset,
       caseSens,
       startWith,
       hostName: $lastChosenHost,
@@ -251,6 +254,15 @@
     return data;
   };
   const unfetchedLogs = async () => {
+    console.log(
+      scrollFromButton,
+      "scrollFromButton",
+      stopLogsUnfetch,
+      "stopLogsUnfetch",
+      lastFetchActionIsFetch,
+      "lastFetchActionIsFetch"
+    );
+
     if (
       scrollDirection === "down" &&
       offset >= 0 &&
@@ -280,12 +292,12 @@
         previousLogs = [...data];
 
         allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-        if (offset === 0) {
+        if (offset < limit) {
           stopLogsUnfetch = true;
         } else {
           stopLogsUnfetch = false;
         }
-
+        console.log("offset", offset);
         offset = offset - limit > 0 ? offset - limit : 0;
 
         lastFetchActionIsFetch = false;
@@ -371,9 +383,13 @@
     isInterceptorVIsible(intersects[1], unfetchedLogs);
   }
   $: {
-    if (endOffLogsIntersect) {
-      logsFromWS = [];
-    }
+    (async () => {
+      if (endOffLogsIntersect) {
+        await getFullLogsSet();
+
+        logsFromWS = [];
+      }
+    })();
   }
   onMount(() => {
     const logsContEl = document.querySelector("#logs");
@@ -448,8 +464,6 @@
       >
         <div id="endOfLogs" bind:this={endOffLogs} />
       </IntersectionObserver>
-
-      <div id="endOfLogs" />
     </table>
     {#if !endOffLogsIntersect}
       <div>
@@ -461,9 +475,9 @@
             scrollFromButton = true;
             // checkLogsFromWs();
             scrollToBottom();
-            fetchedLogs(true, 0);
-            fetchedLogs(true, limit * 1);
-            fetchedLogs(true, limit * 2);
+            // fetchedLogs(true, 0);
+            // fetchedLogs(true, limit * 1);
+            // fetchedLogs(true, limit * 2);
 
             setTimeout(() => {
               scrollFromButton = false;

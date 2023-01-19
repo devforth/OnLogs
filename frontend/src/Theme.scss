@@ -25,6 +25,9 @@
   }
   .logsString {
     border-color: $lines-color-dark;
+    &.new {
+      background-color: #c244db10;
+    }
   }
   input {
     background-color: $inpun-color-dark;
