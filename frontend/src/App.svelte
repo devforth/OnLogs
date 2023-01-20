@@ -47,14 +47,7 @@
   console.log(location.pathname.split("/")[1], "location");
 </script>
 
-<Router
-  {url}
-  basepath={`/${
-    location.pathname.includes("localhost")
-      ? location.pathname.split("/")[1]
-      : ""
-  }`}
->
+<Router {url} basepath={`/${location.pathname.split("/")[1]}`}>
   <div>
     <Route path={`/view/:host/:service`} component={Main} />
     <Route path={"/login"} component={Login} />
