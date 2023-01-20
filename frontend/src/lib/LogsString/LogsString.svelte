@@ -9,7 +9,7 @@
 </script>
 
 <tr
-  class="logsString {isHiglighted ? 'new' : ''} {message.trim().length === 0
+  class="logsString {isHiglighted ? 'new' : ''} {message?.trim().length === 0
     ? 'emptyLogsString'
     : ''}"
   style="width: {width}px"
@@ -18,6 +18,6 @@
     ><p><span> ◉ </span>{status.toUpperCase()}</p></td
   >
 
-  <td class="time"><p>{message.trim().length > 0 ? time : ""}</p></td>
+  <td class="time"><p>{message?.trim()?.length > 0 ? time : ""}</p></td>
   <td class="message"><p>{message}</p></td>
 </tr>

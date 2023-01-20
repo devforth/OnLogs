@@ -35,7 +35,7 @@ export const transformLogString = (t, options) => {
   return options
     ? new Date(
         new Date().setTime(
-          new Date(t.at(0).slice(0, 19).replace("T", " ")).getTime()
+          new Date(t?.at(0)?.slice(0, 19)?.replace("T", " "))?.getTime()
         )
       ).toLocaleString("sv-EN", {
         year: "numeric",
@@ -47,7 +47,7 @@ export const transformLogString = (t, options) => {
       })
     : new Date(
         new Date().setTime(
-          new Date(t.at(0).slice(0, 19).replace("T", " ")).getTime() -
+          new Date(t?.at(0)?.slice(0, 19)?.replace("T", " "))?.getTime() -
             timezoneOffsetSec * 1000
         )
       ).toLocaleString("sv-EN", {

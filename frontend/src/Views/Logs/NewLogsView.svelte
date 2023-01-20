@@ -42,6 +42,7 @@
   let lastFetchActionIsFetch = true;
   let scrollFromButton = false;
   let stopLogsUnfetch = false;
+  let stopFetch = false;
 
   //fetch params:
 
@@ -54,13 +55,76 @@
   let tmpStartWith = [];
 
   //functions
+  function refreshAllLogs() {
+    previousLogs = [];
+    visibleLogs = [];
+    newLogs = [];
+  }
+  // function checkLogsFromWs() {
+  //   if (logsFromWS.length >= 3 * limit) {
+  //     let newAllLogs = [
+  //       ...logsFromWS.filter((el, i) => {
+  //         return i < 3 * limit;
+  //       }),
+  //     ];
+  //     newLogs = [...newAllLogs.splice(0, limit)];
+  //     visibleLogs = [...newAllLogs.splice(0, limit)];
+  //     previousLogs = [...newAllLogs.splice(0, limit)];
+  //     allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+  //     logsFromWS = [];
+
+  //     return;
+  //   } else {
+  //     if (logsFromWS.length >= 2 * limit) {
+  //       newLogs.splice(0, logsFromWS.length - 2 * limit);
+  //       newLogs = [
+  //         ...logsFromWS.splice(0, logsFromWS.length - 2 * limit),
+  //         ...newLogs,
+  //       ];
+  //       visibleLogs = [...logsFromWS.splice(0, limit)];
+  //       previousLogs = [...logsFromWS.splice(0, limit)];
+  //     }
+  //     if (logsFromWS.length >= limit) {
+  //       const logsToNew = visibleLogs.splice(0, logsFromWS.length - limit);
+  //       newLogs.splice(0, logsToNew.length);
+  //       newLogs = [...newLogs, ...logsToNew];
+  //       visibleLogs = [
+  //         ...logsFromWS.splice(0, logsFromWS.length - limit),
+  //         ...visibleLogs,
+  //       ];
+  //       previousLogs = [...logsFromWS.splice(0, limit)];
+  //     }
+  //     if (logsFromWS.length <= limit && logsFromWS.length >= 0) {
+  //       const logsToVisible = previousLogs.splice(0, logsFromWS.length);
+  //       const logsToNew = visibleLogs.splice(0, logsFromWS.length);
+  //       newLogs.splice(0, logsToVisible.length);
+  //       newLogs = [...newLogs, ...logsToNew];
+  //       visibleLogs = [...visibleLogs, ...logsToVisible];
+  //       previousLogs = [...previousLogs, ...logsFromWS];
+  //     }
+  //     if (newLogs.at(0) && visibleLogs.at(0) && previousLogs.at(0)) {
+  //       allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+  //     }
+  //   }
+
+  //   logsFromWS = [];
+  // }
+
+  function resetAllLogs() {
+    allLogs = [];
+    newLogs = [];
+    visibleLogs = [];
+    previousLogs = [];
+  }
   async function getFullLogsSet() {
-    if (initialScroll && logsFromWS.length) {
-      await fetchedLogs(true, "0");
-
-      await fetchedLogs(true, `${limit * 1}`);
-
-      await fetchedLogs(true, `${limit * 2}`);
+    if (initialScroll && logsFromWS.length && allLogs.length >= 3 * limit) {
+      const data1 = await fetchedLogs(true, "0");
+      if (data1.length === limit) {
+        const data2 = await fetchedLogs(true, `${limit * 1}`);
+        if (data2.length === limit) {
+          await fetchedLogs(true, `${limit * 2}`);
+        }
+      }
     }
   }
   function setLastLogTimestamp() {
@@ -68,79 +132,28 @@
   }
 
   function addLogFromWS(logfromWS) {
-    if (endOffLogsIntersect) {
+    if (endOffLogsIntersect || allLogs.length < 3 * limit) {
       if (newLogs.length === limit) {
         newLogs.splice(0, 1);
       }
-      newLogs.push(visibleLogs.at(0));
       if (visibleLogs.length === limit) {
+        visibleLogs.at(0) && newLogs.push(visibleLogs.at(0));
         visibleLogs.splice(0, 1);
+        previousLogs.at(0) && visibleLogs.push(previousLogs.at(0));
       }
-      visibleLogs.push(previousLogs.at(0));
+
       if (previousLogs.length === limit) {
         previousLogs.splice(0, 1);
       }
       previousLogs.push(logfromWS);
-
-      allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+      if (allLogs.length === 3 * limit) {
+        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+      } else allLogs = [...allLogs, logfromWS];
+      if (allLogs.length < 3 * limit) {
+      }
     } else {
       logsFromWS = [...logsFromWS, logfromWS];
     }
-  }
-
-  function refreshAllLogs() {
-    previousLogs = [];
-    visibleLogs = [];
-    newLogs = [];
-  }
-  function checkLogsFromWs() {
-    if (logsFromWS.length >= 3 * limit) {
-      let newAllLogs = [
-        ...logsFromWS.filter((el, i) => {
-          return i < 3 * limit;
-        }),
-      ];
-      newLogs = [...newAllLogs.splice(0, limit)];
-      visibleLogs = [...newAllLogs.splice(0, limit)];
-      previousLogs = [...newAllLogs.splice(0, limit)];
-      allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-      logsFromWS = [];
-
-      return;
-    } else {
-      if (logsFromWS.length >= 2 * limit) {
-        newLogs.splice(0, logsFromWS.length - 2 * limit);
-        newLogs = [
-          ...logsFromWS.splice(0, logsFromWS.length - 2 * limit),
-          ...newLogs,
-        ];
-        visibleLogs = [...logsFromWS.splice(0, limit)];
-        previousLogs = [...logsFromWS.splice(0, limit)];
-      }
-      if (logsFromWS.length >= limit) {
-        const logsToNew = visibleLogs.splice(0, logsFromWS.length - limit);
-        newLogs.splice(0, logsToNew.length);
-        newLogs = [...newLogs, ...logsToNew];
-        visibleLogs = [
-          ...logsFromWS.splice(0, logsFromWS.length - limit),
-          ...visibleLogs,
-        ];
-        previousLogs = [...logsFromWS.splice(0, limit)];
-      }
-      if (logsFromWS.length <= limit && logsFromWS.length >= 0) {
-        const logsToVisible = previousLogs.splice(0, logsFromWS.length);
-        const logsToNew = visibleLogs.splice(0, logsFromWS.length);
-        newLogs.splice(0, logsToVisible.length);
-        newLogs = [...newLogs, ...logsToNew];
-        visibleLogs = [...visibleLogs, ...logsToVisible];
-        previousLogs = [...previousLogs, ...logsFromWS];
-      }
-      if (newLogs.at(0) && visibleLogs.at(0) && previousLogs.at(0)) {
-        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-      }
-    }
-
-    logsFromWS = [];
   }
 
   function getLogsFromWS() {
@@ -190,7 +203,9 @@
   function isInterceptorVIsible(inter, cb) {
     (async () => {
       if (inter && initialScroll) {
-        const data = await cb();
+        if (allLogs.length >= 3 * limit) {
+          const data = await cb();
+        }
       }
     })();
   }
@@ -199,7 +214,7 @@
     initialScroll = val;
   }
   const fetchedLogs = async (doNotScroll, customOffset) => {
-    if (scrollDirection === "up") {
+    if (scrollDirection === "up" && !stopFetch) {
       // if (negativeOffset === offset - limit * 3) {
       //   offset = offset - limit;
       // }
@@ -219,6 +234,7 @@
       hostName: $lastChosenHost,
     });
     if (data.length === limit) {
+      stopFetch = false;
       previousLogs = [...visibleLogs];
       visibleLogs = [...newLogs];
       newLogs = [...data];
@@ -226,14 +242,13 @@
       allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
 
       offset = offset + limit;
-      navigate(
-        `${location.pathname.replace(/\/offset=[0-9]+/i, `/offset=${offset}`)}`,
-        { replace: true }
-      );
+      // navigate(
+      //   `${location.pathname.replace(/\/offset=[0-9]+/i, `/offset=${offset}`)}`,
+      //   { replace: true }
+      // );
       if (searchText) {
         startWith = data.at(0).at(0);
         tmpStartWith.push(startWith);
-        console.log(tmpStartWith);
       }
 
       lastFetchActionIsFetch = true;
@@ -243,26 +258,15 @@
         }
       }, 50);
     } else {
-      logsOverflow = [...data];
-      if (allLogs.length === 3 * limit) {
-        allLogs = [...logsOverflow, ...allLogs];
-      } else {
-        allLogs = logsOverflow;
-      }
+      stopFetch = true;
+      logsOverflow = data;
+
+      allLogs = [...logsOverflow, ...allLogs];
     }
 
     return data;
   };
   const unfetchedLogs = async () => {
-    console.log(
-      scrollFromButton,
-      "scrollFromButton",
-      stopLogsUnfetch,
-      "stopLogsUnfetch",
-      lastFetchActionIsFetch,
-      "lastFetchActionIsFetch"
-    );
-
     if (
       scrollDirection === "down" &&
       offset >= 0 &&
@@ -311,10 +315,10 @@
       }
 
       scrollToNewLogsEnd(".newLogsStart", true);
-      navigate(
-        `${location.pathname.replace(/\/offset=[0-9]+/i, `/offset=${offset}`)}`,
-        { replace: true }
-      );
+      // navigate(
+      //   `${location.pathname.replace(/\/offset=[0-9]+/i, `/offset=${offset}`)}`,
+      //   { replace: true }
+      // );
 
       return data;
     }
@@ -329,6 +333,7 @@
     (async () => {
       if ($lastChosenHost && $lastChosenService) {
         setInitialScroll(0);
+        resetAllLogs();
         resetParams();
         resetSearchParams();
         closeWS();
@@ -416,13 +421,14 @@
 {#if allLogs.length === 0}
   <h2 class="noLogsMessage">No logs written yet</h2>
 {/if}
-
+{intersects[0]}
 <div id="logs" class="logs">
   <div class="logsTableContainer">
     <table class="logsTable {$store.breakLines ? 'breakLines' : ''}">
       <div id="startOfLogs" />
 
       {#each allLogs as logItem, i}
+        {i}
         <div
           class={i === limit * 1.5
             ? "newLogsEnd"
@@ -435,10 +441,10 @@
         >
           <LogsString
             time={transformLogString(logItem, $store.UTCtime)}
-            message={logItem.at(1)}
-            status={getLogLineStatus(logItem.at(1))}
+            message={logItem?.at(1)}
+            status={getLogLineStatus(logItem?.at(1))}
             isHiglighted={new Date($lastLogTimestamp).getTime() <
-              new Date(logItem.at(0)).getTime()}
+              new Date(logItem?.at(0)).getTime()}
           />
 
           {#if i === limit / 2}

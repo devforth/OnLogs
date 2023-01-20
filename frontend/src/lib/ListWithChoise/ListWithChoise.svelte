@@ -39,7 +39,7 @@
         lastChosenService.set(chosenService);
 
         navigate(
-          `${changeKey}/view/${chosenHost}/${chosenService}/offset=0/searchText=0`,
+          `${changeKey}/view/${chosenHost}/${chosenService}`,
           {
             replace: true,
           }
@@ -138,7 +138,7 @@
   function choseSublistEl(firstEl, secondEl) {
     activeElementName = `${firstEl.trim()}-${secondEl.trim()}`;
 
-    navigate(`${changeKey}/view/${firstEl}/${secondEl}/offset=0/searchText=0`, {
+    navigate(`${changeKey}/view/${firstEl}/${secondEl}`, {
       replace: true,
     });
   }

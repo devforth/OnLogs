@@ -136,7 +136,7 @@
             <h1
               on:click={() => {
                 navigate(
-                  `${changeKey}/view/${$lastChosenHost}/${$lastChosenService}/offset=0/searchText=0`,
+                  `${changeKey}/view/${$lastChosenHost}/${$lastChosenService}`,
                   {
                     replace: true,
                   }
