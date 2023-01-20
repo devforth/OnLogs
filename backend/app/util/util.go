@@ -53,6 +53,7 @@ func ReplacePrefixVariableForFrontend() {
 		fmt.Println("INFO: unable to find 'dist' folder")
 		return
 	}
+	fmt.Println("INFO: base onlogs prefix is: ", os.Getenv("ONLOGS_PATH_PREFIX"))
 	for _, file := range files {
 		if file.IsDir() {
 			dir_files, _ := os.ReadDir("dist/" + file.Name())
