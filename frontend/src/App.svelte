@@ -47,15 +47,22 @@
   console.log(location.pathname.split("/")[1], "location");
 </script>
 
-<Router {url} basepath={`/${location.pathname.split("/")[1]}`}>
+<Router
+  {url}
+  basepath={location.pathname.split("/")[1] &&
+  location.pathname.split("/")[1] !== "view"
+    ? location.pathname.split("/")[1]
+    : "/"}
+>
   <div>
-    <Route path={`/view/:host/:service`} component={Main} />
+    <Route path="/view/:host/:service" component={Main} />
     <Route path={"/login"} component={Login} />
     <Route path="users" component={Main} />
     <Route path="servicesettings/:host/:service" component={Main} />
     <Route component={Notfound} />
 
     <Route path={`/`}><Main /></Route>
+    <Route path={`/path`}><Main /></Route>
   </div>
   <Toast />
 </Router>
