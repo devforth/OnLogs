@@ -421,14 +421,13 @@
 {#if allLogs.length === 0}
   <h2 class="noLogsMessage">No logs written yet</h2>
 {/if}
-{intersects[0]}
+
 <div id="logs" class="logs">
   <div class="logsTableContainer">
     <table class="logsTable {$store.breakLines ? 'breakLines' : ''}">
       <div id="startOfLogs" />
 
       {#each allLogs as logItem, i}
-        {i}
         <div
           class={i === limit * 1.5
             ? "newLogsEnd"
