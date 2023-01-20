@@ -82,7 +82,7 @@ func GetUsers() []string {
 	return users
 }
 
-func GetLogs(host string, container string, message string, limit int, offset int, startWith string, caseSensetivity bool) [][]string {
+func GetLogs(getPrev bool, host string, container string, message string, limit int, offset int, startWith string, caseSensetivity bool) [][]string {
 	var db *leveldb.DB
 	var err error
 	var path string
@@ -130,13 +130,21 @@ func GetLogs(host string, container string, message string, limit int, offset in
 
 	for counter < limit {
 		if len(iter.Key()) == 0 {
-			iter.Prev()
+			if getPrev {
+				iter.Next()
+			} else {
+				iter.Prev()
+			}
 			counter++
 			continue
 		}
 
 		if !containStr(string(iter.Value()), message, caseSensetivity) {
-			iter.Prev()
+			if getPrev {
+				iter.Next()
+			} else {
+				iter.Prev()
+			}
 			continue
 		}
 
@@ -147,7 +155,11 @@ func GetLogs(host string, container string, message string, limit int, offset in
 				datetime, string(iter.Value()),
 			},
 		)
-		iter.Prev()
+		if getPrev {
+			iter.Next()
+		} else {
+			iter.Prev()
+		}
 		counter++
 	}
 

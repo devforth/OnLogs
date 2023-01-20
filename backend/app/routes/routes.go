@@ -264,6 +264,25 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
+func GetPrevLogs(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	params := req.URL.Query()
+	limit, _ := strconv.Atoi(params.Get("limit"))
+	caseSensetive, err := strconv.ParseBool(params.Get("caseSens"))
+	if err != nil {
+		caseSensetive = false
+	}
+
+	if params.Get("startWith") == "" {
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Need to specify \"startWith\"!"})
+		return
+	}
+	json.NewEncoder(w).Encode(db.GetLogs(true, params.Get("host"), params.Get("id"), params.Get("search"), limit, 0, params.Get("startWith"), caseSensetive))
+}
+
 func GetLogs(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
@@ -276,7 +295,7 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		caseSensetive = false
 	}
-	json.NewEncoder(w).Encode(db.GetLogs(params.Get("host"), params.Get("id"), params.Get("search"), limit, offset, params.Get("startWith"), caseSensetive))
+	json.NewEncoder(w).Encode(db.GetLogs(false, params.Get("host"), params.Get("id"), params.Get("search"), limit, offset, params.Get("startWith"), caseSensetive))
 }
 
 func GetLogsStream(w http.ResponseWriter, req *http.Request) {

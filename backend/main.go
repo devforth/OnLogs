@@ -40,6 +40,7 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/getSizeByService", routes.GetSizeByService)
 	http.HandleFunc(pathPrefix+"/api/v1/getSizeByAll", routes.GetSizeByAll)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogs", routes.GetLogs)
+	http.HandleFunc(pathPrefix+"/api/v1/getPrevLogs", routes.GetPrevLogs)
 	http.HandleFunc(pathPrefix+"/api/v1/getUsers", routes.GetUsers)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogsStream", routes.GetLogsStream)
 	http.HandleFunc(pathPrefix+"/api/v1/login", routes.Login)
