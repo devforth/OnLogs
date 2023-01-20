@@ -11,6 +11,7 @@ var (
 	DockerContainers      = []string{}
 	Active_Daemon_Streams = []string{}
 	ActiveDBs             = map[string]*leveldb.DB{}
+	FavsDB, _             = leveldb.OpenFile("leveldb/favourites", nil)
 )
 
 type UserData struct {
