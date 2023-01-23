@@ -452,6 +452,11 @@ func DeleteContainer(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
 
+	if (logItem.Host == "" || logItem.Host == util.GetHost()) && strings.Contains(logItem.Service, "onlogs") {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Can't delete myself!"})
+	}
+
 	go db.DeleteContainer(logItem.Host, logItem.Service)
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
