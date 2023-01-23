@@ -117,6 +117,11 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
 	db.Put([]byte(logItem.LogLine[0]), []byte(logItem.LogLine[1]), nil)
 	defer db.Close()
+
+	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
+	for _, c := range vars.Connections[logItem.Host+"/"+logItem.Container] {
+		c.WriteMessage(1, to_send)
+	}
 }
 
 func AddHost(w http.ResponseWriter, req *http.Request) {
@@ -311,8 +316,13 @@ func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	}
 
 	container := req.URL.Query().Get("id")
-	if strings.Compare(container, "") == 0 {
+	if container == "" {
 		return
+	}
+
+	host := req.URL.Query().Get("host")
+	if host != "" {
+		container = host + "/" + container
 	}
 	vars.Connections[container] = append(vars.Connections[container], *ws)
 }
