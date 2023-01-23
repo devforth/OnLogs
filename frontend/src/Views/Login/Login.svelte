@@ -43,39 +43,37 @@
 </script>
 
 <div class="login loginContainer">
-  <Container minHeightVh={25}>
-    <div class="loginForm">
-      <h1 id="title">onLogs</h1>
-      <input
-        id="login"
-        class={wrong}
-        placeholder="login"
-        on:click={() => {
-          wrong = "";
-        }}
-      />
-      <input
-        type="password"
-        class={wrong}
-        id="password"
-        placeholder="password"
-        on:click={() => {
-          wrong = "";
-        }}
-      />
-      <div class="bottom">
-        <p class={wrong}>{message}</p>
-        <div class="confirmButton">
-          <Button
-            CB={async () => {
-              await confirm();
-            }}
-            title="Login"
-            highlighted
-          />
-        </div>
+  <div class="loginForm">
+    <h1 id="title">onLogs</h1>
+    <input
+      id="login"
+      class={wrong}
+      placeholder="login"
+      on:click={() => {
+        wrong = "";
+      }}
+    />
+    <input
+      type="password"
+      class={wrong}
+      id="password"
+      placeholder="password"
+      on:click={() => {
+        wrong = "";
+      }}
+    />
+    <div class="bottom">
+      <p class={wrong}>{message}</p>
+      <div class="confirmButton">
+        <Button
+          CB={async () => {
+            await confirm();
+          }}
+          title="Login"
+          highlighted
+        />
       </div>
     </div>
-  </Container>
+  </div>
 </div>
 <svelte:window on:keydown={handleKeydown} />
