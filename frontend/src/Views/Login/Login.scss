@@ -62,12 +62,16 @@ div.loginForm {
 }
 .loginContainer {
   display: flex;
-  min-height: 40vh;
-  min-width: 30vw;
+  min-height: 25vh;
+  min-width: 20vw;
+
   position: absolute;
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
   justify-content: center;
   align-items: center;
+  background-color: $block-bg-color;
+  border-radius: $main-border-radius;
+  padding: $normal-padding;
 }

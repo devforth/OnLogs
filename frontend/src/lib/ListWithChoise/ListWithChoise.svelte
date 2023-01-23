@@ -38,12 +38,9 @@
         lastChosenHost.set(chosenHost);
         lastChosenService.set(chosenService);
 
-        navigate(
-          `${changeKey}/view/${chosenHost}/${chosenService}`,
-          {
-            replace: true,
-          }
-        );
+        navigate(`${changeKey}/view/${chosenHost}/${chosenService}`, {
+          replace: true,
+        });
       }
     }
   }
@@ -196,18 +193,6 @@
                         <div
                           class="listElementButton"
                           on:click={() => {
-                            favoriteToggle(listEl.host, service.serviceName);
-                          }}
-                        >
-                          <i
-                            class="log {service.isFavorite
-                              ? 'log-Heart'
-                              : 'log-EmptyHeart'}"
-                          />
-                        </div>
-                        <div
-                          class="listElementButton"
-                          on:click={() => {
                             navigate(
                               `${changeKey}/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
                               { replace: true }
@@ -217,6 +202,18 @@
                           }}
                         >
                           <i class="log log-Wheel" />
+                        </div>
+                        <div
+                          class="listElementButton"
+                          on:click={() => {
+                            favoriteToggle(listEl.host, service.serviceName);
+                          }}
+                        >
+                          <i
+                            class="log {service.isFavorite
+                              ? 'log-Heart'
+                              : 'log-EmptyHeart'}"
+                          />
                         </div>
                       </div>
                     {/if}
@@ -285,18 +282,6 @@
                         <div
                           class="listElementButton"
                           on:click={() => {
-                            favoriteToggle(listEl.host, service.serviceName);
-                          }}
-                        >
-                          <i
-                            class="log {service.isFavorite
-                              ? 'log-Heart'
-                              : 'log-EmptyHeart'}"
-                          />
-                        </div>
-                        <div
-                          class="listElementButton"
-                          on:click={() => {
                             navigate(
                               `${changeKey}/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
                               { replace: true }
@@ -306,6 +291,18 @@
                           }}
                         >
                           <i class="log log-Wheel" />
+                        </div>
+                        <div
+                          class="listElementButton"
+                          on:click={() => {
+                            favoriteToggle(listEl.host, service.serviceName);
+                          }}
+                        >
+                          <i
+                            class="log {service.isFavorite
+                              ? 'log-Heart'
+                              : 'log-EmptyHeart'}"
+                          />
                         </div>
                       </div>
                     {/if}
