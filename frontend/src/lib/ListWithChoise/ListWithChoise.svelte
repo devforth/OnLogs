@@ -174,11 +174,14 @@
               {#if !service.isDisabled}<li
                   class="serviceListItem  "
                   id={listEl.host}
-                  on:click={() => {
+                  on:click={(e) => {
                     choseSublistEl(listEl.host, service.serviceName);
                     lastChosenHost.set(listEl.host);
                     lastChosenService.set(service.serviceName);
-                    activeMenuOption.set("home");
+
+                    if (!e.target.className.includes("log")) {
+                      activeMenuOption.set("home");
+                    }
 
                     initialVisitcounter = 1;
                   }}
@@ -268,7 +271,9 @@
                     choseSublistEl(listEl.host, service.serviceName);
                     lastChosenHost.set(listEl.host);
                     lastChosenService.set(service.serviceName);
-                    activeMenuOption.set("home");
+                    if (!e.target.className.includes("log")) {
+                      activeMenuOption.set("home");
+                    }
 
                     initialVisitcounter = 1;
                   }}
