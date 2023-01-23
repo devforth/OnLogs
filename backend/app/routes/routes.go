@@ -208,7 +208,7 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
 			isFavorite, _ := vars.FavsDB.Has([]byte(util.GetHost()+"/"+container.Name()), nil)
-			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true, "isFavorite": isFavorite})
+			allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
 		}
 		to_return = append(to_return, HostsList{Host: host.Name(), Services: allContainers})
 	}
