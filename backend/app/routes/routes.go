@@ -304,6 +304,18 @@ func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	container := req.URL.Query().Get("id")
+	if container == "" {
+		return
+	}
+
+	host := req.URL.Query().Get("host")
+	if host != util.GetHost() && host != "" {
+		container = host + "/" + container
+	} else {
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid host!"})
+	}
+
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -313,16 +325,6 @@ func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	ws, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		fmt.Println(err)
-	}
-
-	container := req.URL.Query().Get("id")
-	if container == "" {
-		return
-	}
-
-	host := req.URL.Query().Get("host")
-	if host != "" {
-		container = host + "/" + container
 	}
 	vars.Connections[container] = append(vars.Connections[container], *ws)
 }
