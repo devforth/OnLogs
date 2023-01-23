@@ -117,6 +117,11 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
 	db.Put([]byte(logItem.LogLine[0]), []byte(logItem.LogLine[1]), nil)
 	defer db.Close()
+
+	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
+	for _, c := range vars.Connections[logItem.Host+"/"+logItem.Container] {
+		c.WriteMessage(1, to_send)
+	}
 }
 
 func AddHost(w http.ResponseWriter, req *http.Request) {
@@ -208,7 +213,7 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
 			isFavorite, _ := vars.FavsDB.Has([]byte(util.GetHost()+"/"+container.Name()), nil)
-			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true, "isFavorite": isFavorite})
+			allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
 		}
 		to_return = append(to_return, HostsList{Host: host.Name(), Services: allContainers})
 	}
@@ -299,6 +304,18 @@ func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	container := req.URL.Query().Get("id")
+	if container == "" {
+		return
+	}
+
+	host := req.URL.Query().Get("host")
+	if host != util.GetHost() && host != "" {
+		container = host + "/" + container
+	} else {
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid host!"})
+	}
+
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -308,11 +325,6 @@ func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	ws, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
 		fmt.Println(err)
-	}
-
-	container := req.URL.Query().Get("id")
-	if strings.Compare(container, "") == 0 {
-		return
 	}
 	vars.Connections[container] = append(vars.Connections[container], *ws)
 }
@@ -439,6 +451,11 @@ func DeleteContainer(w http.ResponseWriter, req *http.Request) {
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
+
+	if (logItem.Host == "" || logItem.Host == util.GetHost()) && strings.Contains(logItem.Service, "onlogs") {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Can't delete myself!"})
+	}
 
 	go db.DeleteContainer(logItem.Host, logItem.Service)
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})

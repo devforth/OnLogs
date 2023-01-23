@@ -32,20 +32,30 @@ func IsUserExists(login string) bool {
 }
 
 func IsTokenExists(token string) bool {
-	db, _ := leveldb.OpenFile("leveldb/tokens", nil)
-	defer db.Close()
-	isExists, _ := db.Has([]byte(token), nil)
-	if isExists {
-		db.Put([]byte(token), []byte("was used"), nil)
-	}
+	tokensDB, _ := leveldb.OpenFile("leveldb/tokens", nil)
 
-	return isExists
+	iter := tokensDB.NewIterator(nil, nil)
+	iter.First()
+	if string(iter.Key()) == token {
+		tokensDB.Put([]byte(token), []byte("was used"), nil)
+		return true
+	}
+	for iter.Next() {
+		if string(iter.Key()) == token {
+			tokensDB.Put([]byte(token), []byte("was used"), nil)
+			return true
+		}
+	}
+	defer iter.Release()
+	defer tokensDB.Close()
+
+	return false
 }
 
 func CreateOnLogsToken() string {
 	tokenLen := 25
-	db, _ := leveldb.OpenFile("leveldb/tokens", nil)
-	defer db.Close()
+	tokensDB, _ := leveldb.OpenFile("leveldb/tokens", nil)
+	defer tokensDB.Close()
 
 	letterBytes := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()_+,.:'{}[]"
 	b := make([]byte, tokenLen)
@@ -58,7 +68,7 @@ func CreateOnLogsToken() string {
 	token := string(b)
 
 	to_put := time.Now().UTC().Add(24 * time.Hour).String()
-	db.Put(b, []byte(to_put), nil)
+	tokensDB.Put(b, []byte(to_put), nil)
 	return token
 }
 
