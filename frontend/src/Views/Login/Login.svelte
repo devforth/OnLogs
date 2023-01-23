@@ -27,7 +27,8 @@
     const login = document.getElementById("login").value;
     const password = document.getElementById("password").value;
     result = await api.login(login.trim(), password.trim());
-    if (result.error) {
+
+    if (!result) {
       wrong = "wrong";
       message = "Wrong password or login!";
     } else {
