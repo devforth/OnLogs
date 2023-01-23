@@ -171,7 +171,7 @@
             </div>
           </div>
 
-          {#if location.pathname.includes("/view") || location.pathname === `${changeKey}` || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION/`}
+          {#if location.pathname.includes("/view") || location.pathname === `${changeKey}` || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION/` || location.pathname === "/"}
             <ListWithChoise
               listData={hostList}
               headerButton={"Pencil"}

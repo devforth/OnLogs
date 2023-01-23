@@ -29,7 +29,7 @@
       bodyEl.classList.remove("dark-mode");
     }
   }
-  async function getBaseHost() {}
+
   onMount(() => {
     const LStheme = window.localStorage.getItem("theme");
     if (LStheme) {
@@ -37,8 +37,10 @@
     }
 
     //set active menu option after page refresh
-    if (location.pathname.split("/").at(1) === "users") {
-      activeMenuOption.set("user");
+    if (location.pathname.includes("users")) {
+      activeMenuOption.set("users");
+    } else {
+      activeMenuOption.set("home");
     }
     if (!availibleRoutes.includes(location.pathname.split("/")?.at(1))) {
       basePathname = location.pathname.split("/")?.at(1);

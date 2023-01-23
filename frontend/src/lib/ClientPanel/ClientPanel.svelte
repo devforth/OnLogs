@@ -68,7 +68,7 @@
     <li on:click={goToHome} class={$activeMenuOption === "home" && "active"}>
       <i class="log log-Home " />
       <div
-        class="higlightedOverlay {$activeMenuOption === 'home' ||
+        class="higlightedOverlay {($activeMenuOption === 'home' && 'active') ||
           ($activeMenuOption === 'view' && 'active')}"
       />
     </li>
