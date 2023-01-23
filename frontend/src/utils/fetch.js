@@ -7,11 +7,11 @@ console.log(value, "value");
 
 class fetchApi {
   constructor() {
-    this.url = document.location.host.includes("localhost")
+    this.url = document.location.host.includes("localhost:5173")
       ? "http://localhost:2874/api/v1/"
       : `${changeKey}/api/v1/`;
 
-    this.wsUrl = document.location.host.includes("localhost")
+    this.wsUrl = document.location.host.includes("localhost:5173")
       ? "ws://localhost:2874/api/v1/"
       : `wss://${document.location.host}/api/v1/`;
     this.authorized = true;

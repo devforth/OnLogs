@@ -10,6 +10,7 @@
   let themeState = "dark";
   let basePathname = "";
   let availibleRoutes = ["view", "login", "users", "servicesettings"];
+  import { changeKey } from "./utils/changeKey";
 
   const ASSET_URL = import.meta.env.VITE_ASSET_URL;
 
@@ -47,18 +48,12 @@
   console.log(location.pathname.split("/")[1], "location");
 </script>
 
-<Router
-  {url}
-  basepath={location.pathname.split("/")[1] &&
-  location.pathname.split("/")[1] !== "view"
-    ? location.pathname.split("/")[1]
-    : "/"}
->
+<Router {url} basepath={`${changeKey}/`}>
   <div>
     <Route path="/view/:host/:service" component={Main} />
     <Route path={"/login"} component={Login} />
-    <Route path="users" component={Main} />
-    <Route path="servicesettings/:host/:service" component={Main} />
+    <Route path="/users" component={Main} />
+    <Route path="/servicesettings/:host/:service" component={Main} />
     <Route component={Notfound} />
 
     <Route path={`/`}><Main /></Route>

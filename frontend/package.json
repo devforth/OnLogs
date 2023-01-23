@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --base=/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION",
+    "build": "vite build --base=/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION ",
+    "test": "vite build --base=/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION && node startDebug.js ",
     "preview": "vite preview",
     "sb": "start-storybook -p 6006",
     "build-storybook": "build-storybook",
@@ -22,6 +23,7 @@
     "@storybook/testing-library": "^0.0.13",
     "@sveltejs/vite-plugin-svelte": "^1.0.2",
     "eslint-plugin-svelte3": "^4.0.0",
+    "fs-extra": "^11.1.0",
     "sass": "^1.55.0",
     "svelte": "^3.49.0",
     "svelte-intersection-observer": "^0.10.0",

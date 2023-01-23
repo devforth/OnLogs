@@ -5,6 +5,8 @@
     userMenuOpen,
     theme,
     activeMenuOption,
+    lastChosenHost,
+    lastChosenService,
   } from "../../Stores/stores.js";
   import { onDestroy } from "svelte";
   import { changeKey } from "../../utils/changeKey.js";
@@ -34,7 +36,9 @@
     });
   }
   function goToHome() {
-    navigate(`${changeKey}/`, { replace: true });
+    navigate(`${changeKey}/view/${$lastChosenHost}/${$lastChosenService}`, {
+      replace: true,
+    });
     activeMenuOption.set("home");
   }
 

@@ -171,7 +171,7 @@
             </div>
           </div>
 
-          {#if location.pathname.includes("/view") || location.pathname === "/" || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION` + `/`}
+          {#if location.pathname.includes("/view") || location.pathname === `${changeKey}` || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION/`}
             <ListWithChoise
               listData={hostList}
               headerButton={"Pencil"}
@@ -199,9 +199,9 @@
   >
     <!-- <Container minHeightVh={17.36}>1213414</Container> -->
     <Container minHeightVh={92.6}>
-      {#if location.pathname === "/users"}
+      {#if location.pathname === `${changeKey}/users`}
         <UserMenu {userForAdding} />
-      {:else if location.pathname.includes("/view") || location.pathname === "/"}<NewLogsView
+      {:else if location.pathname.includes("/view") || location.pathname === `${changeKey}/`}<NewLogsView
         />
       {/if}
       {#if location.pathname.includes("/servicesettings")}

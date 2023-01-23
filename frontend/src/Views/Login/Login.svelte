@@ -4,6 +4,7 @@
   import Container from "../../lib/Container/Container.svelte";
   import Button from "../../lib/Button/Button.svelte";
   import { navigate } from "svelte-routing";
+  import { changeKey } from "../../utils/changeKey";
 
   let api = new fetchApi();
   let result = true;
@@ -16,7 +17,7 @@
     if (c.startsWith("onlogs-cookie=")) {
       (async () => {
         if ((await api.checkCookie())["error"] == null) {
-          navigate("/", { replace: true });
+          navigate(`${changeKey}/`, { replace: true });
         }
       })();
     }
@@ -26,9 +27,11 @@
     const login = document.getElementById("login").value;
     const password = document.getElementById("password").value;
     result = await api.login(login.trim(), password.trim());
-    if (!result) {
+    if (result.error) {
       wrong = "wrong";
       message = "Wrong password or login!";
+    } else {
+      navigate(`${changeKey}/`, { replace: true });
     }
   }
 
