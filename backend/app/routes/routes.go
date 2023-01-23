@@ -265,6 +265,40 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
+func GetStats(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	var period struct {
+		Value int `json:"period"` // 1 = 30min, 2 = 1hr, 48 = 1d
+	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&period)
+
+	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0}
+	to_return["error"] += vars.Counters_For_Last_30_Min["error"]
+	to_return["debug"] += vars.Counters_For_Last_30_Min["debug"]
+	to_return["info"] += vars.Counters_For_Last_30_Min["info"]
+	to_return["warn"] += vars.Counters_For_Last_30_Min["warn"]
+
+	if period.Value > 1 {
+		var tmp_stats map[string]int
+		iter := vars.StatDB.NewIterator(nil, nil)
+		iter.Last()
+		for i := 0; i < period.Value; i++ {
+			json.Unmarshal(iter.Value(), &tmp_stats)
+			to_return["error"] += tmp_stats["error"]
+			to_return["debug"] += tmp_stats["debug"]
+			to_return["info"] += tmp_stats["info"]
+			to_return["warn"] += tmp_stats["warn"]
+			iter.Next()
+		}
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{"result": to_return})
+}
+
 func GetPrevLogs(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return

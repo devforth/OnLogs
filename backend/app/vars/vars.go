@@ -6,12 +6,14 @@ import (
 )
 
 var (
-	UsersDB, _            = leveldb.OpenFile("leveldb/users", nil) // should i ever close it?
-	Connections           = map[string][]websocket.Conn{}
-	DockerContainers      = []string{}
-	Active_Daemon_Streams = []string{}
-	ActiveDBs             = map[string]*leveldb.DB{}
-	FavsDB, _             = leveldb.OpenFile("leveldb/favourites", nil)
+	ActiveDBs                = map[string]*leveldb.DB{}
+	Active_Daemon_Streams    = []string{}
+	Connections              = map[string][]websocket.Conn{}
+	Counters_For_Last_30_Min = map[string]int{}
+	DockerContainers         = []string{}
+	FavsDB, _                = leveldb.OpenFile("leveldb/favourites", nil)
+	StatDB, _                = leveldb.OpenFile("leveldb/statistics", nil)
+	UsersDB, _               = leveldb.OpenFile("leveldb/users", nil) // should i ever close it?
 )
 
 type UserData struct {

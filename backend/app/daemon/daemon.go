@@ -33,7 +33,21 @@ func putLogMessage(db *leveldb.DB, message string) {
 	if len(message) < 31 {
 		return
 	}
-	db.Put([]byte(message[:30]), []byte(message[31:]), nil)
+
+	message_text := message[31:]
+
+	if strings.Contains(message_text, "ERROR") || strings.Contains(message_text, "ERR") || // const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
+		strings.Contains(message_text, "Error") || strings.Contains(message_text, "Err") {
+		vars.Counters_For_Last_30_Min["error"]++
+	} else if strings.Contains(message_text, "WARN") || strings.Contains(message_text, "WARNING") { // const statuses_warnings = ["WARN", "WARNING"];
+		vars.Counters_For_Last_30_Min["warning"]++
+	} else if strings.Contains(message_text, "DEBUG") { // const statuses_other = ["DEBUG", "INFO", "ONLOGS"];
+		vars.Counters_For_Last_30_Min["debug"]++
+	} else if strings.Contains(message_text, "INFO") {
+		vars.Counters_For_Last_30_Min["info"]++
+	}
+
+	db.Put([]byte(message[:30]), []byte(message_text), nil)
 }
 
 func sendLogMessage(container string, message string) {
