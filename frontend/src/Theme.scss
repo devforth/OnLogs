@@ -161,6 +161,10 @@
     }
   }
 
+  div.loginForm h1#title {
+    color: $active-color-dark;
+  }
+
   ::-webkit-scrollbar-thumb {
     background-color: #f8f0f020;
     border-radius: 10px;
