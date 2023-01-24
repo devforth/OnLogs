@@ -122,22 +122,14 @@ func GetLogs(getPrev bool, host string, container string, message string, limit 
 	to_return := [][]string{}
 
 	iter.Last()
-	if startWith == "" {
-		// for position < offset {
-		// 	iter.Prev()
-		// 	if containStr(string(iter.Value()), message, caseSensetivity) {
-		// 		position++
-		// 	}
-		// 	if len(iter.Key()) == 0 {
-		// 		return to_return
-		// 	}
-		// }
-	} else {
+	if startWith != "" {
 		if !iter.Seek([]byte(startWith)) {
 			return to_return
 		}
 		if getPrev {
 			iter.Next()
+		} else {
+			iter.Prev()
 		}
 	}
 
