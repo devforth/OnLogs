@@ -136,6 +136,9 @@ func GetLogs(getPrev bool, host string, container string, message string, limit 
 		if !iter.Seek([]byte(startWith)) {
 			return to_return
 		}
+		if getPrev {
+			iter.Next()
+		}
 	}
 
 	for counter < limit {
