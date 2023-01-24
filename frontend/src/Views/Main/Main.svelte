@@ -68,6 +68,8 @@
 
   async function logout() {
     await api.logout();
+    activeMenuOption.set("home");
+
     navigate(`${changeKey}/login`, { replace: true });
   }
 
@@ -181,6 +183,7 @@
                 : ""}
             />{:else if location.pathname.includes("/users")}<CommonList
               listData={[{ name: "Logout", ico: "Logout", callBack: logout }]}
+              isRowClickable={true}
             />{/if}
           {#if location.pathname.includes("/servicesettings")}
             <ServiceSettingsLeft />{/if}

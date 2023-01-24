@@ -15,6 +15,7 @@
         on:click={() => {
           isRowClickable && storeProp?.set && storeProp.set(listEl.name);
           initialActive = null;
+          listEl.callBack();
         }}
       >
         <div class="header">
@@ -22,12 +23,7 @@
             {listEl.name}
           </p>
         </div>
-        <div
-          class="icoContainer"
-          on:click={() => {
-            listEl.callBack();
-          }}
-        >
+        <div class="icoContainer">
           <i class="log log-{listEl.ico}" />
         </div>
         <div

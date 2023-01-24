@@ -17,6 +17,7 @@
   export let listElementButton = "";
   let chosenElSettings = "";
   import {
+    activeMenuOption,
     lastChosenHost,
     lastChosenService,
     listScrollIsVisible,
@@ -58,7 +59,7 @@
           if (a.isFavorite > b.isFavorite) {
             return -1;
           }
-          // a должно быть равным b
+
           return 0;
         });
       let inActiveServices = h.services
@@ -72,7 +73,7 @@
           if (a.isFavorite < b.isFavorite) {
             return -1;
           }
-          // a должно быть равным b
+
           return 0;
         });
       let newHost = {
@@ -173,10 +174,14 @@
               {#if !service.isDisabled}<li
                   class="serviceListItem  "
                   id={listEl.host}
-                  on:click={() => {
+                  on:click={(e) => {
                     choseSublistEl(listEl.host, service.serviceName);
                     lastChosenHost.set(listEl.host);
                     lastChosenService.set(service.serviceName);
+
+                    if (!e.target.className.includes("log")) {
+                      activeMenuOption.set("home");
+                    }
 
                     initialVisitcounter = 1;
                   }}
@@ -266,6 +271,9 @@
                     choseSublistEl(listEl.host, service.serviceName);
                     lastChosenHost.set(listEl.host);
                     lastChosenService.set(service.serviceName);
+                    if (!e.target.className.includes("log")) {
+                      activeMenuOption.set("home");
+                    }
 
                     initialVisitcounter = 1;
                   }}
