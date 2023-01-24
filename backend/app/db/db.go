@@ -92,7 +92,7 @@ func GetUsers() []string {
 	return users
 }
 
-func GetLogs(getPrev bool, host string, container string, message string, limit int, offset int, startWith string, caseSensetivity bool) [][]string {
+func GetLogs(getPrev bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) [][]string {
 	var db *leveldb.DB
 	var err error
 	var path string
@@ -117,21 +117,21 @@ func GetLogs(getPrev bool, host string, container string, message string, limit 
 	}
 
 	iter := db.NewIterator(nil, nil)
-	position := 0
+	// position := 0
 	counter := 0
 	to_return := [][]string{}
 
 	iter.Last()
 	if startWith == "" {
-		for position < offset {
-			iter.Prev()
-			if containStr(string(iter.Value()), message, caseSensetivity) {
-				position++
-			}
-			if len(iter.Key()) == 0 {
-				return to_return
-			}
-		}
+		// for position < offset {
+		// 	iter.Prev()
+		// 	if containStr(string(iter.Value()), message, caseSensetivity) {
+		// 		position++
+		// 	}
+		// 	if len(iter.Key()) == 0 {
+		// 		return to_return
+		// 	}
+		// }
 	} else {
 		if !iter.Seek([]byte(startWith)) {
 			return to_return

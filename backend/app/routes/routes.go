@@ -315,7 +315,7 @@ func GetPrevLogs(w http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Need to specify \"startWith\"!"})
 		return
 	}
-	json.NewEncoder(w).Encode(db.GetLogs(true, params.Get("host"), params.Get("id"), params.Get("search"), limit, 0, params.Get("startWith"), caseSensetive))
+	json.NewEncoder(w).Encode(db.GetLogs(true, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
 func GetLogs(w http.ResponseWriter, req *http.Request) {
@@ -325,12 +325,11 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 
 	params := req.URL.Query()
 	limit, _ := strconv.Atoi(params.Get("limit"))
-	offset, _ := strconv.Atoi(params.Get("offset"))
 	caseSensetive, err := strconv.ParseBool(params.Get("caseSens"))
 	if err != nil {
 		caseSensetive = false
 	}
-	json.NewEncoder(w).Encode(db.GetLogs(false, params.Get("host"), params.Get("id"), params.Get("search"), limit, offset, params.Get("startWith"), caseSensetive))
+	json.NewEncoder(w).Encode(db.GetLogs(false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
 func GetLogsStream(w http.ResponseWriter, req *http.Request) {
