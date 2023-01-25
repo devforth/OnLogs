@@ -286,7 +286,7 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 	to_return["error"] += vars.Counters_For_Last_30_Min["error"]
 	to_return["debug"] += vars.Counters_For_Last_30_Min["debug"]
 	to_return["info"] += vars.Counters_For_Last_30_Min["info"]
-	to_return["warn"] += vars.Counters_For_Last_30_Min["warn"]
+	to_return["warn"] += vars.Counters_For_Last_30_Min["warning"]
 
 	if period.Value > 1 {
 		var tmp_stats map[string]int
@@ -302,7 +302,7 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"result": to_return})
+	json.NewEncoder(w).Encode(to_return)
 }
 
 func GetPrevLogs(w http.ResponseWriter, req *http.Request) {
