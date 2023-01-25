@@ -120,6 +120,11 @@
 
   .secretModalContainer {
     background-color: $block-bg-color-dark;
+    .labelItem {
+      &.active {
+        color: $active-color-dark;
+      }
+    }
 
     .snippetContainer {
       background-color: $inpun-color-dark;

@@ -5,14 +5,18 @@
     addHostMenuIsVisible,
     toast,
     toastIsVisible,
+    currentSnippedOption,
   } from "../../Stores/stores";
   import { clickOutside } from "../../lib/OutsideClicker/OutsideClicker.js";
   import { onMount } from "svelte";
   import FetchApi from "../../utils/fetch.js";
   import { handleKeydown } from "../../utils/functions.js";
+  import { changeKey } from "../../utils/changeKey";
+  import DockerSnippet from "./DockerSnippet.svelte";
+  import DockerComposeSnippet from "./DockerComposeSnippet.svelte";
 
   let token = "";
-  let origin = location.origin;
+  let origin = `${location.origin}${changeKey}`;
   const api = new FetchApi();
   async function getSecret() {
     try {
@@ -23,6 +27,10 @@
     } catch {
       return "2345678901234567";
     }
+  }
+
+  function choseSnippetOption(opt = "") {
+    currentSnippedOption.set(opt);
   }
 
   const copyText = function (ref, cb) {
@@ -50,11 +58,35 @@
   }}
 >
   <h3 class="secretMoalTitle">Connect new host</h3>
-  <div class="snippetContainer">
-    <pre class="secretSnippet">docker run devforth/onlogs
--e CLIENT=true
--e HOST={origin}
--e ONLOGS_TOKEN={token} </pre>
+  <div class="labelsBox flex">
+    <div
+      class={`labelItem clickable ${
+        $currentSnippedOption === "Docker" ? "active" : ""
+      }`}
+      on:click={() => {
+        choseSnippetOption("Docker");
+      }}
+    >
+      Docker
+    </div>
+    <div
+      class={`labelItem clickable ${
+        $currentSnippedOption === "DockerCompose" ? "active" : ""
+      }`}
+      on:click={() => {
+        choseSnippetOption("DockerCompose");
+      }}
+    >
+      Docker Compose
+    </div>
+  </div>
+  <div class={`snippetContainer `}>
+    {#if $currentSnippedOption === "Docker"}
+      <DockerSnippet {token} {origin} />
+    {/if}
+    {#if $currentSnippedOption === "DockerCompose"}
+      <DockerComposeSnippet {token} {origin} />
+    {/if}
     <div class="coppyButton">
       <Button
         icon={"log log-Copy"}

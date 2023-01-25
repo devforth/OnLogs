@@ -38,6 +38,7 @@ export const addHostMenuIsVisible = writable(false);
 
 //snippet modal
 export const snipetModalIsVisible = writable(false);
+export const currentSnippedOption = writable("Docker");
 
 //hosts list scroll is visible
 export const listScrollIsVisible = writable(false);
