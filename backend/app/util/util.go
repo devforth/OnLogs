@@ -90,8 +90,7 @@ func SendInitRequest() {
 
 	if resp.StatusCode != 200 {
 		b, _ := ioutil.ReadAll(resp.Body)
-		fmt.Println(string(b))
-		panic("ERROR: Response status from host is " + resp.Status) // TODO: Improve text with host response body
+		panic("ERROR: Response status from host is " + resp.Status + "\nResponse body: " + string(b))
 	}
 }
 

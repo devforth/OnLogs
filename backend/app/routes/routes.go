@@ -286,7 +286,7 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 	to_return["error"] += vars.Counters_For_Last_30_Min["error"]
 	to_return["debug"] += vars.Counters_For_Last_30_Min["debug"]
 	to_return["info"] += vars.Counters_For_Last_30_Min["info"]
-	to_return["warn"] += vars.Counters_For_Last_30_Min["warn"]
+	to_return["warn"] += vars.Counters_For_Last_30_Min["warning"]
 
 	if period.Value > 1 {
 		var tmp_stats map[string]int
@@ -297,12 +297,13 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 			to_return["error"] += tmp_stats["error"]
 			to_return["debug"] += tmp_stats["debug"]
 			to_return["info"] += tmp_stats["info"]
-			to_return["warn"] += tmp_stats["warn"]
+			to_return["warn"] += tmp_stats["warning"]
 			iter.Next()
 		}
+		iter.Release()
 	}
 	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"result": to_return})
+	json.NewEncoder(w).Encode(to_return)
 }
 
 func GetPrevLogs(w http.ResponseWriter, req *http.Request) {
@@ -340,6 +341,7 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(db.GetLogs(false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
+// TODO return {"error": "Invalid host!"} when host is not exists
 func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
@@ -354,10 +356,6 @@ func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	if host != util.GetHost() && host != "" {
 		container = host + "/" + container
 	}
-	// else {
-	// 	fmt.Println("aboba")
-	// 	json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid host!"})
-	// }
 
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,

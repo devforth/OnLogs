@@ -26,11 +26,6 @@ func main() {
 	util.CreateInitUser()
 
 	pathPrefix := os.Getenv("ONLOGS_PATH_PREFIX")
-	// if pathPrefix != "" {
-	// 	http.HandleFunc(pathPrefix+"/", routes.Frontend)
-	// } else {
-	// 	http.HandleFunc("/", routes.Frontend)
-	// }
 	http.HandleFunc(pathPrefix+"/", routes.Frontend)
 	http.HandleFunc(pathPrefix+"/api/v1/addHost", routes.AddHost)
 	http.HandleFunc(pathPrefix+"/api/v1/addLogLine", routes.AddLogLine)
@@ -48,7 +43,7 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/getSecret", routes.GetSecret)
 	http.HandleFunc(pathPrefix+"/api/v1/getSizeByAll", routes.GetSizeByAll)
 	http.HandleFunc(pathPrefix+"/api/v1/getSizeByService", routes.GetSizeByService)
-	http.HandleFunc(pathPrefix+"/api/v1/getStats", routes.GetStats) // get stats for last {period} from OnLogs start
+	http.HandleFunc(pathPrefix+"/api/v1/getStats", routes.GetStats)
 	http.HandleFunc(pathPrefix+"/api/v1/getUsers", routes.GetUsers)
 	http.HandleFunc(pathPrefix+"/api/v1/login", routes.Login)
 	http.HandleFunc(pathPrefix+"/api/v1/logout", routes.Logout)
