@@ -56,10 +56,6 @@
   let startWith = "";
   let tmpStartWith = [];
 
-  function changeLimit() {
-    console.log("limit", limit);
-  }
-
   function resetAllLogs() {
     allLogs = [];
     newLogs = [];
@@ -156,7 +152,6 @@
   function isInterceptorVIsible(inter, cb, limitation) {
     (async () => {
       if (inter && initialScroll && !interceptorsWait) {
-        console.log(inter, "inter");
         let delay = mouseDownBlockFetch ? 1000 : 0;
         if (allLogs.length >= 3 * limit && limitation) {
           interceptorsWait = true;
@@ -303,7 +298,6 @@
         });
       } else {
         getFullLogsSet();
-        console.log("else");
       }
     })();
   }
@@ -349,7 +343,6 @@
     );
 
     window.addEventListener("resize", () => {
-      console.log(limit);
       limit = Math.round(logsContEl.offsetHeight / 300) * 10;
     });
   });

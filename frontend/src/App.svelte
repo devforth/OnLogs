@@ -47,7 +47,6 @@
     }
   });
   onDestroy(unsubscribe);
-  console.log(location.pathname.split("/")[1], "location");
 </script>
 
 <Router {url} basepath={`${changeKey}/`}>

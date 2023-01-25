@@ -74,7 +74,7 @@ export const getLogs = async function ({
       containerName,
       search,
       limit,
-      offset,
+
       caseSens,
       startWith,
       hostName,

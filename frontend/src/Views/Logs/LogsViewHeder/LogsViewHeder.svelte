@@ -46,9 +46,7 @@
         minWidth={55}
         minHeight={40}
         iconHeight={20}
-        CB={() => {
-          console.log("filter");
-        }}
+        CB={() => {}}
       />
     </div>
   {/if}

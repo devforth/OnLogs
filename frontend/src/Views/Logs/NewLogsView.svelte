@@ -57,56 +57,6 @@
 
   //functions
 
-  // function checkLogsFromWs() {
-  //   if (logsFromWS.length >= 3 * limit) {
-  //     let newAllLogs = [
-  //       ...logsFromWS.filter((el, i) => {
-  //         return i < 3 * limit;
-  //       }),
-  //     ];
-  //     newLogs = [...newAllLogs.splice(0, limit)];
-  //     visibleLogs = [...newAllLogs.splice(0, limit)];
-  //     previousLogs = [...newAllLogs.splice(0, limit)];
-  //     allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-  //     logsFromWS = [];
-
-  //     return;
-  //   } else {
-  //     if (logsFromWS.length >= 2 * limit) {
-  //       newLogs.splice(0, logsFromWS.length - 2 * limit);
-  //       newLogs = [
-  //         ...logsFromWS.splice(0, logsFromWS.length - 2 * limit),
-  //         ...newLogs,
-  //       ];
-  //       visibleLogs = [...logsFromWS.splice(0, limit)];
-  //       previousLogs = [...logsFromWS.splice(0, limit)];
-  //     }
-  //     if (logsFromWS.length >= limit) {
-  //       const logsToNew = visibleLogs.splice(0, logsFromWS.length - limit);
-  //       newLogs.splice(0, logsToNew.length);
-  //       newLogs = [...newLogs, ...logsToNew];
-  //       visibleLogs = [
-  //         ...logsFromWS.splice(0, logsFromWS.length - limit),
-  //         ...visibleLogs,
-  //       ];
-  //       previousLogs = [...logsFromWS.splice(0, limit)];
-  //     }
-  //     if (logsFromWS.length <= limit && logsFromWS.length >= 0) {
-  //       const logsToVisible = previousLogs.splice(0, logsFromWS.length);
-  //       const logsToNew = visibleLogs.splice(0, logsFromWS.length);
-  //       newLogs.splice(0, logsToVisible.length);
-  //       newLogs = [...newLogs, ...logsToNew];
-  //       visibleLogs = [...visibleLogs, ...logsToVisible];
-  //       previousLogs = [...previousLogs, ...logsFromWS];
-  //     }
-  //     if (newLogs.at(0) && visibleLogs.at(0) && previousLogs.at(0)) {
-  //       allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-  //     }
-  //   }
-
-  //   logsFromWS = [];
-  // }
-
   function resetAllLogs() {
     allLogs = [];
     newLogs = [];
@@ -314,11 +264,6 @@
       return data;
     }
   };
-
-  //
-  function consoleLOgs() {
-    console.log($lastLogTimestamp);
-  }
 
   $: {
     (async () => {

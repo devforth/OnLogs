@@ -28,8 +28,6 @@
             return { ...pv, isVisible: false };
           });
         }
-        console.log("data", data);
-        console.log("helo.world");
       },
       message:
         "You want to delete host service logs. This data will be lost. This action cannot be undone.",
@@ -54,7 +52,6 @@
 
   $: {
     if ($lastChosenService && !isAllLogs) {
-      console.log($lastChosenService);
       fetchServiceLogs();
     }
   }
