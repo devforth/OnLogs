@@ -15,9 +15,7 @@
         storeValue={""}
         isFirst={true}
         disableCheckbox={true}
-        titleCallBack={() => {
-          console.log("click");
-        }}
+        titleCallBack={() => {}}
       />
       <DropDownRow
         rowTitle={"Connect new host"}

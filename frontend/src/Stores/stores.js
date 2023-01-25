@@ -44,9 +44,7 @@ export const listScrollIsVisible = writable(false);
 
 //confirmation menu
 export const confirmationObj = writable({
-  action: function () {
-    console.log("helo.world");
-  },
+  action: function () {},
   message:
     "You want to delete host service logs. This data will be lost. This action cannot be undone.",
 

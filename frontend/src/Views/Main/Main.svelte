@@ -2,7 +2,7 @@
   // @ts-ignore
   import Container from "@/lib/Container/Container.svelte";
   import HostList from "../../lib/HostList/HostList.svelte";
-  import NewLogsView from "../Logs/NewLogsView.svelte";
+  import NewLogsV2 from "../Logs/NewLogsV2.svelte";
   import Button from "../../lib/Button/Button.svelte";
   import fetchApi from "../../utils/fetch";
   import ClientPanel from "../../lib/ClientPanel/ClientPanel.svelte";
@@ -204,7 +204,7 @@
     <Container minHeightVh={92.6}>
       {#if location.pathname === `${changeKey}/users`}
         <UserMenu {userForAdding} />
-      {:else if location.pathname.includes("/view") || location.pathname === `${changeKey}/`}<NewLogsView
+      {:else if location.pathname.includes("/view") || location.pathname === `${changeKey}/`}<NewLogsV2
         />
       {/if}
       {#if location.pathname.includes("/servicesettings")}

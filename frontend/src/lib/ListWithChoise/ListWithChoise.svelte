@@ -103,7 +103,7 @@
 
   async function favoriteToggle(host, service) {
     $lastChosenHost, $lastChosenService;
-    console.log("click on vaorite");
+
     const hostIndex = listData.findIndex((h) => h.host === host);
     const serviceIndex = listData[hostIndex].services.findIndex((s) => {
       return s.serviceName === service;
@@ -114,7 +114,7 @@
           !listData[hostIndex].services[serviceIndex].isFavorite;
       }
     }
-    console.log(listData);
+
     const data = await fetchApi.changeFavorite(host, service);
   }
 
@@ -267,7 +267,7 @@
               {#if service.isDisabled}<li
                   class="serviceListItem  "
                   id={listEl.host}
-                  on:click={() => {
+                  on:click={(e) => {
                     choseSublistEl(listEl.host, service.serviceName);
                     lastChosenHost.set(listEl.host);
                     lastChosenService.set(service.serviceName);
