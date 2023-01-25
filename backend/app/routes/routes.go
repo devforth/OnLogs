@@ -297,9 +297,10 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 			to_return["error"] += tmp_stats["error"]
 			to_return["debug"] += tmp_stats["debug"]
 			to_return["info"] += tmp_stats["info"]
-			to_return["warn"] += tmp_stats["warn"]
+			to_return["warn"] += tmp_stats["warning"]
 			iter.Next()
 		}
+		iter.Release()
 	}
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(to_return)
