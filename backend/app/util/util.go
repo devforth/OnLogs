@@ -37,7 +37,7 @@ func RunStatistics() {
 		datetime := strconv.Itoa(date_year) + "-" + strconv.Itoa(int(date_month)) + "-" + strconv.Itoa(date_day) + " " + strconv.Itoa(time.Now().UTC().Hour()) + ":" + strconv.Itoa(time.Now().UTC().Minute())
 		vars.Counters_For_Last_30_Min = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0}
 
-		time.Sleep(30 * time.Second) // tmp
+		time.Sleep(30 * time.Minute)
 		to_put, _ := json.Marshal(vars.Counters_For_Last_30_Min)
 		vars.StatDB.Put([]byte(datetime), to_put, nil)
 	}

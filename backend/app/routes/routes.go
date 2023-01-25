@@ -102,6 +102,7 @@ func CheckCookie(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
@@ -170,6 +171,7 @@ func ChangeFavourite(w http.ResponseWriter, req *http.Request) {
 		vars.FavsDB.Put(key, nil, nil)
 	}
 
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
@@ -178,6 +180,7 @@ func GetSecret(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"token": db.CreateOnLogsToken()})
 }
 
@@ -218,6 +221,7 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 		to_return = append(to_return, HostsList{Host: host.Name(), Services: allContainers})
 	}
 
+	w.Header().Add("Content-Type", "application/json")
 	e, _ := json.Marshal(to_return)
 	w.Write(e)
 }
@@ -244,6 +248,7 @@ func GetSizeByAll(w http.ResponseWriter, req *http.Request) {
 	if totalSize < 0.1 && totalSize != 0.0 {
 		totalSize = 0.1
 	}
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", totalSize)}) // MiB
 }
 
@@ -262,6 +267,7 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 	if size < 0.1 && size != 0.0 {
 		size = 0.1
 	}
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
@@ -295,7 +301,7 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 			iter.Next()
 		}
 	}
-
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"result": to_return})
 }
 
@@ -315,6 +321,7 @@ func GetPrevLogs(w http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Need to specify \"startWith\"!"})
 		return
 	}
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(db.GetLogs(true, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
@@ -329,6 +336,7 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		caseSensetive = false
 	}
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(db.GetLogs(false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
@@ -362,7 +370,6 @@ func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 		fmt.Println(err)
 	}
 	vars.Connections[container] = append(vars.Connections[container], *ws)
-	fmt.Println("a?")
 }
 
 func Login(w http.ResponseWriter, req *http.Request) {
@@ -394,6 +401,7 @@ func Login(w http.ResponseWriter, req *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
@@ -409,6 +417,7 @@ func Logout(w http.ResponseWriter, req *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
@@ -431,6 +440,7 @@ func CreateUser(w http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 		return
 	}
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 }
 
@@ -440,6 +450,7 @@ func GetUsers(w http.ResponseWriter, req *http.Request) {
 	}
 
 	users := db.GetUsers()
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string][]string{"users": users})
 }
 
@@ -457,6 +468,7 @@ func EditUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
@@ -473,6 +485,7 @@ func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
 	decoder.Decode(&logItem)
 
 	go db.DeleteContainerLogs(logItem.Host, logItem.Service)
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
@@ -494,6 +507,7 @@ func DeleteContainer(w http.ResponseWriter, req *http.Request) {
 	}
 
 	go db.DeleteContainer(logItem.Host, logItem.Service)
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
@@ -513,6 +527,7 @@ func DeleteUser(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&loginData)
 	if loginData.Login == "admin" {
+		w.Header().Add("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"error": "Can't delete admin"})
 		return
 	}
@@ -522,5 +537,6 @@ func DeleteUser(w http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
