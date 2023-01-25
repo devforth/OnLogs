@@ -30,7 +30,6 @@
   let allLogs = [];
   let webSocket = null;
   let logsFromWS = [];
-  let logsOverflow = [];
 
   let elements = [];
   let intersects = [];
@@ -44,68 +43,22 @@
   let scrollFromButton = false;
   let stopLogsUnfetch = false;
   let stopFetch = false;
+  let mouseDownBlockFetch = false;
+  let extremalScrollId = "";
+  let interceptorsWait = false;
 
   //fetch params:
 
   let searchText = "";
   let limit = 30;
-  let offset = 0;
 
   let caseSens = false;
   let startWith = "";
   let tmpStartWith = [];
 
-  //functions
-
-  // function checkLogsFromWs() {
-  //   if (logsFromWS.length >= 3 * limit) {
-  //     let newAllLogs = [
-  //       ...logsFromWS.filter((el, i) => {
-  //         return i < 3 * limit;
-  //       }),
-  //     ];
-  //     newLogs = [...newAllLogs.splice(0, limit)];
-  //     visibleLogs = [...newAllLogs.splice(0, limit)];
-  //     previousLogs = [...newAllLogs.splice(0, limit)];
-  //     allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-  //     logsFromWS = [];
-
-  //     return;
-  //   } else {
-  //     if (logsFromWS.length >= 2 * limit) {
-  //       newLogs.splice(0, logsFromWS.length - 2 * limit);
-  //       newLogs = [
-  //         ...logsFromWS.splice(0, logsFromWS.length - 2 * limit),
-  //         ...newLogs,
-  //       ];
-  //       visibleLogs = [...logsFromWS.splice(0, limit)];
-  //       previousLogs = [...logsFromWS.splice(0, limit)];
-  //     }
-  //     if (logsFromWS.length >= limit) {
-  //       const logsToNew = visibleLogs.splice(0, logsFromWS.length - limit);
-  //       newLogs.splice(0, logsToNew.length);
-  //       newLogs = [...newLogs, ...logsToNew];
-  //       visibleLogs = [
-  //         ...logsFromWS.splice(0, logsFromWS.length - limit),
-  //         ...visibleLogs,
-  //       ];
-  //       previousLogs = [...logsFromWS.splice(0, limit)];
-  //     }
-  //     if (logsFromWS.length <= limit && logsFromWS.length >= 0) {
-  //       const logsToVisible = previousLogs.splice(0, logsFromWS.length);
-  //       const logsToNew = visibleLogs.splice(0, logsFromWS.length);
-  //       newLogs.splice(0, logsToVisible.length);
-  //       newLogs = [...newLogs, ...logsToNew];
-  //       visibleLogs = [...visibleLogs, ...logsToVisible];
-  //       previousLogs = [...previousLogs, ...logsFromWS];
-  //     }
-  //     if (newLogs.at(0) && visibleLogs.at(0) && previousLogs.at(0)) {
-  //       allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-  //     }
-  //   }
-
-  //   logsFromWS = [];
-  // }
+  function changeLimit() {
+    console.log("limit", limit);
+  }
 
   function resetAllLogs() {
     allLogs = [];
@@ -114,14 +67,15 @@
     previousLogs = [];
   }
   async function getFullLogsSet() {
-    if (initialScroll && logsFromWS.length && allLogs.length >= 3 * limit) {
-      const data1 = await fetchedLogs(true, "0");
+    if (initialScroll) {
+      const data1 = await fetchedLogs(true, 0);
       if (data1.length === limit) {
-        const data2 = await fetchedLogs(true, `${limit * 1}`);
+        const data2 = await fetchedLogs(true, data1?.at(0)?.at(0));
         if (data2.length === limit) {
-          await fetchedLogs(true, `${limit * 2}`);
+          await fetchedLogs(true, data2?.at(0)?.at(0));
         }
       }
+      logsFromWS = [];
     }
   }
   function setLastLogTimestamp() {
@@ -129,7 +83,10 @@
   }
 
   function addLogFromWS(logfromWS) {
-    if (endOffLogsIntersect || allLogs.length < 3 * limit) {
+    if (
+      (!mouseDownBlockFetch && endOffLogsIntersect) ||
+      allLogs.length < 3 * limit
+    ) {
       if (newLogs.length === limit) {
         newLogs.splice(0, 1);
       }
@@ -160,7 +117,6 @@
     webSocket.onmessage = (event) => {
       if (event.data !== "PING") {
         const logfromWS = JSON.parse(event.data);
-        offset = offset + 1;
 
         if (searchText === "") {
           addLogFromWS(logfromWS);
@@ -183,7 +139,7 @@
 
   function resetParams() {
     allLogs = [];
-    offset = 0;
+
     tmpStartWith = [];
     startWith = "";
   }
@@ -197,11 +153,17 @@
     }
   }
 
-  function isInterceptorVIsible(inter, cb) {
+  function isInterceptorVIsible(inter, cb, limitation) {
     (async () => {
-      if (inter && initialScroll) {
-        if (allLogs.length >= 3 * limit) {
-          const data = await cb();
+      if (inter && initialScroll && !interceptorsWait) {
+        console.log(inter, "inter");
+        let delay = mouseDownBlockFetch ? 1000 : 0;
+        if (allLogs.length >= 3 * limit && limitation) {
+          interceptorsWait = true;
+          extremalScrollId = setTimeout(async () => {
+            const data = await cb();
+            interceptorsWait = false;
+          }, delay);
         }
       }
     })();
@@ -210,45 +172,38 @@
   function setInitialScroll(val) {
     initialScroll = val;
   }
-  const fetchedLogs = async (doNotScroll, customOffset) => {
-    if (scrollDirection === "up" && !stopFetch) {
-      // if (negativeOffset === offset - limit * 3) {
-      //   offset = offset - limit;
-      // }
-      if (!lastFetchActionIsFetch) {
-        offset = offset + limit * 4;
-      }
-    }
+  const fetchedLogs = async (doNotScroll, customStartWith) => {
     stopLogsUnfetch = false;
+    // if (mouseDownBlockFetch) {
+    //   return;
+    // }
 
     const data = await getLogs({
       containerName: $lastChosenService,
       search: searchText,
       limit,
-      offset: customOffset ? Number(customOffset) : searchText ? 0 : offset,
+
       caseSens,
-      startWith,
+      startWith: customStartWith
+        ? customStartWith
+        : customStartWith === 0
+        ? ""
+        : allLogs.at(0)?.at(0),
       hostName: $lastChosenHost,
     });
-    if (data.length === limit) {
-      stopFetch = false;
-      previousLogs = [...visibleLogs];
-      visibleLogs = [...newLogs];
-      newLogs = [...data];
+    lastFetchActionIsFetch = true;
+    if (data.length) {
+      let numberOfNewLogs = data.length;
+      const logsToPrevious = visibleLogs.splice(0, numberOfNewLogs);
+      const logsToVisible = newLogs.splice(0, numberOfNewLogs);
+      previousLogs.splice(0, numberOfNewLogs);
+      newLogs = [...data, ...newLogs];
+      visibleLogs = [...logsToVisible, ...visibleLogs];
+      previousLogs = [...logsToPrevious, ...previousLogs];
 
       allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-
-      offset = offset + limit;
-      // navigate(
-      //   `${location.pathname.replace(/\/offset=[0-9]+/i, `/offset=${offset}`)}`,
-      //   { replace: true }
-      // );
-      if (searchText) {
-        startWith = data.at(0).at(0);
-        tmpStartWith.push(startWith);
-      }
-
-      lastFetchActionIsFetch = true;
+    }
+    if (data.length === limit) {
       setTimeout(() => {
         if (!doNotScroll) {
           scrollToNewLogsEnd(".newLogsEnd");
@@ -256,69 +211,48 @@
       }, 50);
     } else {
       stopFetch = true;
-      logsOverflow = data;
-
-      allLogs = [...logsOverflow, ...allLogs];
     }
 
     return data;
   };
   const unfetchedLogs = async () => {
-    if (
-      scrollDirection === "down" &&
-      offset >= 0 &&
-      !scrollFromButton &&
-      !stopLogsUnfetch
-    ) {
-      if (lastFetchActionIsFetch) {
-        offset = offset - limit * 4;
-      }
+    if (scrollDirection === "down" && !scrollFromButton && !stopLogsUnfetch) {
       const data = await getPrevLogs({
         containerName: $lastChosenService,
         search: searchText,
         limit,
-        offset: searchText ? 0 : offset,
+
         caseSens,
         startWith: allLogs.at(-1)[0],
         hostName: $lastChosenHost,
       });
-
-      if (data.length === limit) {
-        newLogs = [...visibleLogs];
-        visibleLogs = [...previousLogs];
-
-        previousLogs = [...data];
-
+      if (data.length) {
+        let numberOfPrev = data.length;
+        const logsToVisible = previousLogs.splice(0, numberOfPrev);
+        const logsToNew = visibleLogs.splice(0, numberOfPrev);
+        newLogs.splice(0, numberOfPrev);
+        newLogs = [...newLogs, ...logsToNew];
+        visibleLogs = [...visibleLogs, ...logsToVisible];
+        previousLogs = [...previousLogs, ...data];
         allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
 
-        offset = offset - limit > 0 ? offset - limit : 0;
-
         lastFetchActionIsFetch = false;
-        stopLogsUnfetch = true;
-      } else {
-        logsOverflow = [...data];
+        stopLogsUnfetch = false;
+      }
 
-        if (allLogs.length === 3 * limit) {
-          allLogs = [...allLogs, ...logsOverflow];
-        } else {
-          allLogs = logsOverflow;
-        }
+      if (data.length === limit) {
+      } else {
+        stopLogsUnfetch = true;
+        logsFromWS = [];
       }
 
       scrollToNewLogsEnd(".newLogsStart", true);
-      // navigate(
-      //   `${location.pathname.replace(/\/offset=[0-9]+/i, `/offset=${offset}`)}`,
-      //   { replace: true }
-      // );
 
       return data;
     }
   };
 
   //
-  function consoleLOgs() {
-    console.log($lastLogTimestamp);
-  }
 
   $: {
     (async () => {
@@ -337,7 +271,6 @@
 
         getLogsFromWS();
         setLastLogTimestamp();
-        consoleLOgs();
 
         setTimeout(() => {
           scrollToBottom();
@@ -368,25 +301,35 @@
             setInitialScroll(1);
           }, 1000);
         });
+      } else {
+        getFullLogsSet();
+        console.log("else");
       }
     })();
   }
 
   $: {
-    isInterceptorVIsible(intersects[0], fetchedLogs);
+    isInterceptorVIsible(intersects[0], fetchedLogs, !mouseDownBlockFetch);
   }
   $: {
-    isInterceptorVIsible(intersects[1], unfetchedLogs);
+    isInterceptorVIsible(intersects[1], unfetchedLogs, !mouseDownBlockFetch);
   }
   $: {
-    (async () => {
-      if (endOffLogsIntersect) {
-        await getFullLogsSet();
+    isInterceptorVIsible(intersects[2], fetchedLogs, mouseDownBlockFetch);
+  }
+  $: {
+    isInterceptorVIsible(intersects[3], unfetchedLogs, mouseDownBlockFetch);
+  }
 
-        logsFromWS = [];
-      }
-    })();
-  }
+  //   $: {
+  //     (async () => {
+  //       if (endOffLogsIntersect) {
+  //         await getFullLogsSet();
+
+  //         logsFromWS = [];
+  //       }
+  //     })();
+  //   }
   onMount(() => {
     const logsContEl = document.querySelector("#logs");
 
@@ -404,6 +347,11 @@
       },
       false
     );
+
+    window.addEventListener("resize", () => {
+      console.log(limit);
+      limit = Math.round(logsContEl.offsetHeight / 300) * 10;
+    });
   });
 </script>
 
@@ -444,12 +392,29 @@
             >
               <div class="observer" bind:this={elements[0]} />
             </IntersectionObserver>{/if}
+
           {#if i === allLogs.length - limit / 2 && allLogs.length >= 3 * limit}
             <IntersectionObserver
               element={elements[1]}
               bind:intersecting={intersects[1]}
             >
               <div class="observer" bind:this={elements[1]} />
+            </IntersectionObserver>{/if}
+
+          {#if i === 0 && allLogs.length >= 3 * limit}
+            <IntersectionObserver
+              element={elements[2]}
+              bind:intersecting={intersects[2]}
+            >
+              <div class="observer" bind:this={elements[2]} />
+            </IntersectionObserver>{/if}
+
+          {#if i === allLogs.length - 1 && allLogs.length >= 3 * limit}
+            <IntersectionObserver
+              element={elements[3]}
+              bind:intersecting={intersects[3]}
+            >
+              <div class="observer" bind:this={elements[3]} />
             </IntersectionObserver>{/if}
         </div>
       {/each}
@@ -467,13 +432,10 @@
           number={logsFromWS.length}
           ico={"Down"}
           callBack={async () => {
-            offset = 0;
             scrollFromButton = true;
-            // checkLogsFromWs();
+
             scrollToBottom();
-            // fetchedLogs(true, 0);
-            // fetchedLogs(true, limit * 1);
-            // fetchedLogs(true, limit * 2);
+            getFullLogsSet();
 
             setTimeout(() => {
               scrollFromButton = false;
@@ -484,3 +446,13 @@
     {/if}
   </div>
 </div>
+<svelte:window
+  on:mousedown={(e) => {
+    mouseDownBlockFetch = true;
+  }}
+  on:mouseup={(e) => {
+    mouseDownBlockFetch = false;
+    clearInterval(extremalScrollId);
+    interceptorsWait = false;
+  }}
+/>

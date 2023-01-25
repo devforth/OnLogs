@@ -84,6 +84,28 @@ export const getLogs = async function ({
   return newLogs;
 };
 
+export const getPrevLogs = async function ({
+  containerName = "",
+  search = "",
+  limit = 0,
+  offset,
+  caseSens = false,
+  hostName = "",
+  startWith = "",
+}) {
+  const newLogs = await api.getPrevLogs({
+    containerName,
+    search,
+    limit,
+    offset,
+    caseSens,
+    startWith,
+    hostName,
+  });
+
+  return newLogs;
+};
+
 export const scrollToBottom = () => {
   const el = document.querySelector("#endOfLogs");
   if (!el) {

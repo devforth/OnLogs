@@ -1,9 +1,6 @@
 import { navigate } from "svelte-routing";
 
 import { changeKey } from "../utils/changeKey.js";
-let value = "";
-
-console.log(value, "value");
 
 class fetchApi {
   constructor() {
@@ -67,7 +64,7 @@ class fetchApi {
     containerName = "",
     search = "",
     limit = 30,
-    offset = 0,
+
     caseSens = false,
     startWith = "",
     hostName = "",
@@ -76,9 +73,24 @@ class fetchApi {
       "GET",
       `${
         this.url
-      }getLogs?host=${hostName}&id=${containerName}&search=${search}&limit=${limit}&offset=${offset}${
-        search ? `&startWith=${startWith}&caseSens=${caseSens}` : ""
+      }getLogs?host=${hostName}&id=${containerName}&search=${search}&limit=${limit}&startWith=${startWith}${
+        search ? `&caseSens=${caseSens}` : ""
       }`
+    );
+  }
+
+  async getPrevLogs({
+    containerName = "",
+    search = "",
+    limit = 30,
+    offset = 0,
+    caseSens = false,
+    startWith = "",
+    hostName = "",
+  }) {
+    return await this.doFetch(
+      "GET",
+      `${this.url}getPrevLogs?host=${hostName}&id=${containerName}&search=${search}&limit=${limit}&offset=${offset}&startWith=${startWith}&caseSens=${caseSens}`
     );
   }
 
