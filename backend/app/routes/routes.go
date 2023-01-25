@@ -341,6 +341,7 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(db.GetLogs(false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
+// TODO return {"error": "Invalid host!"} when host is not exists
 func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
@@ -355,10 +356,6 @@ func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	if host != util.GetHost() && host != "" {
 		container = host + "/" + container
 	}
-	// else {
-	// 	fmt.Println("aboba")
-	// 	json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid host!"})
-	// }
 
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
