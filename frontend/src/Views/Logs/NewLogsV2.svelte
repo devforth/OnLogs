@@ -370,14 +370,6 @@
             : ""}
           bind:this={elements[i]}
         >
-          <LogsString
-            time={transformLogString(logItem, $store.UTCtime)}
-            message={logItem?.at(1)}
-            status={getLogLineStatus(logItem?.at(1))}
-            isHiglighted={new Date($lastLogTimestamp).getTime() <
-              new Date(logItem?.at(0)).getTime()}
-          />
-
           {#if i === limit / 2}
             <IntersectionObserver
               element={elements[0]}
@@ -409,6 +401,13 @@
             >
               <div class="observer" bind:this={elements[3]} />
             </IntersectionObserver>{/if}
+          <LogsString
+            time={transformLogString(logItem, $store.UTCtime)}
+            message={logItem?.at(1)}
+            status={getLogLineStatus(logItem?.at(1))}
+            isHiglighted={new Date($lastLogTimestamp).getTime() <
+              new Date(logItem?.at(0)).getTime()}
+          />
         </div>
       {/each}
 
