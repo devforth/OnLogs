@@ -35,6 +35,7 @@
   import ServiceSettingsLeft from "../ServiceSettings/ServiceSettingsLeft.svelte";
   import { lastLogTimestamp } from "../../Stores/stores.js";
   import { changeKey } from "../../utils/changeKey.js";
+  import Stats from "../../lib/Stats/Stats.svelte";
 
   let api = new fetchApi();
   let hostList = [];
@@ -232,10 +233,9 @@
         ><LogsSize discribeText={"Space used by service"} /></Container
       >
     </div>
-    <!-- <div class="subContainerThumb">
-      <Container minHeightVh={17.36}>1213414</Container>
-      <Container minHeightVh={12.91} highlighted>1213414</Container>
-    </div> -->
+    <div class="subContainerThumb">
+      <Container minHeightVh={17.36}><Stats /></Container>
+    </div>
   </div>
 </div>
 <Modal

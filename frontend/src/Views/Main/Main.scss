@@ -133,7 +133,6 @@
 }
 
 .subContainerThumb {
-  height: 50vh;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -214,4 +213,11 @@ div {
 }
 .logSizeInformation {
   margin-bottom: $normal-padding;
+}
+
+.spaceBetween {
+  justify-content: space-between;
+}
+.end {
+  justify-content: end;
 }

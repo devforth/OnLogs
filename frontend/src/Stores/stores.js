@@ -58,3 +58,6 @@ export const lastChosenSetting = writable("General");
 //make highlightsLogs
 
 export const lastLogTimestamp = writable(0);
+
+//stats
+export const lastStatsPeriod = writable(2);
