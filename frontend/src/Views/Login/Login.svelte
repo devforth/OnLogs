@@ -46,23 +46,27 @@
 <div class="login loginContainer">
   <div class="loginForm">
     <h1 id="title">onLogs</h1>
-    <input
-      id="login"
-      class={wrong}
-      placeholder="login"
-      on:click={() => {
-        wrong = "";
-      }}
-    />
-    <input
-      type="password"
-      class={wrong}
-      id="password"
-      placeholder="password"
-      on:click={() => {
-        wrong = "";
-      }}
-    />
+    <form action="">
+      <input
+        id="login"
+        name="login"
+        class={wrong}
+        placeholder="login"
+        on:click={() => {
+          wrong = "";
+        }}
+      />
+      <input
+        type="password"
+        name="password"
+        class={wrong}
+        id="password"
+        placeholder="password"
+        on:click={() => {
+          wrong = "";
+        }}
+      />
+    </form>
     <div class="bottom">
       <p class={wrong}>{message}</p>
       <div class="confirmButton">
