@@ -86,12 +86,13 @@
     opacity: 0;
   }
   &:last-child {
-    border-bottom: solid 1px $lines-color;
+    border-top: solid 1px $lines-color;
   }
   &.new {
     background-color: #4492db2c;
   }
 }
+
 .emptyLogsString {
-  border-top: none;
+  border-top: none !important;
 }
