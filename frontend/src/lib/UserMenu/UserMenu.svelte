@@ -137,6 +137,7 @@
 
 <div>
   <h2 class="userMenu">UserMenu</h2>
+
   {#if usersList}<div>
       <div class="usersHeaderContainer">
         <h3>Users:</h3>

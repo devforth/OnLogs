@@ -1,0 +1,25 @@
+.statsItem {
+  padding: 0;
+  margin: 0 0 6px 0;
+  font-size: $main-font-s;
+}
+
+.statsTittle {
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.log-Info {
+  font-size: 18px;
+}
+.timeSpan {
+  font-size: $main-font-s;
+  & div {
+    padding: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    &.active {
+      color: $active-color;
+    }
+  }
+}

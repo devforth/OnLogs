@@ -147,6 +147,9 @@ class fetchApi {
       service,
     });
   }
+  async getStats(period) {
+    return await this.doFetch("POST", `${this.url}getStats`, { period });
+  }
 }
 
 export default fetchApi;
