@@ -50,6 +50,7 @@ func putLogMessage(db *leveldb.DB, message string) {
 	db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
 }
 
+// TODO handle unsended logs better
 func sendLogMessage(container string, message string) {
 	message_item := strings.SplitN(message, " ", 2)
 	postBody, _ := json.Marshal(map[string]interface{}{
@@ -57,16 +58,11 @@ func sendLogMessage(container string, message string) {
 		"LogLine":   []string{message_item[0], message_item[1]},
 		"Container": container,
 	})
-	http.Post(os.Getenv("HOST")+"/api/v1/addLogLine", "application/json", bytes.NewBuffer(postBody))
-	// if err != nil {
-	// 	fmt.Println("ERROR: Can't send request to host!\n" + err.Error())
-	// 	fmt.Println("WARN: Message is not sent: " + message)
-	// }
-
-	// if resp.StatusCode != 200 {
-	// 	fmt.Println("ERROR: Response status from host is " + resp.Status) // TODO: Improve text with host response body
-	// 	fmt.Println("WARN: Message is not sent: " + message)
-	// }
+	resp, _ := http.Post(os.Getenv("HOST")+"/api/v1/addLogLine", "application/json", bytes.NewBuffer(postBody))
+	if resp.StatusCode != 200 {
+		time.Sleep(1 * time.Minute)
+		sendLogMessage(container, message)
+	}
 }
 
 func validateMessage(message string) ([]byte, bool) {
