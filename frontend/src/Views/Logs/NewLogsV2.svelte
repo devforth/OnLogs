@@ -233,6 +233,7 @@
 
         lastFetchActionIsFetch = false;
         stopLogsUnfetch = false;
+        scrollToNewLogsEnd(".newLogsStart", true);
       }
 
       if (data.length === limit) {
@@ -240,8 +241,6 @@
         stopLogsUnfetch = true;
         logsFromWS = [];
       }
-
-      scrollToNewLogsEnd(".newLogsStart", true);
 
       return data;
     }
