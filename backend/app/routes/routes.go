@@ -298,7 +298,9 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 			to_return["debug"] += tmp_stats["debug"]
 			to_return["info"] += tmp_stats["info"]
 			to_return["warn"] += tmp_stats["warning"]
-			iter.Next()
+			if !iter.Next() {
+				break
+			}
 		}
 		iter.Release()
 	}
