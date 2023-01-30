@@ -6,10 +6,8 @@
 .subContainer {
   display: flex;
   flex-direction: column;
-
   justify-content: center;
   position: relative;
-
   box-sizing: border-box;
 
   &Left {
@@ -17,6 +15,12 @@
     width: 20vw;
     justify-content: space-between;
     position: relative;
+
+    #listContainer {
+      min-height: 0;
+      flex-shrink: 2;
+    }
+
     .clientPanelBox {
       height: 90px;
     }
