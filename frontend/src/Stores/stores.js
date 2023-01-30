@@ -61,3 +61,4 @@ export const lastLogTimestamp = writable(0);
 
 //stats
 export const lastStatsPeriod = writable(2);
+export const lastStatisticPeriod = writable("Per hour");

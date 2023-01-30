@@ -36,6 +36,7 @@
   import { lastLogTimestamp } from "../../Stores/stores.js";
   import { changeKey } from "../../utils/changeKey.js";
   import Stats from "../../lib/Stats/Stats.svelte";
+  import MainChartMenu from "../../lib/ChartMenu/MainChartMenu.svelte";
 
   let api = new fetchApi();
   let hostList = [];
@@ -174,7 +175,7 @@
             </div>
           </div>
 
-          {#if location.pathname.includes("/view") || location.pathname === `${changeKey}` || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION/` || location.pathname === "/"}
+          {#if location.pathname.includes("/view") || location.pathname === `${changeKey}` || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION/` || location.pathname === "/" || location.pathname.includes("/stats")}
             <ListWithChoise
               listData={hostList}
               headerButton={"Pencil"}
@@ -210,6 +211,8 @@
       {/if}
       {#if location.pathname.includes("/servicesettings")}
         <ServiceSettings />{/if}
+      {#if location.pathname.includes("/stats")}
+        <MainChartMenu />{/if}
     </Container>
   </div>
   {#if $snipetModalIsVisible}

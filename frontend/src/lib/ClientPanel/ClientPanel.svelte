@@ -13,10 +13,7 @@
 
   let localTheme = "";
   let api = new fetchApi();
-  async function logout() {
-    await api.logout();
-    navigate(`${changeKey}/login`, { replace: true });
-  }
+
   //store management
   function toggleUserMenu() {
     userMenuOpen.update((v) => !v);

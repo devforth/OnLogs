@@ -23,6 +23,7 @@
 @import "./lib/ConfirmationMenu/ConfirmationMenu.scss";
 @import "./Views/ServiceSettings/ServiceSettings.scss";
 @import "./lib/Stats/Stats.scss";
+@import "./lib/ChartMenu/ChartMenu.scss";
 body {
   font-family: "Ubuntu", sans-serif;
   background-color: $background-color;
@@ -49,6 +50,7 @@ h1 {
 
 li {
   list-style: none;
+  color: inherit;
 }
 
 p {

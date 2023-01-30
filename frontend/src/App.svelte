@@ -55,6 +55,7 @@
     <Route path={"/login"} component={Login} />
     <Route path="/users" component={Main} />
     <Route path="/servicesettings/:host/:service" component={Main} />
+    <Route path="/stats/:host/:service" component={Main} />
     <Route component={Notfound} />
 
     <Route path={`/`}><Main /></Route>

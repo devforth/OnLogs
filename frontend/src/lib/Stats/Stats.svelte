@@ -5,6 +5,8 @@
     lastStatsPeriod,
   } from "../../Stores/stores.js";
   import fetchApi from "../../utils/fetch";
+  import { navigate } from "svelte-routing";
+  import { changeKey } from "../../utils/changeKey";
 
   let data = {};
   const api = new fetchApi();
@@ -25,7 +27,15 @@
 <div class="statsContainer">
   <div class="flex spaceBetween ">
     <i
-      class="log log-Info"
+      class="log log-Chart clickable"
+      on:click={() => {
+        navigate(
+          `${changeKey}/stats/${$lastChosenHost}/${$lastChosenService}`,
+          {
+            replace: true,
+          }
+        );
+      }}
       title="Counter updates every 30 min since OnLogs started. So, it may cause some asynchrony.
 "
     />

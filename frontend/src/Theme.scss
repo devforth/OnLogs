@@ -177,8 +177,6 @@
   .timeSpan {
     font-size: $main-font-s;
     & div {
-      padding: 4px;
-      font-weight: 600;
       cursor: pointer;
       &.active {
         color: $active-color-dark;

@@ -24,6 +24,8 @@
           $lastChosenService
         );
         if (data) {
+          await fetchAllLogs();
+          await fetchServiceLogs();
           confirmationObj.update((pv) => {
             return { ...pv, isVisible: false };
           });

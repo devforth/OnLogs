@@ -11,15 +11,20 @@
 
 .log-Info {
   font-size: 18px;
+  line-height: 1;
 }
 .timeSpan {
   font-size: $main-font-s;
   & div {
-    padding: 4px;
+    padding: 2px;
     font-weight: 600;
     cursor: pointer;
     &.active {
       color: $active-color;
     }
   }
+}
+
+.statsContainer {
+  color: $text-dark-color;
 }

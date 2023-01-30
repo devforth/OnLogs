@@ -150,6 +150,14 @@ class fetchApi {
   async getStats(period) {
     return await this.doFetch("POST", `${this.url}getStats`, { period });
   }
+  async getChartData({ host, service, unit, unitsAmount }) {
+    return await this.doFetch("POST", `${this.url}getChartData`, {
+      host,
+      service,
+      unit,
+      unitsAmount,
+    });
+  }
 }
 
 export default fetchApi;
