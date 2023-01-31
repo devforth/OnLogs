@@ -77,7 +77,7 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 		return
 	}
 
-	for message_item[0] != "2" {
+	for !strings.HasPrefix(message_item[0], "2") && len(message_item[0]) > 20 {
 		message_item[0] = message_item[0][1:]
 	}
 
