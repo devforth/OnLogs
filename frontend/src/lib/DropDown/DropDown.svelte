@@ -21,6 +21,11 @@
         rowImage={"log log-Leters"}
         storeValue={"caseInSensitive"}
       />
+      <DropDownRow
+        rowTitle={"Transform JSON "}
+        rowImage={"log log-Json"}
+        storeValue={"transformJson"}
+      />
     </thbody>
   </table>
 </div>

@@ -5,6 +5,7 @@ export const store = writable({
   breakLines: true,
   // used insensitive prop coz for now default value MUST be true
   caseInSensitive: true,
+  transformJson: true,
 });
 
 //modals state

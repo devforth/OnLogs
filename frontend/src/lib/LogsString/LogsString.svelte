@@ -1,11 +1,12 @@
 <script>
+  import { tryToParseLogString } from "../../utils/functions";
   export let status = "";
   export let time = "";
   export let message = "";
   export let width = "";
   export let isHiglighted = false;
-  import { lastLogTimestamp, store } from "../../Stores/stores.js";
-  import { transformLogString } from "../../Views/Logs/functions.js";
+  let parsedStr = tryToParseLogString(message);
+  import { store } from "../../Stores/stores.js";
 </script>
 
 <tr
@@ -19,5 +20,15 @@
   >
 
   <td class="time"><p>{message?.trim()?.length > 0 ? time : ""}</p></td>
-  <td class="message"><p>{message}</p></td>
+  <td class="message"
+    >{#if !parsedStr}<p>
+        {message}
+      </p>{:else}
+      {#if $store.transformJson}<p>{parsedStr.startText}</p>
+        <pre>{@html parsedStr.html}</pre>
+        <p>{parsedStr.endText}</p>
+      {:else}<p>
+          {message}
+        </p>{/if}{/if}
+  </td>
 </tr>

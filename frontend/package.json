@@ -32,6 +32,7 @@
   "dependencies": {
     "@vusion/webfonts-generator": "^0.8.0",
     "chart.js": "^4.2.0",
+    "json-to-html": "^0.1.2",
     "svelte-chartjs": "^3.1.2",
     "svelte-routing": "^1.6.0"
   }
