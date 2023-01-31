@@ -352,7 +352,20 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 		var tmp_stats map[string]map[string]int
 		iter := vars.StatDBs[location].NewIterator(nil, nil)
 		iter.Last()
+		period_hours := data.Value / 2
+		period_days := period_hours / 24
+
+		fmt.Println(period_days)
+		fmt.Println(period_hours)
+
 		for i := 0; i < data.Value; i++ {
+			time := strings.Split(string(iter.Key()), "_")[1]
+			hours, _ := strconv.Atoi(strings.Split(time, ":")[0])
+			minutes, _ := strconv.Atoi(strings.Split(time, ":")[1])
+			fmt.Println(string(iter.Key()))
+			fmt.Println(time)
+			fmt.Println(hours*60 + minutes)
+
 			json.Unmarshal(iter.Value(), &tmp_stats)
 			to_return["debug"] += tmp_stats[location]["debug"]
 			to_return["error"] += tmp_stats[location]["error"]
