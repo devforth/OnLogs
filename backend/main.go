@@ -19,7 +19,7 @@ func main() {
 		streamer.StreamLogs()
 	}
 
-	go util.RunStatistics()
+	go util.RunStatisticForContainer("onlogs_all")
 	go db.DeleteUnusedTokens()
 	go streamer.StreamLogs()
 	util.ReplacePrefixVariableForFrontend()
@@ -43,6 +43,7 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/getSecret", routes.GetSecret)
 	http.HandleFunc(pathPrefix+"/api/v1/getSizeByAll", routes.GetSizeByAll)
 	http.HandleFunc(pathPrefix+"/api/v1/getSizeByService", routes.GetSizeByService)
+	http.HandleFunc(pathPrefix+"/api/v1/getAllStats", routes.GetAllStats)
 	http.HandleFunc(pathPrefix+"/api/v1/getStats", routes.GetStats)
 	http.HandleFunc(pathPrefix+"/api/v1/getUsers", routes.GetUsers)
 	http.HandleFunc(pathPrefix+"/api/v1/login", routes.Login)
