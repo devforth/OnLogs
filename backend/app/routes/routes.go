@@ -116,12 +116,7 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	decoder.Decode(&logItem)
 
 	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
-
 	db.PutLogMessage(current_db, logItem.Host, logItem.Container, logItem.LogLine)
-
-	current_db.Put([]byte(logItem.LogLine[0]), []byte(logItem.LogLine[1]), nil)
-	vars.Counters_For_Last_30_Min[logItem.Host+"/"+logItem.Container]["other"]++
-	vars.Counters_For_Last_30_Min["onlogs_all"]["other"]++
 	defer current_db.Close()
 
 	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
