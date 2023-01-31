@@ -34,8 +34,12 @@ export const tryToParseLogString = (str) => {
       const jsonPart = str.slice(beginningOfJson, endingOfJson);
       startText = str.slice(0, beginningOfJson);
       endText = str.slice(endingOfJson + 1, -1);
-      let normilizedStr = JSON.parse(jsonPart + "}");
-      html = json2html(normilizedStr, 2);
+      try {
+        let normilizedStr = JSON.parse(jsonPart + "}");
+        html = json2html(normilizedStr, 2);
+      } catch (e) {
+        console.log(e);
+      }
     }
   }
 
