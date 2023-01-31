@@ -335,6 +335,12 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 		location = data.Host + "/" + data.Service
 	}
 
+	if location == "/" {
+		w.Header().Add("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid data!"})
+		return
+	}
+
 	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	to_return["debug"] += vars.Counters_For_Last_30_Min[location]["debug"]
 	to_return["error"] += vars.Counters_For_Last_30_Min[location]["error"]
