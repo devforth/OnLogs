@@ -76,6 +76,11 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	if len(message_item[1]) < 31 {
 		return
 	}
+
+	for message_item[0] != "2" {
+		message_item[0] = message_item[0][1:]
+	}
+
 	var location string
 	if host != "" {
 		location = host + "/" + "string"
