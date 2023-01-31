@@ -72,6 +72,42 @@ func CreateOnLogsToken() string {
 	return token
 }
 
+func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) {
+	if len(message_item[1]) < 31 {
+		return
+	}
+	var location string
+	if host != "" {
+		location = host + "/" + "string"
+	} else {
+		location = container
+	}
+
+	if strings.Contains(message_item[1], "ERROR") || strings.Contains(message_item[1], "ERR") || // const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
+		strings.Contains(message_item[1], "Error") || strings.Contains(message_item[1], "Err") {
+		vars.Counters_For_Last_30_Min[location]["error"]++
+		vars.Counters_For_Last_30_Min["onlogs_all"]["error"]++
+
+	} else if strings.Contains(message_item[1], "WARN") || strings.Contains(message_item[1], "WARNING") { // const statuses_warnings = ["WARN", "WARNING"];
+		vars.Counters_For_Last_30_Min[location]["warn"]++
+		vars.Counters_For_Last_30_Min["onlogs_all"]["warn"]++
+
+	} else if strings.Contains(message_item[1], "DEBUG") { // const statuses_other = ["DEBUG", "INFO", "ONLOGS"];
+		vars.Counters_For_Last_30_Min[location]["debug"]++
+		vars.Counters_For_Last_30_Min["onlogs_all"]["debug"]++
+
+	} else if strings.Contains(message_item[1], "INFO") {
+		vars.Counters_For_Last_30_Min[location]["info"]++
+		vars.Counters_For_Last_30_Min["onlogs_all"]["info"]++
+
+	} else {
+		vars.Counters_For_Last_30_Min[location]["other"]++
+		vars.Counters_For_Last_30_Min["onlogs_all"]["other"]++
+	}
+
+	db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
+}
+
 func CreateUser(login string, password string) error {
 	if IsUserExists(login) {
 		return errors.New("User is already exists")
