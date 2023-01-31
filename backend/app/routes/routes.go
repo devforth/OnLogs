@@ -321,30 +321,38 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var data struct {
+		Host    string `json:"host"`
 		Service string `json:"service"`
 		Value   int    `json:"period"` // 1 = 30min, 2 = 1hr, 48 = 1d
 	}
+
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&data)
+	var location string
+	if data.Host == util.GetHost() {
+		location = data.Service
+	} else {
+		location = data.Host + "/" + data.Service
+	}
 
 	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	to_return["debug"] += vars.Counters_For_Last_30_Min[data.Service]["debug"]
-	to_return["error"] += vars.Counters_For_Last_30_Min[data.Service]["error"]
-	to_return["info"] += vars.Counters_For_Last_30_Min[data.Service]["info"]
-	to_return["warn"] += vars.Counters_For_Last_30_Min[data.Service]["warn"]
-	to_return["other"] += vars.Counters_For_Last_30_Min[data.Service]["other"]
+	to_return["debug"] += vars.Counters_For_Last_30_Min[location]["debug"]
+	to_return["error"] += vars.Counters_For_Last_30_Min[location]["error"]
+	to_return["info"] += vars.Counters_For_Last_30_Min[location]["info"]
+	to_return["warn"] += vars.Counters_For_Last_30_Min[location]["warn"]
+	to_return["other"] += vars.Counters_For_Last_30_Min[location]["other"]
 
 	if data.Value > 1 {
 		var tmp_stats map[string]map[string]int
-		iter := vars.StatDBs[data.Service].NewIterator(nil, nil)
+		iter := vars.StatDBs[location].NewIterator(nil, nil)
 		iter.Last()
 		for i := 0; i < data.Value; i++ {
 			json.Unmarshal(iter.Value(), &tmp_stats)
-			to_return["debug"] += tmp_stats[data.Service]["debug"]
-			to_return["error"] += tmp_stats[data.Service]["error"]
-			to_return["info"] += tmp_stats[data.Service]["info"]
-			to_return["warn"] += tmp_stats[data.Service]["warn"]
-			to_return["other"] += tmp_stats[data.Service]["other"]
+			to_return["debug"] += tmp_stats[location]["debug"]
+			to_return["error"] += tmp_stats[location]["error"]
+			to_return["info"] += tmp_stats[location]["info"]
+			to_return["warn"] += tmp_stats[location]["warn"]
+			to_return["other"] += tmp_stats[location]["other"]
 			if !iter.Prev() {
 				break
 			}
