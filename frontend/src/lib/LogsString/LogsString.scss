@@ -76,8 +76,27 @@
   &.new {
     background-color: #4492db2c;
   }
+
+  .log-Json {
+    position: absolute;
+    left: 12px;
+    font-size: $main-font-xl;
+    cursor: pointer;
+  }
 }
 
 .emptyLogsString {
   border-top: none !important;
+}
+
+.number {
+  color: #f99157;
+}
+
+.string {
+  color: #be998a;
+}
+
+.key {
+  color: #6e1963;
 }
