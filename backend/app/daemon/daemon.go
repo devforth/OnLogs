@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -27,27 +28,6 @@ func createLogMessage(db *leveldb.DB, message string) string {
 		db.Put([]byte(datetime+"Z"), []byte(message), nil)
 	}
 	return datetime + "Z " + message
-}
-
-func putLogMessage(db *leveldb.DB, message string) {
-	if len(message) < 31 {
-		return
-	}
-
-	message_item := strings.SplitN(message, " ", 2)
-
-	if strings.Contains(message_item[1], "ERROR") || strings.Contains(message_item[1], "ERR") || // const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
-		strings.Contains(message_item[1], "Error") || strings.Contains(message_item[1], "Err") {
-		vars.Counters_For_Last_30_Min["error"]++
-	} else if strings.Contains(message_item[1], "WARN") || strings.Contains(message_item[1], "WARNING") { // const statuses_warnings = ["WARN", "WARNING"];
-		vars.Counters_For_Last_30_Min["warning"]++
-	} else if strings.Contains(message_item[1], "DEBUG") { // const statuses_other = ["DEBUG", "INFO", "ONLOGS"];
-		vars.Counters_For_Last_30_Min["debug"]++
-	} else if strings.Contains(message_item[1], "INFO") {
-		vars.Counters_For_Last_30_Min["info"]++
-	}
-
-	db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
 }
 
 // TODO handle unsended logs better
@@ -146,16 +126,16 @@ func CreateDaemonToDBStream(containerName string) {
 	reader := bufio.NewReader(connection)
 	readHeader(*reader)
 
-	db := vars.ActiveDBs[containerName]
+	current_db := vars.ActiveDBs[containerName]
 	// defer db.Close()
-	createLogMessage(db, "ONLOGS: Container listening started!")
+	createLogMessage(current_db, "ONLOGS: Container listening started!")
 
 	lastSleep := time.Now().Unix()
 	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n')
 		if get_string_error != nil {
 			closeActiveStream(containerName)
-			createLogMessage(db, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")")
+			createLogMessage(current_db, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")")
 			return
 		}
 
@@ -164,7 +144,7 @@ func CreateDaemonToDBStream(containerName string) {
 			continue
 		}
 
-		putLogMessage(db, string(to_put))
+		db.PutLogMessage(current_db, "", containerName, strings.SplitN(string(to_put), " ", 2))
 
 		to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31:])})
 		for _, c := range vars.Connections[containerName] {

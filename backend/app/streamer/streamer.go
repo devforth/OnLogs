@@ -14,6 +14,7 @@ import (
 func createStreams(containers []string) {
 	for _, container := range vars.DockerContainers {
 		if !util.Contains(container, vars.Active_Daemon_Streams) {
+			go util.RunStatisticForContainer(container)
 			newDB, err := leveldb.OpenFile("leveldb/logs/"+container, nil)
 			if err != nil {
 				fmt.Println("ERROR: " + container + ": " + err.Error())

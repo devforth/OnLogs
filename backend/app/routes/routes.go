@@ -115,9 +115,9 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
 
-	db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
-	db.Put([]byte(logItem.LogLine[0]), []byte(logItem.LogLine[1]), nil)
-	defer db.Close()
+	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
+	db.PutLogMessage(current_db, logItem.Host, logItem.Container, logItem.LogLine)
+	defer current_db.Close()
 
 	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
 	for _, c := range vars.Connections[logItem.Host+"/"+logItem.Container] {
@@ -271,7 +271,7 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
-func GetStats(w http.ResponseWriter, req *http.Request) {
+func GetAllStats(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -282,23 +282,92 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&period)
 
-	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0}
-	to_return["error"] += vars.Counters_For_Last_30_Min["error"]
-	to_return["debug"] += vars.Counters_For_Last_30_Min["debug"]
-	to_return["info"] += vars.Counters_For_Last_30_Min["info"]
-	to_return["warn"] += vars.Counters_For_Last_30_Min["warning"]
+	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	to_return["debug"] += vars.Counters_For_Last_30_Min["onlogs_all"]["debug"]
+	to_return["error"] += vars.Counters_For_Last_30_Min["onlogs_all"]["error"]
+	to_return["info"] += vars.Counters_For_Last_30_Min["onlogs_all"]["info"]
+	to_return["warn"] += vars.Counters_For_Last_30_Min["onlogs_all"]["warn"]
+	to_return["other"] += vars.Counters_For_Last_30_Min["onlogs_all"]["other"]
 
 	if period.Value > 1 {
-		var tmp_stats map[string]int
-		iter := vars.StatDB.NewIterator(nil, nil)
+		var tmp_stats map[string]map[string]int
+		iter := vars.StatDBs["onlogs_all"].NewIterator(nil, nil)
 		iter.Last()
 		for i := 0; i < period.Value; i++ {
 			json.Unmarshal(iter.Value(), &tmp_stats)
-			to_return["error"] += tmp_stats["error"]
-			to_return["debug"] += tmp_stats["debug"]
-			to_return["info"] += tmp_stats["info"]
-			to_return["warn"] += tmp_stats["warning"]
-			if !iter.Next() {
+			to_return["debug"] += tmp_stats["onlogs_all"]["debug"]
+			to_return["error"] += tmp_stats["onlogs_all"]["error"]
+			to_return["info"] += tmp_stats["onlogs_all"]["info"]
+			to_return["warn"] += tmp_stats["onlogs_all"]["warn"]
+			to_return["other"] += tmp_stats["onlogs_all"]["other"]
+			if !iter.Prev() {
+				break
+			}
+		}
+		iter.Release()
+	}
+	w.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(to_return)
+}
+
+func GetStats(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	var data struct {
+		Host    string `json:"host"`
+		Service string `json:"service"`
+		Value   int    `json:"period"` // 1 = 30min, 2 = 1hr, 48 = 1d
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&data)
+	var location string
+	if data.Host == util.GetHost() {
+		location = data.Service
+	} else {
+		location = data.Host + "/" + data.Service
+	}
+
+	if location == "/" {
+		w.Header().Add("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid data!"})
+		return
+	}
+
+	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	to_return["debug"] += vars.Counters_For_Last_30_Min[location]["debug"]
+	to_return["error"] += vars.Counters_For_Last_30_Min[location]["error"]
+	to_return["info"] += vars.Counters_For_Last_30_Min[location]["info"]
+	to_return["warn"] += vars.Counters_For_Last_30_Min[location]["warn"]
+	to_return["other"] += vars.Counters_For_Last_30_Min[location]["other"]
+
+	if data.Value > 1 {
+		var tmp_stats map[string]map[string]int
+		iter := vars.StatDBs[location].NewIterator(nil, nil)
+		iter.Last()
+		period_hours := data.Value / 2
+		period_days := period_hours / 24
+
+		fmt.Println(period_days)
+		fmt.Println(period_hours)
+
+		for i := 0; i < data.Value; i++ {
+			time := strings.Split(string(iter.Key()), "_")[1]
+			hours, _ := strconv.Atoi(strings.Split(time, ":")[0])
+			minutes, _ := strconv.Atoi(strings.Split(time, ":")[1])
+			fmt.Println(string(iter.Key()))
+			fmt.Println(time)
+			fmt.Println(hours*60 + minutes)
+
+			json.Unmarshal(iter.Value(), &tmp_stats)
+			to_return["debug"] += tmp_stats[location]["debug"]
+			to_return["error"] += tmp_stats[location]["error"]
+			to_return["info"] += tmp_stats[location]["info"]
+			to_return["warn"] += tmp_stats[location]["warn"]
+			to_return["other"] += tmp_stats[location]["other"]
+			if !iter.Prev() {
 				break
 			}
 		}

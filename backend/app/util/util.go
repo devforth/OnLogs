@@ -16,6 +16,7 @@ import (
 
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/golang-jwt/jwt"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func Contains(a string, list []string) bool {
@@ -31,15 +32,18 @@ func CreateInitUser() {
 	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
 }
 
-func RunStatistics() {
+func RunStatisticForContainer(container string) {
+	vars.Counters_For_Last_30_Min[container] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	current_db, _ := leveldb.OpenFile("leveldb/statistics/"+container, nil)
+	vars.StatDBs[container] = current_db
 	for {
 		date_year, date_month, date_day := time.Now().UTC().Date()
-		datetime := strconv.Itoa(date_year) + "-" + strconv.Itoa(int(date_month)) + "-" + strconv.Itoa(date_day) + " " + strconv.Itoa(time.Now().UTC().Hour()) + ":" + strconv.Itoa(time.Now().UTC().Minute())
-		vars.Counters_For_Last_30_Min = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0}
+		datetime := strconv.Itoa(date_year) + "-" + strconv.Itoa(int(date_month)) + "-" + strconv.Itoa(date_day) + "_" + strconv.Itoa(time.Now().UTC().Hour()) + ":" + strconv.Itoa(time.Now().UTC().Minute())
 
 		time.Sleep(30 * time.Minute)
 		to_put, _ := json.Marshal(vars.Counters_For_Last_30_Min)
-		vars.StatDB.Put([]byte(datetime), to_put, nil)
+		vars.StatDBs[container].Put([]byte(datetime), to_put, nil)
+		vars.Counters_For_Last_30_Min[container] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	}
 }
 
