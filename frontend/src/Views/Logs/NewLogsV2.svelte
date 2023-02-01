@@ -80,6 +80,16 @@
   function setLastLogTimestamp() {
     lastLogTimestamp.set(new Date().getTime());
   }
+  async function fetchLogAfterChangeService() {
+    for (let i = 0; i < 3; i++) {
+      const data = await fetchedLogs(true);
+
+      isPending.set(false);
+      if (data.length !== limit) {
+        break;
+      }
+    }
+  }
 
   function addLogFromWS(logfromWS) {
     if (
@@ -113,6 +123,7 @@
     webSocket = new WebSocket(
       `${api.wsUrl}getLogsStream?host=${$lastChosenHost}&id=${$lastChosenService}`
     );
+
     webSocket.onmessage = (event) => {
       if (event.data !== "PING") {
         const logfromWS = JSON.parse(event.data);
@@ -147,7 +158,7 @@
     searchText = "";
   }
   function closeWS() {
-    if (webSocket) {
+    if (webSocket && webSocket.readyState === 1) {
       webSocket.close();
     }
   }
@@ -263,14 +274,7 @@
         resetSearchParams();
         closeWS();
         isPending.set(true);
-
-        for (let i = 0; i < 3; i++) {
-          const data = await fetchedLogs(true);
-          isPending.set(false);
-          if (data.length !== limit) {
-            break;
-          }
-        }
+        await fetchLogAfterChangeService();
 
         getLogsFromWS();
         setLastLogTimestamp();

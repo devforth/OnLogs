@@ -26,12 +26,17 @@
 }
 .logsTable {
   width: 100%;
+  position: relative;
 
   height: 100%;
   border-collapse: collapse;
 
   .message {
     white-space: nowrap;
+  }
+  #endOfLogs {
+    position: absolute;
+    bottom: 5vh;
   }
 }
 
