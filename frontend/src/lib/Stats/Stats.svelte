@@ -17,7 +17,7 @@
 
   $: {
     (async () => {
-      if ($lastChosenHost) {
+      if ($lastChosenHost && $lastChosenService) {
         data = await api.getStats({
           period: $lastStatsPeriod,
           service: $lastChosenService,
