@@ -37,9 +37,7 @@ export const tryToParseLogString = (str) => {
       try {
         let normilizedStr = JSON.parse(jsonPart + "}");
         html = json2html(normilizedStr, 2);
-      } catch (e) {
-        console.log(e);
-      }
+      } catch (e) {}
     }
   }
 

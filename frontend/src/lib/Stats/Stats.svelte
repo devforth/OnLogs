@@ -18,7 +18,11 @@
   $: {
     (async () => {
       if ($lastChosenHost) {
-        data = await api.getStats($lastStatsPeriod);
+        data = await api.getStats({
+          period: $lastStatsPeriod,
+          service: $lastChosenService,
+          host: $lastChosenHost,
+        });
       }
     })();
   }

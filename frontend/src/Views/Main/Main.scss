@@ -76,22 +76,41 @@
     }
   }
   &Right {
-    width: 12vw;
+    width: 14vw;
     justify-content: start;
+
+    overflow-y: overflow;
+    overflow-x: hidden;
+
+    &::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+      background-color: rgba(0, 0, 0, 0);
+    }
+
+    &.active::-webkit-scrollbar-thumb {
+      background-color: #0000002a;
+      border-radius: 10px;
+    }
+
+    &::-webkit-scrollbar-corner {
+      display: none;
+    }
+
     @include for-mobile {
       @include hide;
     }
     @include for-tablet {
       @include hide;
     }
-    @include for-mobile {
-      position: absolute;
-      opacity: 0;
-      left: -99999px;
-      right: -99999px;
-      height: 1px;
-      width: 1px;
-    }
+    // @include for-mobile {
+    //   position: absolute;
+    //   opacity: 0;
+    //   left: -99999px;
+    //   right: -99999px;
+    //   height: 1px;
+    //   width: 1px;
+    // }
   }
 
   &Middle {

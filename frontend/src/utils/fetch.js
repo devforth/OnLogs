@@ -147,8 +147,8 @@ class fetchApi {
       service,
     });
   }
-  async getStats(period) {
-    return await this.doFetch("POST", `${this.url}getStats`, { period });
+  async getStats(options) {
+    return await this.doFetch("POST", `${this.url}getStats`, options);
   }
   async getChartData({ host, service, unit, unitsAmount }) {
     return await this.doFetch("POST", `${this.url}getChartData`, {
@@ -158,6 +158,7 @@ class fetchApi {
       unitsAmount,
     });
   }
+  async;
 }
 
 export default fetchApi;

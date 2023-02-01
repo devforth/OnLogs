@@ -7,11 +7,13 @@
   import { afterUpdate, onMount, onDestroy } from "svelte";
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
   import IntersectionObserver from "svelte-intersection-observer";
+  import Spiner from "./Spiner.svelte";
   import {
     store,
     lastChosenHost,
     lastChosenService,
     lastLogTimestamp,
+    isPending,
   } from "../../Stores/stores";
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
   import {
@@ -65,6 +67,7 @@
   async function getFullLogsSet() {
     if (initialScroll) {
       const data1 = await fetchedLogs(true, 0);
+
       if (data1.length === limit) {
         const data2 = await fetchedLogs(true, data1?.at(0)?.at(0));
         if (data2.length === limit) {
@@ -178,7 +181,7 @@
       search: searchText,
       limit,
 
-      caseSens,
+      caseSens: $store.caseInSensitive,
       startWith: customStartWith
         ? customStartWith
         : customStartWith === 0
@@ -189,8 +192,11 @@
     lastFetchActionIsFetch = true;
     if (data.length) {
       let numberOfNewLogs = data.length;
+
       const logsToPrevious = visibleLogs.splice(0, numberOfNewLogs);
+
       const logsToVisible = newLogs.splice(0, numberOfNewLogs);
+
       previousLogs.splice(0, numberOfNewLogs);
       newLogs = [...data, ...newLogs];
       visibleLogs = [...logsToVisible, ...visibleLogs];
@@ -217,7 +223,7 @@
         search: searchText,
         limit,
 
-        caseSens,
+        caseSens: $store.caseInSensitive,
         startWith: allLogs.at(-1)[0],
         hostName: $lastChosenHost,
       });
@@ -256,8 +262,11 @@
         resetParams();
         resetSearchParams();
         closeWS();
+        isPending.set(true);
+
         for (let i = 0; i < 3; i++) {
           const data = await fetchedLogs(true);
+          isPending.set(false);
           if (data.length !== limit) {
             break;
           }
@@ -281,10 +290,12 @@
       if (searchText) {
         setInitialScroll(0);
         resetParams();
+        resetAllLogs();
 
         for (let i = 0; i < 3; i++) {
           const data = await fetchedLogs(true);
-          if (!data.length === limit) {
+
+          if (data.length !== limit) {
             break;
           }
         }
@@ -326,20 +337,21 @@
   onMount(() => {
     const logsContEl = document.querySelector("#logs");
 
-    logsContEl.addEventListener(
-      "scroll",
-      function () {
-        // or window.addEventListener("scroll"....
-        let st = window.pageYOffset || logsContEl.scrollTop;
-        if (st > lastScrollTop) {
-          scrollDirection = "down";
-        } else {
-          scrollDirection = "up";
-        }
-        lastScrollTop = st <= 0 ? 0 : st; // For Mobile or negative scrolling
-      },
-      false
-    );
+    logsContEl &&
+      logsContEl.addEventListener(
+        "scroll",
+        function () {
+          // or window.addEventListener("scroll"....
+          let st = window.pageYOffset || logsContEl.scrollTop;
+          if (st > lastScrollTop) {
+            scrollDirection = "down";
+          } else {
+            scrollDirection = "up";
+          }
+          lastScrollTop = st <= 0 ? 0 : st; // For Mobile or negative scrolling
+        },
+        false
+      );
 
     window.addEventListener("resize", () => {
       limit = Math.round(logsContEl.offsetHeight / 300) * 10;
@@ -349,9 +361,10 @@
 
 <LogsViewHeder bind:searchText />
 
-{#if allLogs.length === 0}
+{#if allLogs.length === 0 && !$isPending}
   <h2 class="noLogsMessage">No logs written yet</h2>
 {/if}
+{#if $isPending}<Spiner />{/if}
 
 <div id="logs" class="logs">
   <div class="logsTableContainer">

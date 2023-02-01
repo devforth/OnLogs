@@ -33,10 +33,11 @@
   import ConfirmationMenu from "../../lib/ConfirmationMenu/ConfirmationMenu.svelte";
   import ServiceSettings from "../ServiceSettings/ServiceSettings.svelte";
   import ServiceSettingsLeft from "../ServiceSettings/ServiceSettingsLeft.svelte";
-  import { lastLogTimestamp } from "../../Stores/stores.js";
+  import { lastLogTimestamp, isPending } from "../../Stores/stores.js";
   import { changeKey } from "../../utils/changeKey.js";
   import Stats from "../../lib/Stats/Stats.svelte";
   import MainChartMenu from "../../lib/ChartMenu/MainChartMenu.svelte";
+  import Spiner from "../Logs/Spiner.svelte";
 
   let api = new fetchApi();
   let hostList = [];
@@ -206,8 +207,8 @@
     <Container minHeightVh={92.6}>
       {#if location.pathname === `${changeKey}/users`}
         <UserMenu {userForAdding} />
-      {:else if location.pathname.includes("/view") || location.pathname === `${changeKey}/`}<NewLogsV2
-        />
+      {:else if location.pathname.includes("/view") || location.pathname === `${changeKey}/`}
+        <NewLogsV2 />
       {/if}
       {#if location.pathname.includes("/servicesettings")}
         <ServiceSettings />{/if}
@@ -224,7 +225,7 @@
       : ''}"
   >
     <div class="logSizeInformation">
-      <Container minHeightVh={15} max-height={20}
+      <Container minHeightVh={0} max-height={20}
         ><LogsSize
           discribeText={"Space used by all logs"}
           isAllLogs={true}
@@ -232,12 +233,12 @@
       >
     </div>
     <div class="logSizeInformation">
-      <Container minHeightVh={15}
+      <Container minHeightVh={0}
         ><LogsSize discribeText={"Space used by service"} /></Container
       >
     </div>
     <div class="subContainerThumb">
-      <Container minHeightVh={17.36}><Stats /></Container>
+      <Container minHeightVh={0}><Stats /></Container>
     </div>
   </div>
 </div>
