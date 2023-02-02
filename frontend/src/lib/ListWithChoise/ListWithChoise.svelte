@@ -72,7 +72,7 @@
           return s.isDisabled;
         })
         .sort(function (a, b) {
-          if (a.isFavorite > b.isFavorite) {
+          if (a.isFavorite < b.isFavorite) {
             return 1;
           }
           if (a.isFavorite < b.isFavorite) {

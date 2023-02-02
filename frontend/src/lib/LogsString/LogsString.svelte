@@ -5,7 +5,7 @@
   export let message = "";
   export let width = "";
   export let isHiglighted = false;
-  let parsedStr = tryToParseLogString(message);
+  $: parsedStr = tryToParseLogString(message);
   import { store } from "../../Stores/stores.js";
 </script>
 

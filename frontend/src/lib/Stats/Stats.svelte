@@ -82,7 +82,14 @@
     Top {Object.keys(data).length ? Object.keys(data).length : ""} levels:
   </h4>
   <ul>
-    {#each Object.entries(data) as [key, name]}
+    {#each Object.entries(data).sort((a, b) => {
+      if (a[1] > b[1]) {
+        return -1;
+      }
+      if (a[1] < b[1]) {
+        return 1;
+      }
+    }) as [key, name]}
       <li class="flex spaceBetween statsItem">
         <p class={key}>{key.charAt(0).toUpperCase() + key.slice(1)}</p>
         <p>{name}</p>
