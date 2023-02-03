@@ -423,7 +423,6 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 	}
 
 	searchTo := time.Now().Add(-(time.Hour * time.Duration(data.Value/2))).UTC()
-	fmt.Println(searchTo)
 
 	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	to_return["debug"] += vars.Counters_For_Last_30_Min[location]["debug"]
@@ -445,7 +444,6 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 		}
 		for iter.Next() {
 			json.Unmarshal(iter.Value(), &tmp_stats)
-			fmt.Println(tmp_stats)
 			to_return["debug"] += tmp_stats[location]["debug"]
 			to_return["error"] += tmp_stats[location]["error"]
 			to_return["info"] += tmp_stats[location]["info"]
