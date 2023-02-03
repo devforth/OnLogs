@@ -65,7 +65,7 @@ func createConnection(containerName string) net.Conn {
 	connection, _ := net.Dial("unix", "/var/run/docker.sock")
 	fmt.Fprintf(
 		connection,
-		"GET /containers/"+containerName+"/logs?stdout=true&stderr=true&timestamps=true&follow=true&since="+strconv.FormatInt(time.Now().Unix(), 10)+" HTTP/1.0\r\n\r\n",
+		"GET /containers/"+containerName+"/logs?stdout=true&stderr=true&timestamps=true&follow=true&since="+strconv.FormatInt(time.Now().Add(-5*time.Second).Unix(), 10)+" HTTP/1.0\r\n\r\n",
 	)
 	return connection
 }
