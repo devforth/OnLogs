@@ -421,7 +421,6 @@
             : ""}
           bind:this={elements[i]}
         >
-          {i}
           {#if i === limit / 2 - 1}
             <IntersectionObserver
               element={elements[0]}
