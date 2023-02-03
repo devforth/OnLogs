@@ -6,15 +6,15 @@
 </script>
 
 <div
-  class="buttonToBottomContainer"
+  class="buttonToBottomContainer buttonToBottom"
   on:click={async () => {
     await callBack();
   }}
 >
-  <div class="icoContainer">
-    <i class="log log-Down" />
+  <div class="icoContainer buttonToBottom">
+    <i class="log log-Down buttonToBottom" />
   </div>
-  {#if number}<div class="buttonToBottomNumber flex">
+  {#if number}<div class="buttonToBottomNumber flex buttonToBottom">
       <p>{number}</p>
     </div>
   {/if}

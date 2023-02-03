@@ -121,7 +121,11 @@ export const scrollToNewLogsEnd = (selector, alignToTop) => {
   if (!el) {
     return;
   } else {
-    el.scrollIntoView(!alignToTop);
+    el.scrollIntoView(
+      alignToTop
+        ? { block: "end", inline: "nearest" }
+        : { block: "start", inline: "nearest" }
+    );
   }
 };
 
@@ -129,5 +133,13 @@ export const checkLastLogTimeStamp = (lastTimeStamp, newTimestamp) => {
   const timestamp = new Date(newTimestamp).getTime() - 1;
   if (lastTimeStamp > timestamp) {
     return timestamp;
+  }
+};
+
+export const forceToBottom = () => {
+  console.log("force bottom");
+  const logsContainerEl = document.querySelector("#logs");
+  if (logsContainerEl) {
+    logsContainerEl.scrollTop = logsContainerEl.scrollHeight;
   }
 };

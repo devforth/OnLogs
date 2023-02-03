@@ -23,6 +23,7 @@
     getPrevLogs,
     scrollToBottom,
     scrollToNewLogsEnd,
+    forceToBottom,
     checkLastLogTimeStamp,
   } from "./functions";
   const api = new fetchApi();
@@ -48,6 +49,9 @@
   let mouseDownBlockFetch = false;
   let extremalScrollId = "";
   let interceptorsWait = false;
+  let autoscroll = false;
+  let div;
+  let getFullLogsSetIsTrottle = false;
 
   //fetch params:
 
@@ -65,17 +69,21 @@
     previousLogs = [];
   }
   async function getFullLogsSet() {
-    if (initialScroll) {
-      const data1 = await fetchedLogs(true, 0);
-
-      if (data1.length === limit) {
-        const data2 = await fetchedLogs(true, data1?.at(0)?.at(0));
-        if (data2.length === limit) {
-          await fetchedLogs(true, data2?.at(0)?.at(0));
+    if (!getFullLogsSetIsTrottle)
+      if (initialScroll) {
+        const data1 = await fetchedLogs(true, 0);
+        if (data1.length === limit) {
+          const data2 = await fetchedLogs(true, data1?.at(0)?.at(0));
+          if (data2.length === limit) {
+            await fetchedLogs(true, data2?.at(0)?.at(0));
+          }
         }
+        logsFromWS = [];
+        getFullLogsSetIsTrottle = true;
+        setTimeout(() => {
+          getFullLogsSetIsTrottle = false;
+        }, 2000);
       }
-      logsFromWS = [];
-    }
   }
   function setLastLogTimestamp() {
     lastLogTimestamp.set(new Date().getTime());
@@ -83,10 +91,27 @@
   async function fetchLogAfterChangeService() {
     for (let i = 0; i < 3; i++) {
       const data = await fetchedLogs(true);
-
       isPending.set(false);
       if (data.length !== limit) {
         break;
+      }
+    }
+  }
+
+  async function putLogsFromWsToViewContainer() {
+    if (logsFromWS.length >= 3 * limit) {
+      await getFullLogsSet();
+      return;
+    } else {
+      {
+        let numberOfPrev = logsFromWS.length;
+        const logsToVisible = previousLogs.splice(0, numberOfPrev);
+        const logsToNew = visibleLogs.splice(0, numberOfPrev);
+        newLogs.splice(0, numberOfPrev);
+        newLogs = [...newLogs, ...logsToNew];
+        visibleLogs = [...visibleLogs, ...logsToVisible];
+        previousLogs = [...previousLogs, ...logsFromWS];
+        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
       }
     }
   }
@@ -96,6 +121,7 @@
       (!mouseDownBlockFetch && endOffLogsIntersect) ||
       allLogs.length < 3 * limit
     ) {
+      autoscroll = true;
       if (newLogs.length === limit) {
         newLogs.splice(0, 1);
       }
@@ -109,6 +135,7 @@
         previousLogs.splice(0, 1);
       }
       previousLogs.push(logfromWS);
+
       if (allLogs.length === 3 * limit) {
         allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
       } else allLogs = [...allLogs, logfromWS];
@@ -116,6 +143,7 @@
       }
     } else {
       logsFromWS = [...logsFromWS, logfromWS];
+      autoscroll = false;
     }
   }
 
@@ -247,17 +275,17 @@
         visibleLogs = [...visibleLogs, ...logsToVisible];
         previousLogs = [...previousLogs, ...data];
         allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+        if (data.length === limit) {
+          scrollToNewLogsEnd(".newLogsEnd", true);
+        }
 
         lastFetchActionIsFetch = false;
         stopLogsUnfetch = false;
-        scrollToNewLogsEnd(".newLogsStart", true);
       }
 
-      if (data.length === limit) {
-      } else {
-        stopLogsUnfetch = true;
-        logsFromWS = [];
-      }
+      // if (data.length !== limit) {
+      //   autoscroll = true;
+      // }
 
       return data;
     }
@@ -329,15 +357,15 @@
     isInterceptorVIsible(intersects[3], unfetchedLogs, mouseDownBlockFetch);
   }
 
-  //   $: {
-  //     (async () => {
-  //       if (endOffLogsIntersect) {
-  //         await getFullLogsSet();
+  $: {
+    (async () => {
+      if (endOffLogsIntersect && logsFromWS.length) {
+        await unfetchedLogs();
 
-  //         logsFromWS = [];
-  //       }
-  //     })();
-  //   }
+        logsFromWS = [];
+      }
+    })();
+  }
   onMount(() => {
     const logsContEl = document.querySelector("#logs");
 
@@ -361,6 +389,13 @@
       limit = Math.round(logsContEl.offsetHeight / 300) * 10;
     });
   });
+
+  afterUpdate(() => {
+    if (autoscroll) {
+      div.scrollTo(0, div.scrollHeight);
+    }
+    autoscroll = false;
+  });
 </script>
 
 <LogsViewHeder bind:searchText />
@@ -370,23 +405,24 @@
 {/if}
 {#if $isPending}<Spiner />{/if}
 
-<div id="logs" class="logs">
+<div id="logs" class="logs" bind:this={div}>
   <div class="logsTableContainer">
     <table class="logsTable {$store.breakLines ? 'breakLines' : ''}">
       <div id="startOfLogs" />
 
       {#each allLogs as logItem, i}
         <div
-          class={i === limit * 1.5
+          class={i === limit * 1.5 - 1
             ? "newLogsEnd"
-            : i === allLogs.length + 1 - limit * 1.5
+            : i === allLogs.length - limit * 1.5
             ? "newLogsStart"
             : i === limit / 2
             ? "interseptor"
             : ""}
           bind:this={elements[i]}
         >
-          {#if i === limit / 2}
+          {i}
+          {#if i === limit / 2 - 1}
             <IntersectionObserver
               element={elements[0]}
               bind:intersecting={intersects[0]}
@@ -441,9 +477,9 @@
           ico={"Down"}
           callBack={async () => {
             scrollFromButton = true;
+            logsFromWS.length && (await getFullLogsSet());
 
-            scrollToBottom();
-            getFullLogsSet();
+            autoscroll = true;
 
             setTimeout(() => {
               scrollFromButton = false;

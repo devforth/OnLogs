@@ -22,7 +22,7 @@
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
   import { navigate } from "svelte-routing";
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, afterUpdate } from "svelte";
 
   import ListWithChoise from "../../lib/ListWithChoise/ListWithChoise.svelte";
   import CommonList from "../../lib/CommonList/CommonList.svelte";
@@ -48,9 +48,11 @@
   let newUserData = { login: "", password: "" };
   let userForAdding = "";
   let withoutRightPanel = false;
+  let intervalId = null;
   let withoutRightPanelRoutesArr = ["users", "servicesettings"];
-  function handleClick() {
-    lastLogTimestamp.set(new Date().getTime());
+  function handleClick(e) {
+    if (!e.target.classList.contains("buttonToBottom"))
+      lastLogTimestamp.set(new Date().getTime());
   }
 
   export let host = "";
@@ -107,18 +109,18 @@
     }
     // @ts-ignore}
 
-    servicesList = hostList
-      .filter((e) => {
-        return e.host === $lastChosenHost;
-      })
-      .at(0)["services"];
+    //   servicesList = hostList
+    //     .filter((e) => {
+    //       return e.host === $lastChosenHost;
+    //     })
+    //     .at(0)["services"];
   });
 
-  $: {
-    if (withoutRightPanelRoutesArr.includes(location.pathname.split("/")[1])) {
-      withoutRightPanel = true;
-    }
-  }
+  // $: {
+  //   if (withoutRightPanelRoutesArr.includes(location.pathname.split("/")[1])) {
+  //     withoutRightPanel = true;
+  //   }
+  // }
 </script>
 
 <div class="contentContainer">
