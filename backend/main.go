@@ -36,7 +36,7 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/deleteContainerLogs", routes.DeleteContainerLogs)
 	http.HandleFunc(pathPrefix+"/api/v1/deleteUser", routes.DeleteUser)
 	http.HandleFunc(pathPrefix+"/api/v1/editUser", routes.EditUser)
-	// http.HandleFunc(pathPrefix+"/api/v1/getChartData", routes.GetChartData)
+	http.HandleFunc(pathPrefix+"/api/v1/getChartData", routes.GetChartData)
 	http.HandleFunc(pathPrefix+"/api/v1/getHosts", routes.GetHosts)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogs", routes.GetLogs)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogsStream", routes.GetLogsStream)

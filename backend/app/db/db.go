@@ -73,7 +73,7 @@ func CreateOnLogsToken() string {
 }
 
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) {
-	if len(message_item[1]) < 31 {
+	if len(message_item[0]) < 30 {
 		return
 	}
 

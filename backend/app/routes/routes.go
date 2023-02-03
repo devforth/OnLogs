@@ -184,6 +184,82 @@ func GetSecret(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"token": db.CreateOnLogsToken()})
 }
 
+func GetChartData(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	if req.Method != "POST" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	var data struct {
+		Host        string `json:"host"`
+		Service     string `json:"service"`
+		Unit        string `json:"unit"`
+		UnitsAmount int    `json:"unitsAmount"`
+	}
+	decoder := json.NewDecoder(req.Body)
+	err := decoder.Decode(&data)
+	if err != nil {
+		w.Header().Add("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid data!"})
+		return
+	}
+
+	var searchTo time.Time
+	var sep, formatting string
+	if data.Unit == "hour" {
+		searchTo = time.Now().Add(-(time.Hour * time.Duration(data.UnitsAmount)))
+		sep = ":"
+		formatting = ":00Z"
+	} else if data.Unit == "day" {
+		searchTo = time.Now().AddDate(0, 0, -data.UnitsAmount)
+		sep = "T"
+		formatting = "T00:00Z"
+	} else if data.Unit == "month" {
+		searchTo = time.Now().AddDate(0, -data.UnitsAmount, 0)
+		formatting = "-01T00:00Z"
+	} else {
+		w.Header().Add("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid data!"})
+		return
+	}
+
+	iter := vars.StatDBs["onlogs_all"].NewIterator(nil, nil)
+	iter.Last()
+	defer iter.Release()
+	for iter.Prev() {
+		tmp_time, _ := time.Parse(time.RFC3339, string(iter.Key()))
+		if searchTo.After(tmp_time) {
+			break
+		}
+	}
+
+	to_return := map[string]map[string]int{}
+	for iter.Next() {
+		var datetime string
+		if data.Unit == "month" {
+			datetime = string(iter.Key())[:7] + formatting
+		} else {
+			datetime = strings.Split(string(iter.Key()), sep)[0] + formatting
+		}
+		to_return[datetime] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+		tmp_stats := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+		json.Unmarshal(iter.Value(), &tmp_stats)
+
+		to_return[datetime]["error"] += tmp_stats["error"]
+		to_return[datetime]["debug"] += tmp_stats["debug"]
+		to_return[datetime]["info"] += tmp_stats["info"]
+		to_return[datetime]["warn"] += tmp_stats["warn"]
+		to_return[datetime]["other"] += tmp_stats["other"]
+	}
+	w.Header().Add("Content-Type", "application/json")
+	e, _ := json.Marshal(to_return)
+	w.Write(e)
+}
+
 func GetHosts(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
