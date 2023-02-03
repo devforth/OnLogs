@@ -255,6 +255,11 @@ func GetChartData(w http.ResponseWriter, req *http.Request) {
 		to_return[datetime]["warn"] += tmp_stats["warn"]
 		to_return[datetime]["other"] += tmp_stats["other"]
 	}
+	to_return["now"]["error"] = vars.Counters_For_Last_30_Min[data.Host+"/"+data.Service]["error"]
+	to_return["now"]["debug"] = vars.Counters_For_Last_30_Min[data.Host+"/"+data.Service]["debug"]
+	to_return["now"]["info"] = vars.Counters_For_Last_30_Min[data.Host+"/"+data.Service]["info"]
+	to_return["now"]["warn"] = vars.Counters_For_Last_30_Min[data.Host+"/"+data.Service]["warn"]
+	to_return["now"]["other"] = vars.Counters_For_Last_30_Min[data.Host+"/"+data.Service]["other"]
 	w.Header().Add("Content-Type", "application/json")
 	e, _ := json.Marshal(to_return)
 	w.Write(e)
@@ -358,6 +363,8 @@ func GetAllStats(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&period)
 
+	searchTo := time.Now().Add(-(time.Hour * time.Duration(period.Value/2))).UTC()
+
 	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	to_return["debug"] += vars.Counters_For_Last_30_Min["onlogs_all"]["debug"]
 	to_return["error"] += vars.Counters_For_Last_30_Min["onlogs_all"]["error"]
@@ -368,19 +375,22 @@ func GetAllStats(w http.ResponseWriter, req *http.Request) {
 	if period.Value > 1 {
 		var tmp_stats map[string]map[string]int
 		iter := vars.StatDBs["onlogs_all"].NewIterator(nil, nil)
+		defer iter.Release()
 		iter.Last()
-		for i := 0; i < period.Value; i++ {
+		for iter.Prev() {
+			tmp_time, _ := time.Parse(time.RFC3339, string(iter.Key()))
+			if searchTo.After(tmp_time) {
+				break
+			}
+		}
+		for iter.Next() {
 			json.Unmarshal(iter.Value(), &tmp_stats)
 			to_return["debug"] += tmp_stats["onlogs_all"]["debug"]
 			to_return["error"] += tmp_stats["onlogs_all"]["error"]
 			to_return["info"] += tmp_stats["onlogs_all"]["info"]
 			to_return["warn"] += tmp_stats["onlogs_all"]["warn"]
 			to_return["other"] += tmp_stats["onlogs_all"]["other"]
-			if !iter.Prev() {
-				break
-			}
 		}
-		iter.Release()
 	}
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(to_return)
@@ -412,6 +422,9 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	searchTo := time.Now().Add(-(time.Hour * time.Duration(data.Value/2))).UTC()
+	fmt.Println(searchTo)
+
 	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	to_return["debug"] += vars.Counters_For_Last_30_Min[location]["debug"]
 	to_return["error"] += vars.Counters_For_Last_30_Min[location]["error"]
@@ -422,19 +435,23 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 	if data.Value > 1 {
 		var tmp_stats map[string]map[string]int
 		iter := vars.StatDBs[location].NewIterator(nil, nil)
+		defer iter.Release()
 		iter.Last()
-		for i := 0; i < data.Value; i++ {
+		for iter.Prev() {
+			tmp_time, _ := time.Parse(time.RFC3339, string(iter.Key()))
+			if searchTo.Before(tmp_time) {
+				break
+			}
+		}
+		for iter.Next() {
 			json.Unmarshal(iter.Value(), &tmp_stats)
+			fmt.Println(tmp_stats)
 			to_return["debug"] += tmp_stats[location]["debug"]
 			to_return["error"] += tmp_stats[location]["error"]
 			to_return["info"] += tmp_stats[location]["info"]
 			to_return["warn"] += tmp_stats[location]["warn"]
 			to_return["other"] += tmp_stats[location]["other"]
-			if !iter.Prev() {
-				break
-			}
 		}
-		iter.Release()
 	}
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(to_return)
