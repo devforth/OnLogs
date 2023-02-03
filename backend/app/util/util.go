@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -32,18 +31,37 @@ func CreateInitUser() {
 	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
 }
 
+func restartStatsForContainer(container string, current_db *leveldb.DB) {
+	copy := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	copy["error"] = vars.Counters_For_Last_30_Min[container]["error"]
+	copy["debug"] = vars.Counters_For_Last_30_Min[container]["debug"]
+	copy["info"] = vars.Counters_For_Last_30_Min[container]["info"]
+	copy["warn"] = vars.Counters_For_Last_30_Min[container]["warn"]
+	copy["other"] = vars.Counters_For_Last_30_Min[container]["other"]
+	to_put, _ := json.Marshal(copy)
+	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), ".")[0], " ", "T", 1) + "Z"
+	current_db.Put([]byte(datetime), to_put, nil)
+
+	vars.Counters_For_Last_30_Min[container]["error"] = 0
+	vars.Counters_For_Last_30_Min[container]["debug"] = 0
+	vars.Counters_For_Last_30_Min[container]["info"] = 0
+	vars.Counters_For_Last_30_Min[container]["warn"] = 0
+	vars.Counters_For_Last_30_Min[container]["other"] = 0
+}
+
 func RunStatisticForContainer(container string) {
 	vars.Counters_For_Last_30_Min[container] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	current_db, _ := leveldb.OpenFile("leveldb/statistics/"+container, nil)
-	vars.StatDBs[container] = current_db
+	defer current_db.Close()
+	if vars.StatDBs[container] == nil {
+		vars.StatDBs[container] = current_db
+	} else {
+		return
+	}
+	defer restartStatsForContainer(container, current_db)
 	for {
-		date_year, date_month, date_day := time.Now().UTC().Date()
-		datetime := strconv.Itoa(date_year) + "-" + strconv.Itoa(int(date_month)) + "-" + strconv.Itoa(date_day) + "_" + strconv.Itoa(time.Now().UTC().Hour()) + ":" + strconv.Itoa(time.Now().UTC().Minute())
-
 		time.Sleep(30 * time.Minute)
-		to_put, _ := json.Marshal(vars.Counters_For_Last_30_Min)
-		vars.StatDBs[container].Put([]byte(datetime), to_put, nil)
-		vars.Counters_For_Last_30_Min[container] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+		restartStatsForContainer(container, current_db)
 	}
 }
 
