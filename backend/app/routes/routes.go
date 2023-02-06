@@ -437,8 +437,11 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 		defer iter.Release()
 		iter.Last()
 		for iter.Prev() {
-			tmp_time, _ := time.Parse(time.RFC3339, string(iter.Key()))
-			if searchTo.Before(tmp_time) {
+			tmp_time, err := time.Parse(time.RFC3339, string(iter.Key()))
+			if err != nil { // TODO no errors should be here, so this may be removed
+				vars.StatDBs[location].Delete(iter.Key(), nil)
+			}
+			if searchTo.After(tmp_time) {
 				break
 			}
 		}
