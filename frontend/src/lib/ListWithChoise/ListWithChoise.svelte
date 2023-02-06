@@ -31,9 +31,11 @@
   $: {
     {
       if (!initialVisitcounter && !activeElementName) {
-        const chosenHost = sortedData[0] && sortedData[0].host;
+        const chosenHost =
+          $lastChosenHost || (sortedData[0] && sortedData[0].host);
         const chosenService =
-          sortedData[0] && sortedData[0].services[0].serviceName;
+          $lastChosenService ||
+          (sortedData[0] && sortedData[0].services[0].serviceName);
         activeElementName = sortedData[0] && `${chosenHost}-${chosenService}`;
 
         lastChosenHost.set(chosenHost);
