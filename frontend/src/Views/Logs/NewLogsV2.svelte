@@ -98,23 +98,23 @@
     }
   }
 
-  async function putLogsFromWsToViewContainer() {
-    if (logsFromWS.length >= 3 * limit) {
-      await getFullLogsSet();
-      return;
-    } else {
-      {
-        let numberOfPrev = logsFromWS.length;
-        const logsToVisible = previousLogs.splice(0, numberOfPrev);
-        const logsToNew = visibleLogs.splice(0, numberOfPrev);
-        newLogs.splice(0, numberOfPrev);
-        newLogs = [...newLogs, ...logsToNew];
-        visibleLogs = [...visibleLogs, ...logsToVisible];
-        previousLogs = [...previousLogs, ...logsFromWS];
-        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-      }
-    }
-  }
+  // async function putLogsFromWsToViewContainer() {
+  //   if (logsFromWS.length >= 3 * limit) {
+  //     await getFullLogsSet();
+  //     return;
+  //   } else {
+  //     {
+  //       let numberOfPrev = logsFromWS.length;
+  //       const logsToVisible = previousLogs.splice(0, numberOfPrev);
+  //       const logsToNew = visibleLogs.splice(0, numberOfPrev);
+  //       newLogs.splice(0, numberOfPrev);
+  //       newLogs = [...newLogs, ...logsToNew];
+  //       visibleLogs = [...visibleLogs, ...logsToVisible];
+  //       previousLogs = [...previousLogs, ...logsFromWS];
+  //       allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+  //     }
+  //   }
+  // }
 
   function addLogFromWS(logfromWS) {
     if (
@@ -366,7 +366,10 @@
       }
     })();
   }
-  onMount(() => {
+  onMount(async () => {
+    initialScroll = 1;
+    await getFullLogsSet();
+
     const logsContEl = document.querySelector("#logs");
 
     logsContEl &&

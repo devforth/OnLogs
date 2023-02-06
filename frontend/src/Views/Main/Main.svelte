@@ -38,18 +38,19 @@
   import Stats from "../../lib/Stats/Stats.svelte";
   import MainChartMenu from "../../lib/ChartMenu/MainChartMenu.svelte";
   import Spiner from "../Logs/Spiner.svelte";
+  import { debug } from "svelte/internal";
 
   let api = new fetchApi();
   let hostList = [];
-  let servicesList = [];
+  let intervalId = null;
+  let INTERVAL = 10000;
 
   let userMenuState = false;
   let addUserModOpen = false;
   let newUserData = { login: "", password: "" };
   let userForAdding = "";
   let withoutRightPanel = false;
-  let intervalId = null;
-  let withoutRightPanelRoutesArr = ["users", "servicesettings"];
+
   function handleClick(e) {
     if (!e.target.classList.contains("buttonToBottom"))
       lastLogTimestamp.set(new Date().getTime());
@@ -94,26 +95,42 @@
     if (data.host) {
       hostList = [data];
     }
+    return data;
   }
   onMount(async () => {
-    await getHosts();
-    if (service) {
-      lastChosenService.set(service);
-    } else {
-      lastChosenService.set(hostList.at(0)["services"].at(0).serviceName);
-    }
-    if (host) {
-      lastChosenHost.set(host);
-    } else {
-      lastChosenHost.set(hostList.at(0)["host"]);
-    }
-    // @ts-ignore}
+    const data = await getHosts();
+    intervalId = setInterval(async () => {
+      await getHosts();
+    }, INTERVAL);
+    const isalreadyChosenHost = data.filter((h) => {
+      return h.host === $lastChosenHost;
+    });
 
-    //   servicesList = hostList
-    //     .filter((e) => {
-    //       return e.host === $lastChosenHost;
-    //     })
-    //     .at(0)["services"];
+    if (isalreadyChosenHost.length) {
+      const isAlreadyChosenService = isalreadyChosenHost[0].services.filter(
+        (s) => {
+          return s.serviceName === $lastChosenService;
+        }
+      );
+      if (isAlreadyChosenService[0].serviceName) {
+        return;
+      } else {
+        if (service) {
+          lastChosenService.set(service);
+        } else {
+          lastChosenService.set(hostList.at(0)["services"].at(0).serviceName);
+        }
+        if (host) {
+          lastChosenHost.set(host);
+        } else {
+          lastChosenHost.set(hostList.at(0)["host"]);
+        }
+      }
+    }
+  });
+
+  onDestroy(() => {
+    clearInterval(intervalId);
   });
 
   // $: {
