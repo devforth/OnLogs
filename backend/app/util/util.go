@@ -51,17 +51,16 @@ func restartStatsForContainer(container string, current_db *leveldb.DB) {
 
 func RunStatisticForContainer(container string) {
 	vars.Counters_For_Last_30_Min[container] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	current_db, _ := leveldb.OpenFile("leveldb/statistics/"+container, nil)
-	defer current_db.Close()
 	if vars.StatDBs[container] == nil {
+		current_db, _ := leveldb.OpenFile("leveldb/statistics/"+container, nil)
+		defer current_db.Close()
 		vars.StatDBs[container] = current_db
-	} else {
-		return
 	}
-	defer restartStatsForContainer(container, current_db)
+	defer delete(vars.Counters_For_Last_30_Min, container)
+	defer restartStatsForContainer(container, vars.StatDBs[container])
 	for {
+		restartStatsForContainer(container, vars.StatDBs[container])
 		time.Sleep(30 * time.Minute)
-		restartStatsForContainer(container, current_db)
 	}
 }
 

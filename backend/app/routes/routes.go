@@ -114,7 +114,9 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
-
+	if vars.Counters_For_Last_30_Min[logItem.Host+"/"+logItem.Container] == nil {
+		go util.RunStatisticForContainer(logItem.Host + "/" + logItem.Container)
+	}
 	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
 	db.PutLogMessage(current_db, logItem.Host, logItem.Container, logItem.LogLine)
 	defer current_db.Close()
