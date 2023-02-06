@@ -2,7 +2,12 @@
   import { Router, Link, Route } from "svelte-routing";
   import Main from "./Views/Main/Main.svelte";
   import Login from "./Views/Login/Login.svelte";
-  import { theme, activeMenuOption } from "./Stores/stores.js";
+  import {
+    theme,
+    activeMenuOption,
+    lastChosenHost,
+    lastChosenService,
+  } from "./Stores/stores.js";
   import { onMount, onDestroy } from "svelte";
   import Toast from "./lib/Toast/Toast.svelte";
   import Notfound from "./lib/NotFound/Notfound.svelte";
@@ -35,6 +40,14 @@
     if (LStheme) {
       theme.set(LStheme);
     }
+    const LSHostData = window.localStorage.getItem("lsthd");
+    if (LSHostData) {
+      try {
+        const data = JSON.parse(LSHostData);
+        lastChosenHost.set(data.h);
+        lastChosenService.set(data.s);
+      } catch (e) {}
+    }
 
     //set active menu option after page refresh
     if (location.pathname.includes("users")) {
@@ -47,6 +60,19 @@
     }
   });
   onDestroy(unsubscribe);
+
+  function writeLastChosenHostToLS() {
+    window.localStorage.setItem(
+      "lsthd",
+      JSON.stringify({ h: $lastChosenHost, s: $lastChosenService })
+    );
+  }
+
+  $: {
+    if ($lastChosenHost && $lastChosenService) {
+      writeLastChosenHostToLS();
+    }
+  }
 </script>
 
 <Router {url} basepath={`${changeKey}/`}>
