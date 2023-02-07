@@ -73,7 +73,7 @@ func CreateOnLogsToken() string {
 }
 
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) {
-	if len(message_item[0]) < 30 {
+	if len(message_item[0]) < 30 || len(message_item) < 2 {
 		return
 	}
 
@@ -257,6 +257,7 @@ func DeleteContainer(host string, container string) {
 	os.RemoveAll(path)
 }
 
+// TODO remove all logs
 func DeleteContainerLogs(host string, container string) {
 	var path string
 	if host == util.GetHost() {

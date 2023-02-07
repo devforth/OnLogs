@@ -114,7 +114,9 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
-
+	if vars.Counters_For_Last_30_Min[logItem.Host+"/"+logItem.Container] == nil {
+		go util.RunStatisticForContainer(logItem.Host + "/" + logItem.Container)
+	}
 	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
 	db.PutLogMessage(current_db, logItem.Host, logItem.Container, logItem.LogLine)
 	defer current_db.Close()
@@ -433,13 +435,19 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 
 	if data.Value > 1 {
 		var tmp_stats map[string]map[string]int
-		iter := vars.StatDBs[location].NewIterator(nil, nil)
+		var current_db *leveldb.DB
+		if vars.StatDBs[location] == nil {
+			current_db, _ = leveldb.OpenFile("leveldb/statistics/"+location, nil)
+		} else {
+			current_db = vars.StatDBs[location]
+		}
+		iter := current_db.NewIterator(nil, nil)
 		defer iter.Release()
 		iter.Last()
 		for iter.Prev() {
 			tmp_time, err := time.Parse(time.RFC3339, string(iter.Key()))
 			if err != nil { // TODO no errors should be here, so this may be removed
-				vars.StatDBs[location].Delete(iter.Key(), nil)
+				current_db.Delete(iter.Key(), nil)
 			}
 			if searchTo.After(tmp_time) {
 				break
