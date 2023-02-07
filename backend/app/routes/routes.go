@@ -435,11 +435,10 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 
 	if data.Value > 1 {
 		var tmp_stats map[string]map[string]int
-		var current_db *leveldb.DB
+		current_db := vars.StatDBs[location]
 		if vars.StatDBs[location] == nil {
 			current_db, _ = leveldb.OpenFile("leveldb/statistics/"+location, nil)
-		} else {
-			current_db = vars.StatDBs[location]
+			defer current_db.Close()
 		}
 		iter := current_db.NewIterator(nil, nil)
 		defer iter.Release()
