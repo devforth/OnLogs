@@ -435,11 +435,10 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 
 	if data.Value > 1 {
 		var tmp_stats map[string]map[string]int
-		var current_db *leveldb.DB
+		current_db := vars.StatDBs[location]
 		if vars.StatDBs[location] == nil {
 			current_db, _ = leveldb.OpenFile("leveldb/statistics/"+location, nil)
-		} else {
-			current_db = vars.StatDBs[location]
+			defer current_db.Close()
 		}
 		iter := current_db.NewIterator(nil, nil)
 		defer iter.Release()
@@ -483,7 +482,7 @@ func GetPrevLogs(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(db.GetLogs(true, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
+	json.NewEncoder(w).Encode(db.GetLogs(true, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
 func GetLogs(w http.ResponseWriter, req *http.Request) {
@@ -498,7 +497,18 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 		caseSensetive = false
 	}
 	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(db.GetLogs(false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
+	json.NewEncoder(w).Encode(db.GetLogs(false, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
+}
+
+func GetLogWithPrev(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	params := req.URL.Query()
+	limit, _ := strconv.Atoi(params.Get("limit"))
+	w.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(db.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false))
 }
 
 // TODO return {"error": "Invalid host!"} when host is not exists

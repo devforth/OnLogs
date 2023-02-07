@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"os"
 	"strconv"
@@ -73,7 +74,8 @@ func CreateOnLogsToken() string {
 }
 
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) {
-	if len(message_item[0]) < 30 || len(message_item) < 2 {
+	if len(message_item[0]) < 30 {
+		fmt.Println("ERROR: got broken timestamp: ", message_item)
 		return
 	}
 
@@ -133,7 +135,7 @@ func GetUsers() []string {
 	return users
 }
 
-func GetLogs(getPrev bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) [][]string {
+func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) [][]string {
 	var db *leveldb.DB
 	var err error
 	var path string
@@ -167,9 +169,9 @@ func GetLogs(getPrev bool, host string, container string, message string, limit 
 		if !iter.Seek([]byte(startWith)) {
 			return to_return
 		}
-		if getPrev {
+		if getPrev && !include {
 			iter.Next()
-		} else {
+		} else if !include {
 			iter.Prev()
 		}
 	}
