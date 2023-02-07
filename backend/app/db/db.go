@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"os"
 	"strconv"
@@ -73,7 +74,8 @@ func CreateOnLogsToken() string {
 }
 
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) {
-	if len(message_item[0]) < 30 || len(message_item) < 2 {
+	if len(message_item[0]) < 30 {
+		fmt.Println("ERROR: got broken timestamp: ", message_item)
 		return
 	}
 
