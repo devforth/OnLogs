@@ -39,6 +39,7 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/getChartData", routes.GetChartData)
 	http.HandleFunc(pathPrefix+"/api/v1/getHosts", routes.GetHosts)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogs", routes.GetLogs)
+	http.HandleFunc(pathPrefix+"/api/v1/getLogWithPrev", routes.GetLogWithPrev)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogsStream", routes.GetLogsStream)
 	http.HandleFunc(pathPrefix+"/api/v1/getPrevLogs", routes.GetPrevLogs)
 	http.HandleFunc(pathPrefix+"/api/v1/getSecret", routes.GetSecret)
