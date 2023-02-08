@@ -14,11 +14,11 @@ import (
 func createStreams(containers []string) {
 	for _, container := range vars.DockerContainers {
 		if !util.Contains(container, vars.Active_Daemon_Streams) {
-			go util.RunStatisticForContainer(container)
-			newDB, err := leveldb.OpenFile("leveldb/logs/"+container, nil)
+			go util.RunStatisticForContainer(util.GetHost(), container)
+			newDB, err := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containers/"+container+"/logs", nil)
 			if err != nil {
 				fmt.Println("ERROR: " + container + ": " + err.Error())
-				newDB, err = leveldb.RecoverFile("leveldb/logs/"+container, nil)
+				newDB, err = leveldb.RecoverFile("leveldb/hosts/"+util.GetHost()+"/containers/"+container+"/logs", nil)
 				fmt.Println("INFO: " + container + ": recovering db...")
 				if err == nil {
 					fmt.Println("INFO: " + container + ": db recovered!")

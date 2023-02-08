@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/devforth/OnLogs/app/util"
 	vars "github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -83,33 +82,26 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 		message_item[0] = message_item[0][1:]
 	}
 
-	var location string
-	if host != "" {
-		location = host + "/" + "string"
-	} else {
-		location = container
+	if host == "" {
+		panic("Host is not mentioned!")
 	}
+	location := host + "/" + container
 
 	if strings.Contains(message_item[1], "ERROR") || strings.Contains(message_item[1], "ERR") || // const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
 		strings.Contains(message_item[1], "Error") || strings.Contains(message_item[1], "Err") {
-		vars.Counters_For_Last_30_Min[location]["error"]++
-		vars.Counters_For_Last_30_Min["onlogs_all"]["error"]++
+		vars.Counters_For_Containers_Last_30_Min[location]["error"]++
 
 	} else if strings.Contains(message_item[1], "WARN") || strings.Contains(message_item[1], "WARNING") { // const statuses_warnings = ["WARN", "WARNING"];
-		vars.Counters_For_Last_30_Min[location]["warn"]++
-		vars.Counters_For_Last_30_Min["onlogs_all"]["warn"]++
+		vars.Counters_For_Containers_Last_30_Min[location]["warn"]++
 
 	} else if strings.Contains(message_item[1], "DEBUG") { // const statuses_other = ["DEBUG", "INFO", "ONLOGS"];
-		vars.Counters_For_Last_30_Min[location]["debug"]++
-		vars.Counters_For_Last_30_Min["onlogs_all"]["debug"]++
+		vars.Counters_For_Containers_Last_30_Min[location]["debug"]++
 
 	} else if strings.Contains(message_item[1], "INFO") {
-		vars.Counters_For_Last_30_Min[location]["info"]++
-		vars.Counters_For_Last_30_Min["onlogs_all"]["info"]++
+		vars.Counters_For_Containers_Last_30_Min[location]["info"]++
 
 	} else {
-		vars.Counters_For_Last_30_Min[location]["other"]++
-		vars.Counters_For_Last_30_Min["onlogs_all"]["other"]++
+		vars.Counters_For_Containers_Last_30_Min[location]["other"]++
 	}
 
 	db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
@@ -138,14 +130,9 @@ func GetUsers() []string {
 func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) [][]string {
 	var db *leveldb.DB
 	var err error
-	var path string
 	db = vars.ActiveDBs[container]
 	if db == nil {
-		if host == util.GetHost() {
-			path = "leveldb/logs/" + container
-		} else {
-			path = "leveldb/hosts/" + host + "/" + container
-		}
+		path := "leveldb/hosts/" + host + "/containers/" + container + "/logs"
 
 		_, pathErr := os.Stat(path)
 		if os.IsNotExist(pathErr) {
@@ -245,29 +232,15 @@ func DeleteUnusedTokens() {
 }
 
 func DeleteContainer(host string, container string) {
-	var path string
-	if host == util.GetHost() {
-		db := vars.ActiveDBs[container]
-		if db != nil {
-			db.Close()
-		}
-		path = "leveldb/logs/" + container
-	} else {
-		path = "leveldb/" + host + "/" + container
+	if vars.ActiveDBs[container] != nil {
+		vars.ActiveDBs[container].Close()
 	}
-
-	os.RemoveAll(path)
+	os.RemoveAll("leveldb/hosts" + host + "/container/" + container)
 }
 
 // TODO remove all logs
 func DeleteContainerLogs(host string, container string) {
-	var path string
-	if host == util.GetHost() {
-		path = "leveldb/logs/" + container
-	} else {
-		path = "leveldb/" + host + "/" + container
-	}
-
+	path := "leveldb/hosts" + host + "/container/" + container + "/logs"
 	files, _ := os.ReadDir(path)
 	lastNum := 0
 	var lastName string

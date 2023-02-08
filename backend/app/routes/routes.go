@@ -114,10 +114,10 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
-	if vars.Counters_For_Last_30_Min[logItem.Host+"/"+logItem.Container] == nil {
-		go util.RunStatisticForContainer(logItem.Host + "/" + logItem.Container)
+	if vars.Counters_For_Hosts_Last_30_Min[logItem.Host] == nil {
+		go util.RunStatisticForContainer(logItem.Host, logItem.Container)
 	}
-	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/"+logItem.Container, nil)
+	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/containers"+logItem.Container+"/logs", nil)
 	db.PutLogMessage(current_db, logItem.Host, logItem.Container, logItem.LogLine)
 	defer current_db.Close()
 
@@ -145,7 +145,7 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	os.MkdirAll("leveldb/hosts/"+addReq.Hostname, 0700)
+	go util.RunStatisticForHost(addReq.Hostname)
 }
 
 func ChangeFavourite(w http.ResponseWriter, req *http.Request) {
@@ -229,7 +229,7 @@ func GetChartData(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	iter := vars.StatDBs["onlogs_all"].NewIterator(nil, nil)
+	iter := vars.Stat_Hosts_DBs[data.Host].NewIterator(nil, nil)
 	iter.Last()
 	defer iter.Release()
 	for iter.Prev() {
@@ -257,11 +257,11 @@ func GetChartData(w http.ResponseWriter, req *http.Request) {
 		to_return[datetime]["warn"] += tmp_stats["warn"]
 		to_return[datetime]["other"] += tmp_stats["other"]
 	}
-	to_return["now"]["error"] = vars.Counters_For_Last_30_Min[data.Host+"/"+data.Service]["error"]
-	to_return["now"]["debug"] = vars.Counters_For_Last_30_Min[data.Host+"/"+data.Service]["debug"]
-	to_return["now"]["info"] = vars.Counters_For_Last_30_Min[data.Host+"/"+data.Service]["info"]
-	to_return["now"]["warn"] = vars.Counters_For_Last_30_Min[data.Host+"/"+data.Service]["warn"]
-	to_return["now"]["other"] = vars.Counters_For_Last_30_Min[data.Host+"/"+data.Service]["other"]
+	to_return["now"]["error"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["error"]
+	to_return["now"]["debug"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["debug"]
+	to_return["now"]["info"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["info"]
+	to_return["now"]["warn"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["warn"]
+	to_return["now"]["other"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["other"]
 	w.Header().Add("Content-Type", "application/json")
 	e, _ := json.Marshal(to_return)
 	w.Write(e)
@@ -281,25 +281,17 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 
 	activeContainers := daemon.GetContainersList()
 
-	containers, _ := os.ReadDir("leveldb/logs/")
-	hostContainers := []map[string]interface{}{}
-	for _, container := range containers {
-		isFavorite, _ := vars.FavsDB.Has([]byte(util.GetHost()+"/"+container.Name()), nil)
-		if util.Contains(container.Name(), activeContainers) {
-			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
-		} else {
-			hostContainers = append(hostContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true, "isFavorite": isFavorite})
-		}
-	}
-	to_return = append(to_return, HostsList{Host: util.GetHost(), Services: hostContainers})
-
 	hosts, _ := os.ReadDir("leveldb/hosts/")
 	for _, host := range hosts {
-		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name())
+		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name() + "/containers")
 		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
 			isFavorite, _ := vars.FavsDB.Has([]byte(util.GetHost()+"/"+container.Name()), nil)
-			allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
+			if util.Contains(container.Name(), activeContainers) {
+				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
+			} else {
+				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true, "isFavorite": isFavorite})
+			}
 		}
 		to_return = append(to_return, HostsList{Host: host.Name(), Services: allContainers})
 	}
@@ -321,11 +313,6 @@ func GetSizeByAll(w http.ResponseWriter, req *http.Request) {
 		for _, container := range containers {
 			totalSize += util.GetDirSize(host.Name(), container.Name())
 		}
-	}
-
-	hostContainers, _ := os.ReadDir("leveldb/logs/")
-	for _, hostContainer := range hostContainers {
-		totalSize += util.GetDirSize("", hostContainer.Name())
 	}
 
 	if totalSize < 0.1 && totalSize != 0.0 {
@@ -350,6 +337,9 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 	if size < 0.1 && size != 0.0 {
 		size = 0.1
 	}
+	if params.Get("host") == "" {
+		panic("Host is not mentioned!")
+	}
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
@@ -368,15 +358,16 @@ func GetAllStats(w http.ResponseWriter, req *http.Request) {
 	searchTo := time.Now().Add(-(time.Hour * time.Duration(period.Value/2))).UTC()
 
 	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	to_return["debug"] += vars.Counters_For_Last_30_Min["onlogs_all"]["debug"]
-	to_return["error"] += vars.Counters_For_Last_30_Min["onlogs_all"]["error"]
-	to_return["info"] += vars.Counters_For_Last_30_Min["onlogs_all"]["info"]
-	to_return["warn"] += vars.Counters_For_Last_30_Min["onlogs_all"]["warn"]
-	to_return["other"] += vars.Counters_For_Last_30_Min["onlogs_all"]["other"]
+	host := util.GetHost()
+	to_return["debug"] += vars.Counters_For_Hosts_Last_30_Min[host]["debug"]
+	to_return["error"] += vars.Counters_For_Hosts_Last_30_Min[host]["error"]
+	to_return["info"] += vars.Counters_For_Hosts_Last_30_Min[host]["info"]
+	to_return["warn"] += vars.Counters_For_Hosts_Last_30_Min[host]["warn"]
+	to_return["other"] += vars.Counters_For_Hosts_Last_30_Min[host]["other"]
 
 	if period.Value > 1 {
 		var tmp_stats map[string]map[string]int
-		iter := vars.StatDBs["onlogs_all"].NewIterator(nil, nil)
+		iter := vars.Stat_Hosts_DBs[host].NewIterator(nil, nil)
 		defer iter.Release()
 		iter.Last()
 		for iter.Prev() {
@@ -410,15 +401,10 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 	}
 
 	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&data)
-	var location string
-	if data.Host == util.GetHost() {
-		location = data.Service
-	} else {
-		location = data.Host + "/" + data.Service
-	}
+	err := decoder.Decode(&data)
+	location := data.Host + "/" + data.Service
 
-	if location == "/" {
+	if err != nil {
 		w.Header().Add("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid data!"})
 		return
@@ -427,17 +413,17 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 	searchTo := time.Now().Add(-(time.Hour * time.Duration(data.Value/2))).UTC()
 
 	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	to_return["debug"] += vars.Counters_For_Last_30_Min[location]["debug"]
-	to_return["error"] += vars.Counters_For_Last_30_Min[location]["error"]
-	to_return["info"] += vars.Counters_For_Last_30_Min[location]["info"]
-	to_return["warn"] += vars.Counters_For_Last_30_Min[location]["warn"]
-	to_return["other"] += vars.Counters_For_Last_30_Min[location]["other"]
+	to_return["debug"] += vars.Counters_For_Containers_Last_30_Min[location]["debug"]
+	to_return["error"] += vars.Counters_For_Containers_Last_30_Min[location]["error"]
+	to_return["info"] += vars.Counters_For_Containers_Last_30_Min[location]["info"]
+	to_return["warn"] += vars.Counters_For_Containers_Last_30_Min[location]["warn"]
+	to_return["other"] += vars.Counters_For_Containers_Last_30_Min[location]["other"]
 
 	if data.Value > 1 {
 		var tmp_stats map[string]map[string]int
-		current_db := vars.StatDBs[location]
-		if vars.StatDBs[location] == nil {
-			current_db, _ = leveldb.OpenFile("leveldb/statistics/"+location, nil)
+		current_db := vars.Stat_Containers_DBs[location]
+		if vars.Stat_Containers_DBs[location] == nil {
+			current_db, _ = leveldb.OpenFile("leveldb/hosts/"+data.Host+"/containers/"+data.Service+"/statistics", nil)
 			defer current_db.Close()
 		}
 		iter := current_db.NewIterator(nil, nil)
@@ -482,6 +468,10 @@ func GetPrevLogs(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
+
+	if params.Get("host") == "" {
+		panic("Host is not mentioned!")
+	}
 	json.NewEncoder(w).Encode(db.GetLogs(true, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
@@ -497,6 +487,9 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 		caseSensetive = false
 	}
 	w.Header().Add("Content-Type", "application/json")
+	if params.Get("host") == "" {
+		panic("Host is not mentioned!")
+	}
 	json.NewEncoder(w).Encode(db.GetLogs(false, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
@@ -508,6 +501,9 @@ func GetLogWithPrev(w http.ResponseWriter, req *http.Request) {
 	params := req.URL.Query()
 	limit, _ := strconv.Atoi(params.Get("limit"))
 	w.Header().Add("Content-Type", "application/json")
+	if params.Get("host") == "" {
+		panic("Host is not mentioned!")
+	}
 	json.NewEncoder(w).Encode(db.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false))
 }
 
@@ -523,7 +519,11 @@ func GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	}
 
 	host := req.URL.Query().Get("host")
-	if host != util.GetHost() && host != "" {
+
+	if host == "" {
+		panic("Host is not mentioned!")
+	}
+	if host != util.GetHost() {
 		container = host + "/" + container
 	}
 

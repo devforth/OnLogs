@@ -129,6 +129,7 @@ func CreateDaemonToDBStream(containerName string) {
 	current_db := vars.ActiveDBs[containerName]
 	// defer db.Close()
 	createLogMessage(current_db, "ONLOGS: Container listening started!")
+	host := util.GetHost()
 
 	lastSleep := time.Now().Unix()
 	for { // reading body
@@ -144,7 +145,7 @@ func CreateDaemonToDBStream(containerName string) {
 			continue
 		}
 
-		db.PutLogMessage(current_db, "", containerName, strings.SplitN(string(to_put), " ", 2))
+		db.PutLogMessage(current_db, host, containerName, strings.SplitN(string(to_put), " ", 2))
 
 		to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31:])})
 		for _, c := range vars.Connections[containerName] {

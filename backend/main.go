@@ -19,7 +19,7 @@ func main() {
 		streamer.StreamLogs()
 	}
 
-	go util.RunStatisticForContainer("onlogs_all")
+	go util.RunStatisticForHost(util.GetHost())
 	go db.DeleteUnusedTokens()
 	go streamer.StreamLogs()
 	util.ReplacePrefixVariableForFrontend()
