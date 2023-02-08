@@ -15,7 +15,6 @@ import (
 
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/golang-jwt/jwt"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func Contains(a string, list []string) bool {
@@ -29,39 +28,6 @@ func Contains(a string, list []string) bool {
 
 func CreateInitUser() {
 	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
-}
-
-func restartStatsForContainer(container string, current_db *leveldb.DB) {
-	copy := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	copy["error"] = vars.Counters_For_Last_30_Min[container]["error"]
-	copy["debug"] = vars.Counters_For_Last_30_Min[container]["debug"]
-	copy["info"] = vars.Counters_For_Last_30_Min[container]["info"]
-	copy["warn"] = vars.Counters_For_Last_30_Min[container]["warn"]
-	copy["other"] = vars.Counters_For_Last_30_Min[container]["other"]
-	to_put, _ := json.Marshal(copy)
-	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), ".")[0], " ", "T", 1) + "Z"
-	current_db.Put([]byte(datetime), to_put, nil)
-
-	vars.Counters_For_Last_30_Min[container]["error"] = 0
-	vars.Counters_For_Last_30_Min[container]["debug"] = 0
-	vars.Counters_For_Last_30_Min[container]["info"] = 0
-	vars.Counters_For_Last_30_Min[container]["warn"] = 0
-	vars.Counters_For_Last_30_Min[container]["other"] = 0
-}
-
-func RunStatisticForContainer(container string) {
-	vars.Counters_For_Last_30_Min[container] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	if vars.StatDBs[container] == nil {
-		current_db, _ := leveldb.OpenFile("leveldb/statistics/"+container, nil)
-		defer current_db.Close()
-		vars.StatDBs[container] = current_db
-	}
-	defer delete(vars.Counters_For_Last_30_Min, container)
-	defer restartStatsForContainer(container, vars.StatDBs[container])
-	for {
-		restartStatsForContainer(container, vars.StatDBs[container])
-		time.Sleep(30 * time.Minute)
-	}
 }
 
 func replaceVarForAllFilesInDir(dirName string, dir_files []fs.DirEntry) {
@@ -143,13 +109,8 @@ func GetHost() string {
 
 func GetDirSize(host string, container string) float64 {
 	var size int64
-	var path string
-	if host != GetHost() && host != "" {
-		path = "leveldb/hosts/" + host + "/" + container
-	} else {
-		path = "leveldb/logs/" + container
-	}
 
+	path := "leveldb/hosts/" + host + "/containers/" + container
 	_, pathErr := os.Stat(path)
 	if os.IsNotExist(pathErr) {
 		return 0
