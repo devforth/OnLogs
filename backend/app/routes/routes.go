@@ -15,6 +15,7 @@ import (
 
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
+	"github.com/devforth/OnLogs/app/statistics"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/gorilla/websocket"
@@ -115,7 +116,7 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
 	if vars.Counters_For_Hosts_Last_30_Min[logItem.Host] == nil {
-		go util.RunStatisticForContainer(logItem.Host, logItem.Container)
+		go statistics.RunStatisticForContainer(logItem.Host, logItem.Container)
 	}
 	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/containers"+logItem.Container+"/logs", nil)
 	db.PutLogMessage(current_db, logItem.Host, logItem.Container, logItem.LogLine)
@@ -145,7 +146,7 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	go util.RunStatisticForHost(addReq.Hostname)
+	go statistics.RunStatisticForHost(addReq.Hostname)
 }
 
 func ChangeFavourite(w http.ResponseWriter, req *http.Request) {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
+	"github.com/devforth/OnLogs/app/statistics"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -14,7 +15,7 @@ import (
 func createStreams(containers []string) {
 	for _, container := range vars.DockerContainers {
 		if !util.Contains(container, vars.Active_Daemon_Streams) {
-			go util.RunStatisticForContainer(util.GetHost(), container)
+			go statistics.RunStatisticForContainer(util.GetHost(), container)
 			newDB, err := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containers/"+container+"/logs", nil)
 			if err != nil {
 				fmt.Println("ERROR: " + container + ": " + err.Error())

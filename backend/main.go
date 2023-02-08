@@ -7,6 +7,7 @@ import (
 
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/routes"
+	"github.com/devforth/OnLogs/app/statistics"
 	"github.com/devforth/OnLogs/app/streamer"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/joho/godotenv"
@@ -19,7 +20,7 @@ func main() {
 		streamer.StreamLogs()
 	}
 
-	go util.RunStatisticForHost(util.GetHost())
+	go statistics.RunStatisticForHost(util.GetHost())
 	go db.DeleteUnusedTokens()
 	go streamer.StreamLogs()
 	util.ReplacePrefixVariableForFrontend()
