@@ -309,7 +309,7 @@ func GetSizeByAll(w http.ResponseWriter, req *http.Request) {
 	var totalSize float64
 	hosts, _ := os.ReadDir("leveldb/hosts/")
 	for _, host := range hosts {
-		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name())
+		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name() + "/containers")
 		for _, container := range containers {
 			totalSize += util.GetDirSize(host.Name(), container.Name())
 		}
