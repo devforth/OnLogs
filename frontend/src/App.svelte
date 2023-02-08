@@ -7,6 +7,7 @@
     activeMenuOption,
     lastChosenHost,
     lastChosenService,
+    urlHash,
   } from "./Stores/stores.js";
   import { onMount, onDestroy } from "svelte";
   import Toast from "./lib/Toast/Toast.svelte";
@@ -16,8 +17,7 @@
   let basePathname = "";
   let availibleRoutes = ["view", "login", "users", "servicesettings"];
   import { changeKey } from "./utils/changeKey";
-
-  const ASSET_URL = import.meta.env.VITE_ASSET_URL;
+  import { navigate } from "svelte-routing";
 
   const unsubscribe = theme.subscribe((v) => {
     themeState = v;
@@ -47,6 +47,11 @@
         lastChosenHost.set(data.h);
         lastChosenService.set(data.s);
       } catch (e) {}
+    }
+    if (location.href.includes("#")) {
+      urlHash.set(location.hash);
+
+      navigate(location.href.split("#")[0], { replace: true });
     }
 
     //set active menu option after page refresh

@@ -166,6 +166,25 @@
     }
   }
 
+  .toastContainer {
+    background-color: $block-bg-color-dark;
+
+    p {
+      color: $text-dark-color-dark;
+    }
+    h4 {
+      color: $text-dark-color-dark;
+    }
+  }
+
+  .progressBarContainer {
+    background-color: $background-color-dark;
+
+    .progressBarValue {
+      background-color: $active-color-dark;
+    }
+  }
+
   div.loginForm h1#title {
     color: $active-color-dark;
   }

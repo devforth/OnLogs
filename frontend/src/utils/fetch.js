@@ -158,7 +158,19 @@ class fetchApi {
       unitsAmount,
     });
   }
-  async;
+  async getLogsWithPrev({
+    containerName = "",
+
+    limit = 30,
+
+    startWith = "",
+    hostName = "",
+  }) {
+    return await this.doFetch(
+      "GET",
+      `${this.url}getLogWithPrev?host=${hostName}&id=${containerName}&limit=${limit}&startWith=${startWith}`
+    );
+  }
 }
 
 export default fetchApi;

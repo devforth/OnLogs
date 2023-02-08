@@ -4,16 +4,19 @@
   import LogsString from "../../lib/LogsString/LogsString.svelte";
   import fetchApi from "../../utils/fetch";
   import { navigate } from "svelte-routing";
-  import { afterUpdate, onMount, onDestroy } from "svelte";
+  import { afterUpdate, onMount, tick } from "svelte";
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
   import IntersectionObserver from "svelte-intersection-observer";
   import Spiner from "./Spiner.svelte";
+  import LogStringHeader from "./LogStringHeader.svelte";
   import {
     store,
     lastChosenHost,
     lastChosenService,
     lastLogTimestamp,
+    chosenLogsString,
     isPending,
+    urlHash,
   } from "../../Stores/stores";
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
   import {
@@ -23,8 +26,7 @@
     getPrevLogs,
     scrollToBottom,
     scrollToNewLogsEnd,
-    forceToBottom,
-    checkLastLogTimeStamp,
+    scrollToSpecificLog,
   } from "./functions";
   const api = new fetchApi();
   let visibleLogs = [];
@@ -58,7 +60,6 @@
   let searchText = "";
   let limit = 30;
 
-  let caseSens = false;
   let startWith = "";
   let tmpStartWith = [];
 
@@ -67,6 +68,7 @@
     newLogs = [];
     visibleLogs = [];
     previousLogs = [];
+    logsFromWS = [];
   }
   async function getFullLogsSet() {
     if (!getFullLogsSetIsTrottle)
@@ -85,6 +87,27 @@
         }, 2000);
       }
   }
+
+  async function checkIfHashIsInUrl() {
+    let timeStamp = "";
+    if ($urlHash) {
+      timeStamp = $urlHash.slice(1);
+      await fetchIfHashIsInUrl(timeStamp);
+    } else {
+      await fetchLogAfterChangeService();
+
+      setLastLogTimestamp();
+      scrollToBottom();
+    }
+    getLogsFromWS();
+    urlHash.set("");
+    setTimeout(() => {
+      setTimeout(() => {
+        setInitialScroll(1);
+      }, 1000);
+    });
+  }
+
   function setLastLogTimestamp() {
     lastLogTimestamp.set(new Date().getTime());
   }
@@ -97,31 +120,83 @@
       }
     }
   }
+  async function fetchIfHashIsInUrl(startWith) {
+    const viewLogs = [
+      ...(await api.getLogsWithPrev({
+        containerName: $lastChosenService,
+        hostName: $lastChosenHost,
+        limit: limit * 2,
+        startWith,
+      })),
+    ].reverse();
+    let downLogs = [];
+    let upperLogs = [];
 
-  // async function putLogsFromWsToViewContainer() {
-  //   if (logsFromWS.length >= 3 * limit) {
-  //     await getFullLogsSet();
-  //     return;
-  //   } else {
-  //     {
-  //       let numberOfPrev = logsFromWS.length;
-  //       const logsToVisible = previousLogs.splice(0, numberOfPrev);
-  //       const logsToNew = visibleLogs.splice(0, numberOfPrev);
-  //       newLogs.splice(0, numberOfPrev);
-  //       newLogs = [...newLogs, ...logsToNew];
-  //       visibleLogs = [...visibleLogs, ...logsToVisible];
-  //       previousLogs = [...previousLogs, ...logsFromWS];
-  //       allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-  //     }
-  //   }
-  // }
+    if (viewLogs.length !== limit * 2) {
+      let limitDifference = limit * 2 - viewLogs.length;
+
+      downLogs = [
+        ...(await api.getPrevLogs({
+          containerName: $lastChosenService,
+          limit: limit + limitDifference,
+          startWith: startWith,
+          hostName: $lastChosenHost,
+        })),
+      ];
+    } else {
+      downLogs = [
+        ...(await api.getPrevLogs({
+          containerName: $lastChosenService,
+          limit,
+          startWith: startWith,
+          hostName: $lastChosenHost,
+        })),
+      ];
+      console.log("downLOgs", downLogs);
+      if (limit - downLogs.length) {
+        upperLogs = await api.getLogs({
+          containerName: $lastChosenService,
+          limit: limit - downLogs.length,
+          startWith: viewLogs?.at(0)[0],
+          hostName: $lastChosenHost,
+        });
+      }
+    }
+    allLogs = [...upperLogs.reverse(), ...viewLogs, ...downLogs];
+
+    isPending.set(false);
+    let allLogsCopy = [...allLogs];
+    console.log(allLogsCopy, "allLogsCopy");
+    newLogs = allLogsCopy.splice(0, limit);
+
+    visibleLogs = allLogsCopy.splice(0, limit);
+    previousLogs = allLogsCopy.splice(0, limit);
+
+    console.log(
+      previousLogs,
+      "-> upper",
+      visibleLogs,
+      "-> view",
+      newLogs,
+      "->down"
+    );
+
+    chosenLogsString.set(startWith);
+
+    setLastLogTimestamp();
+    await tick();
+
+    scrollToSpecificLog(".chosen");
+
+    urlHash.set("");
+  }
 
   function addLogFromWS(logfromWS) {
     if (
       (!mouseDownBlockFetch && endOffLogsIntersect) ||
       allLogs.length < 3 * limit
     ) {
-      autoscroll = true;
+      // autoscroll = true;
       if (newLogs.length === limit) {
         newLogs.splice(0, 1);
       }
@@ -159,7 +234,7 @@
         if (searchText === "") {
           addLogFromWS(logfromWS);
         } else {
-          if (!$store.caseInSensitive) {
+          if ($store.caseInSensitive) {
             if (logfromWS[1].includes(searchText)) {
               addLogFromWS(logfromWS);
             }
@@ -220,7 +295,7 @@
       search: searchText,
       limit,
 
-      caseSens: $store.caseInSensitive,
+      caseSens: !$store.caseInSensitive,
       startWith: customStartWith
         ? customStartWith
         : customStartWith === 0
@@ -262,7 +337,7 @@
         search: searchText,
         limit,
 
-        caseSens: $store.caseInSensitive,
+        caseSens: !$store.caseInSensitive,
         startWith: allLogs.at(-1)[0],
         hostName: $lastChosenHost,
       });
@@ -300,19 +375,10 @@
         resetAllLogs();
         resetParams();
         resetSearchParams();
+
         closeWS();
         isPending.set(true);
-        await fetchLogAfterChangeService();
-
-        getLogsFromWS();
-        setLastLogTimestamp();
-
-        setTimeout(() => {
-          scrollToBottom();
-          setTimeout(() => {
-            setInitialScroll(1);
-          }, 1000);
-        });
+        checkIfHashIsInUrl();
       }
     })();
   }
@@ -366,9 +432,9 @@
       }
     })();
   }
+
   onMount(async () => {
     initialScroll = 1;
-    await getFullLogsSet();
 
     const logsContEl = document.querySelector("#logs");
 
@@ -376,7 +442,6 @@
       logsContEl.addEventListener(
         "scroll",
         function () {
-          // or window.addEventListener("scroll"....
           let st = window.pageYOffset || logsContEl.scrollTop;
           if (st > lastScrollTop) {
             scrollDirection = "down";
@@ -424,44 +489,61 @@
             : ""}
           bind:this={elements[i]}
         >
-          {#if i === limit / 2 - 1}
-            <IntersectionObserver
-              element={elements[0]}
-              bind:intersecting={intersects[0]}
-            >
-              <div class="observer" bind:this={elements[0]} />
-            </IntersectionObserver>{/if}
+          <div
+            class="chosenString clickable {$chosenLogsString === logItem?.at(0)
+              ? 'chosen'
+              : ''}"
+            on:click={(e) => {
+              console.log(e.target);
+              let option = "";
+              if ($chosenLogsString !== logItem?.at(0)) {
+                option = logItem?.at(0);
+              }
+              chosenLogsString.set(option);
+            }}
+          >
+            {#if $chosenLogsString === logItem?.at(0)}
+              <LogStringHeader />
+            {/if}
+            {#if i === limit / 2 - 1}
+              <IntersectionObserver
+                element={elements[0]}
+                bind:intersecting={intersects[0]}
+              >
+                <div class="observer" bind:this={elements[0]} />
+              </IntersectionObserver>{/if}
 
-          {#if i === allLogs.length - limit / 2 && allLogs.length >= 3 * limit}
-            <IntersectionObserver
-              element={elements[1]}
-              bind:intersecting={intersects[1]}
-            >
-              <div class="observer" bind:this={elements[1]} />
-            </IntersectionObserver>{/if}
+            {#if i === allLogs.length - limit / 2 && allLogs.length >= 3 * limit}
+              <IntersectionObserver
+                element={elements[1]}
+                bind:intersecting={intersects[1]}
+              >
+                <div class="observer" bind:this={elements[1]} />
+              </IntersectionObserver>{/if}
 
-          {#if i === 0 && allLogs.length >= 3 * limit}
-            <IntersectionObserver
-              element={elements[2]}
-              bind:intersecting={intersects[2]}
-            >
-              <div class="observer" bind:this={elements[2]} />
-            </IntersectionObserver>{/if}
+            {#if i === 0 && allLogs.length >= 3 * limit}
+              <IntersectionObserver
+                element={elements[2]}
+                bind:intersecting={intersects[2]}
+              >
+                <div class="observer" bind:this={elements[2]} />
+              </IntersectionObserver>{/if}
 
-          {#if i === allLogs.length - 1 && allLogs.length >= 3 * limit}
-            <IntersectionObserver
-              element={elements[3]}
-              bind:intersecting={intersects[3]}
-            >
-              <div class="observer" bind:this={elements[3]} />
-            </IntersectionObserver>{/if}
-          <LogsString
-            time={transformLogString(logItem, $store.UTCtime)}
-            message={logItem?.at(1)}
-            status={getLogLineStatus(logItem?.at(1))}
-            isHiglighted={new Date($lastLogTimestamp).getTime() <
-              new Date(logItem?.at(0)).getTime()}
-          />
+            {#if i === allLogs.length - 1 && allLogs.length >= 3 * limit}
+              <IntersectionObserver
+                element={elements[3]}
+                bind:intersecting={intersects[3]}
+              >
+                <div class="observer" bind:this={elements[3]} />
+              </IntersectionObserver>{/if}
+            <LogsString
+              time={transformLogString(logItem, $store.UTCtime)}
+              message={logItem?.at(1)}
+              status={getLogLineStatus(logItem?.at(1))}
+              isHiglighted={new Date($lastLogTimestamp).getTime() <
+                new Date(logItem?.at(0)).getTime()}
+            />
+          </div>
         </div>
       {/each}
 

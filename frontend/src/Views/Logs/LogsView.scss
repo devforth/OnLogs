@@ -24,6 +24,30 @@
     }
   }
 }
+
+.chosenString {
+  position: relative;
+}
+
+div .chosen {
+  tr {
+    background-color: $active-transparent-color-dark;
+    border-radius: $main-border-radius;
+    padding: 12px 0 12px 0;
+  }
+}
+.logStringHeaderContainer {
+  position: absolute;
+  top: 12px;
+  right: 8px;
+  z-index: 7;
+  opacity: 0.4;
+  &:hover {
+    opacity: 1;
+    cursor: pointer;
+  }
+}
+
 .logsTable {
   width: 100%;
   position: relative;

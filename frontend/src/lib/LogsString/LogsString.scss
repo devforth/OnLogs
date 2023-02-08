@@ -83,6 +83,10 @@
     font-size: $main-font-xl;
     cursor: pointer;
   }
+  pre {
+    white-space: pre-line;
+    word-break: break-all;
+  }
 }
 
 .emptyLogsString {

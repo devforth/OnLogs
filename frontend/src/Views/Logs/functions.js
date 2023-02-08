@@ -64,7 +64,6 @@ export const getLogs = async function ({
   containerName = "",
   search = "",
   limit = 0,
-  offset,
   caseSens = false,
   hostName = "",
   startWith = "",
@@ -88,7 +87,7 @@ export const getPrevLogs = async function ({
   containerName = "",
   search = "",
   limit = 0,
-  offset,
+
   caseSens = false,
   hostName = "",
   startWith = "",
@@ -97,7 +96,6 @@ export const getPrevLogs = async function ({
     containerName,
     search,
     limit,
-    offset,
     caseSens,
     startWith,
     hostName,
@@ -141,5 +139,19 @@ export const forceToBottom = () => {
   const logsContainerEl = document.querySelector("#logs");
   if (logsContainerEl) {
     logsContainerEl.scrollTop = logsContainerEl.scrollHeight;
+  }
+};
+
+export const scrollToSpecificLog = (selector) => {
+  const el = document.querySelector(selector);
+
+  if (!el) {
+    return;
+  } else {
+    el.scrollIntoView({
+      behavior: "auto",
+      block: "center",
+      inline: "center",
+    });
   }
 };

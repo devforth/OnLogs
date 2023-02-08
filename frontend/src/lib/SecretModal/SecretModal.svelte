@@ -10,7 +10,7 @@
   import { clickOutside } from "../../lib/OutsideClicker/OutsideClicker.js";
   import { onMount } from "svelte";
   import FetchApi from "../../utils/fetch.js";
-  import { handleKeydown } from "../../utils/functions.js";
+  import { handleKeydown, copyText } from "../../utils/functions.js";
   import { changeKey } from "../../utils/changeKey";
   import DockerSnippet from "./DockerSnippet.svelte";
   import DockerComposeSnippet from "./DockerComposeSnippet.svelte";
@@ -32,18 +32,6 @@
   function choseSnippetOption(opt = "") {
     currentSnippedOption.set(opt);
   }
-
-  const copyText = function (ref, cb) {
-    const text = ref;
-    let textToCopy = text.innerText;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(textToCopy).then(() => {
-        cb();
-      });
-    } else {
-      console.log("Browser Not compatible");
-    }
-  };
 
   onMount(async () => {
     token = await getSecret();
@@ -99,7 +87,7 @@
               tittle: "Success",
               message: "Text has been copied",
               position: "",
-              status: "debug",
+              status: "Success",
             });
             toastIsVisible.set(true);
             setTimeout(() => {

@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?9bc88795b5694d1ebb6e275c2e6b7889?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?9bc88795b5694d1ebb6e275c2e6b7889") format("woff2"),
-url("onLogsFont.woff?9bc88795b5694d1ebb6e275c2e6b7889") format("woff"),
-url("onLogsFont.ttf?9bc88795b5694d1ebb6e275c2e6b7889") format("truetype"),
-url("onLogsFont.svg?9bc88795b5694d1ebb6e275c2e6b7889#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?a5fb001097894217b607f546cf0087a8?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?a5fb001097894217b607f546cf0087a8") format("woff2"),
+url("onLogsFont.woff?a5fb001097894217b607f546cf0087a8") format("woff"),
+url("onLogsFont.ttf?a5fb001097894217b607f546cf0087a8") format("truetype"),
+url("onLogsFont.svg?a5fb001097894217b607f546cf0087a8#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -71,63 +71,75 @@ url("onLogsFont.svg?9bc88795b5694d1ebb6e275c2e6b7889#onLogsFont") format("svg");
 .log-EmptyHeart:before {
 	content: "\f110";
 }
-.log-Eye:before {
+.log-Error:before {
 	content: "\f111";
 }
-.log-Filter:before {
+.log-Eye:before {
 	content: "\f112";
 }
-.log-Group:before {
+.log-Filter:before {
 	content: "\f113";
 }
-.log-Heart:before {
+.log-Group:before {
 	content: "\f114";
 }
-.log-Home:before {
+.log-Heart:before {
 	content: "\f115";
 }
-.log-Info:before {
+.log-Home:before {
 	content: "\f116";
 }
-.log-Json:before {
+.log-Info:before {
 	content: "\f117";
 }
-.log-Last:before {
+.log-Json:before {
 	content: "\f118";
 }
-.log-Leters:before {
+.log-Last:before {
 	content: "\f119";
 }
-.log-Logout:before {
+.log-Leters:before {
 	content: "\f11a";
 }
-.log-Moon:before {
+.log-Logout:before {
 	content: "\f11b";
 }
-.log-Pencil:before {
+.log-Moon:before {
 	content: "\f11c";
 }
-.log-Plus:before {
+.log-Pencil:before {
 	content: "\f11d";
 }
-.log-Pointer:before {
+.log-Plus:before {
 	content: "\f11e";
 }
-.log-Refresh:before {
+.log-Pointer:before {
 	content: "\f11f";
 }
-.log-Search:before {
+.log-Refresh:before {
 	content: "\f120";
 }
-.log-Server:before {
+.log-Search:before {
 	content: "\f121";
 }
-.log-Sun:before {
+.log-Server:before {
 	content: "\f122";
 }
-.log-User:before {
+.log-Share:before {
 	content: "\f123";
 }
-.log-Wheel:before {
+.log-Success:before {
 	content: "\f124";
+}
+.log-Sun:before {
+	content: "\f125";
+}
+.log-User:before {
+	content: "\f126";
+}
+.log-Warning:before {
+	content: "\f127";
+}
+.log-Wheel:before {
+	content: "\f128";
 }

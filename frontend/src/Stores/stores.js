@@ -8,6 +8,9 @@ export const store = writable({
   transformJson: true,
 });
 
+//chosen logs string
+export const chosenLogsString = writable("");
+
 //modals state
 export const userMenuOpen = writable(false);
 export const userDeleteOpen = writable(false);
@@ -67,3 +70,7 @@ export const lastStatisticPeriod = writable("Per hour");
 //spiner
 
 export const isPending = writable(false);
+
+//url hash
+
+export const urlHash = writable("");

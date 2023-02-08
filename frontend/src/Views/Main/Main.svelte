@@ -33,7 +33,7 @@
   import ConfirmationMenu from "../../lib/ConfirmationMenu/ConfirmationMenu.svelte";
   import ServiceSettings from "../ServiceSettings/ServiceSettings.svelte";
   import ServiceSettingsLeft from "../ServiceSettings/ServiceSettingsLeft.svelte";
-  import { lastLogTimestamp, isPending } from "../../Stores/stores.js";
+  import { lastLogTimestamp } from "../../Stores/stores.js";
   import { changeKey } from "../../utils/changeKey.js";
   import Stats from "../../lib/Stats/Stats.svelte";
   import MainChartMenu from "../../lib/ChartMenu/MainChartMenu.svelte";

@@ -45,3 +45,26 @@ export const tryToParseLogString = (str) => {
     return { startText, html, endText };
   } else return null;
 };
+
+export const copyText = function (ref, cb) {
+  const text = ref;
+  let textToCopy = text.innerText;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      cb();
+    });
+  } else {
+    console.log("Browser Not compatible");
+  }
+};
+
+export const copyCustomText = function (text, cb) {
+  let textToCopy = text;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      cb();
+    });
+  } else {
+    console.log("Browser Not compatible");
+  }
+};

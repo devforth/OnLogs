@@ -1,6 +1,6 @@
 .toastContainer {
-  width: 200px;
-  height: 100px;
+  width: 300px;
+  height: 170px;
   position: absolute;
   top: 20px;
   left: 50%;
@@ -8,32 +8,50 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding: 0 12px 0 12px;
 
   border-radius: $main-border-radius;
   box-shadow: $main-shadow;
   box-sizing: border-box;
   z-index: 10;
   color: #ffffff;
-  border: 2px solid;
 
-  &.error {
-    background-color: #992c2c;
+  background-color: $block-bg-color;
+
+  .toastButtonContainer {
+    max-height: 64px;
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
   }
+  .log {
+    font-size: $main-font-l;
+    position: absolute;
+    left: 12px;
+    top: 12px;
+    &-Error {
+      color: #992c2c;
+    }
 
-  &.debug {
-    background-color: #2f912d;
-  }
+    &-Success {
+      color: #2f912d;
+    }
 
-  &.warn {
-    background-color: #ac681a;
-  }
-
-  &.info {
-    background-color: rgb(62, 132, 160);
+    &-Warning {
+      color: #ac681a;
+    }
   }
 
   p {
     overflow: hidden;
     text-overflow: ellipsis;
+    color: $text-dark-color;
+    margin-bottom: 12px;
+    font-size: $main-font-s;
+  }
+  h4 {
+    margin: 12px 0 12px 0;
+    color: $text-dark-color;
+    font-size: $main-font-l;
   }
 }
