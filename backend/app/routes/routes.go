@@ -13,9 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/statistics"
+	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/gorilla/websocket"
@@ -119,7 +121,7 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 		go statistics.RunStatisticForContainer(logItem.Host, logItem.Container)
 	}
 	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/containers"+logItem.Container+"/logs", nil)
-	db.PutLogMessage(current_db, logItem.Host, logItem.Container, logItem.LogLine)
+	containerdb.PutLogMessage(current_db, logItem.Host, logItem.Container, logItem.LogLine)
 	defer current_db.Close()
 
 	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
@@ -473,7 +475,7 @@ func GetPrevLogs(w http.ResponseWriter, req *http.Request) {
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	json.NewEncoder(w).Encode(db.GetLogs(true, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
+	json.NewEncoder(w).Encode(containerdb.GetLogs(true, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
 func GetLogs(w http.ResponseWriter, req *http.Request) {
@@ -491,7 +493,7 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	json.NewEncoder(w).Encode(db.GetLogs(false, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
+	json.NewEncoder(w).Encode(containerdb.GetLogs(false, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
 func GetLogWithPrev(w http.ResponseWriter, req *http.Request) {
@@ -505,7 +507,7 @@ func GetLogWithPrev(w http.ResponseWriter, req *http.Request) {
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	json.NewEncoder(w).Encode(db.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false))
+	json.NewEncoder(w).Encode(containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false))
 }
 
 // TODO return {"error": "Invalid host!"} when host is not exists
@@ -556,7 +558,7 @@ func Login(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&loginData)
 
-	isCorrect := db.CheckUserPassword(loginData.Login, loginData.Password)
+	isCorrect := userdb.CheckUserPassword(loginData.Login, loginData.Password)
 	if !isCorrect {
 		json.NewEncoder(w).Encode(map[string]string{"error": "Wrong login or password!"})
 		return
@@ -604,7 +606,7 @@ func CreateUser(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&loginData)
 
-	err := db.CreateUser(loginData.Login, loginData.Password)
+	err := userdb.CreateUser(loginData.Login, loginData.Password)
 	if err == nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 		return
@@ -618,7 +620,7 @@ func GetUsers(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	users := db.GetUsers()
+	users := userdb.GetUsers()
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string][]string{"users": users})
 }
@@ -632,7 +634,7 @@ func EditUser(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&loginData)
 
-	if !db.IsUserExists(loginData.Login) {
+	if !userdb.IsUserExists(loginData.Login) {
 		json.NewEncoder(w).Encode(map[string]string{"error": "No such user"})
 		return
 	}
@@ -653,7 +655,7 @@ func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
 
-	go db.DeleteContainerLogs(logItem.Host, logItem.Service)
+	go containerdb.DeleteContainerLogs(logItem.Host, logItem.Service)
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
@@ -675,7 +677,7 @@ func DeleteContainer(w http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Can't delete myself!"})
 	}
 
-	go db.DeleteContainer(logItem.Host, logItem.Service)
+	go containerdb.DeleteContainer(logItem.Host, logItem.Service)
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
@@ -701,7 +703,7 @@ func DeleteUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := db.DeleteUser(loginData.Login, loginData.Login)
+	err := userdb.DeleteUser(loginData.Login, loginData.Login)
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return

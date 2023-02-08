@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/devforth/OnLogs/app/db"
+	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -145,7 +145,7 @@ func CreateDaemonToDBStream(containerName string) {
 			continue
 		}
 
-		db.PutLogMessage(current_db, host, containerName, strings.SplitN(string(to_put), " ", 2))
+		containerdb.PutLogMessage(current_db, host, containerName, strings.SplitN(string(to_put), " ", 2))
 
 		to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31:])})
 		for _, c := range vars.Connections[containerName] {
