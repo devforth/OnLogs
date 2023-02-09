@@ -30,4 +30,5 @@ backend/.gitignore
 backend/dist
 *_test.go
 
+.assets/
 README.md
