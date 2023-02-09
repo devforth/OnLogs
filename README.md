@@ -1,3 +1,5 @@
+<img src="./df_powered_by.svg" style="height:36px"/>
+
 # OnLogs
 OnLogs is light docker logs listener that makes your containers debugging much easier.
 
