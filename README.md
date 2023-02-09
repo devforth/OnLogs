@@ -1,5 +1,5 @@
 # OnLogs
-OnLogs is light docker logs listener that makes easier to debug your containers.
+OnLogs is light docker logs listener that makes your containers debugging much easier.
 
 - 🧸 Simple
 - 🔑 Secure
@@ -31,7 +31,7 @@ OnLogs is light docker logs listener that makes easier to debug your containers.
 - 📊 Improved statistics
 
 ## Hello world & ussage
-### Docker Compose example
+### Docker Compose example with traefik
 ```sh
   onlogs:
     image: devforth/onlogs
@@ -57,6 +57,17 @@ volumes:
   onlogs-volume:
 ```
 
+### Docker Run example with traefik
+```sh
+docker run --restart always -e PASSWORD=<any password> -e PORT=<any port> \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /etc/hostname:/etc/hostname \
+    -v onlogs-volume:/leveldb \ 
+    --label traefik.enable=true \
+    --label traefik.http.routers.onlogs.rule=Host\(\`<your host>\`\) \ 
+    --label traefik.http.services.onlogs.loadbalancer.server.port=2874 devforth/onlogs
+```
+
 Once done, just go to <your host> and login as "admin" with <any password>.
 
 ## Available Environment Options:
@@ -66,6 +77,6 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 | PORT               | Port to listen on                                | `2874`             | +
 | JWT_SECRET         | Secret for JWT tokens for users                  | Generates randomly | -
 | ONLOGS_PATH_PREFIX | Base path if you using OnLogs not on subdomain   |                    | only if using on path prefix
-| CLIENT             | Toggles client mode. If enabled, there will be no web interface available and all logs will be sent and stored on HOST                                                      | `false`
+| CLIENT             | Toggles client mode. If enabled, there will be no web interface available and all logs will be sent  and stored on HOST                                                      | `false`
 | HOST               | Url to OnLogs host from protocol to domain name. |                    | if `CLIENT=true`
-| ONLOGS_TOKEN       | Token that will use client to authorize and connect to HOST | Generates with OnLogs interface        | if `CLIENT=true`
+| ONLOGS_TOKEN       | Token that will use client to authorize and connect to HOST | Generates with OnLogs interface   | if `CLIENT=true`
