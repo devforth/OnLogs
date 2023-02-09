@@ -1,6 +1,6 @@
-<a href="https://devforth.io"><img src="./assets/df_powered_by.svg" style="height:36px"/></a>
-<img src="./assets/1.gif" style="height:36px"/>
-<img src="./assets/2.gif" style="height:36px"/>
+<a href="https://devforth.io"><img src="./.assets/df_powered_by.svg" style="height:36px"/></a>
+<img src="./.assets/1.gif" style="height:36px"/>
+<img src="./.assets/2.gif" style="height:36px"/>
 
 # OnLogs
 
