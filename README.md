@@ -60,7 +60,7 @@ volumes:
 ### Docker Run example with traefik
 ```sh
 docker run --restart always -e PASSWORD=<any password> -e PORT=<any port> \
-    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v /var/run/docker.sock:/var/run/docker.sock:ro \
     -v /etc/hostname:/etc/hostname \
     -v onlogs-volume:/leveldb \ 
     --label traefik.enable=true \
