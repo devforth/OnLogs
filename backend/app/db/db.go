@@ -1,29 +1,19 @@
 package db
 
 import (
-	"math/rand"
 	"time"
 
+	"github.com/devforth/OnLogs/app/util"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func CreateOnLogsToken() string {
-	tokenLen := 25
 	tokensDB, _ := leveldb.OpenFile("leveldb/tokens", nil)
 	defer tokensDB.Close()
 
-	letterBytes := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()_+,.:'{}[]"
-	b := make([]byte, tokenLen)
-
-	s1 := rand.NewSource(time.Now().UnixNano())
-	r1 := rand.New(s1)
-	for i := range b {
-		b[i] = letterBytes[r1.Int63()%int64(len(letterBytes))]
-	}
-	token := string(b)
-
+	token := util.GenerateJWTSecret()
 	to_put := time.Now().UTC().Add(24 * time.Hour).String()
-	tokensDB.Put(b, []byte(to_put), nil)
+	tokensDB.Put([]byte(token), []byte(to_put), nil)
 	return token
 }
 

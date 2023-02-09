@@ -26,6 +26,15 @@ func main() {
 	util.ReplacePrefixVariableForFrontend()
 	util.CreateInitUser()
 
+	if os.Getenv("JWT_SECRET") == "" {
+		token, err := os.ReadFile("leveldb/JWT_secret")
+		if err != nil {
+			os.WriteFile("leveldb/JWT_secret", []byte(os.Getenv("JWT_SECRET")), 0700)
+			token, _ = os.ReadFile("leveldb/JWT_secret")
+		}
+		os.Setenv("JWT_SECRET", string(token))
+	}
+
 	pathPrefix := os.Getenv("ONLOGS_PATH_PREFIX")
 	http.HandleFunc(pathPrefix+"/", routes.Frontend)
 	http.HandleFunc(pathPrefix+"/api/v1/addHost", routes.AddHost)

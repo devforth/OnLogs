@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -149,4 +150,20 @@ func GetUserFromJWT(req http.Request) (string, error) {
 	}
 
 	return claims["user"].(string), nil
+}
+
+func GenerateJWTSecret() string {
+	tokenLen := 25
+
+	letterBytes := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-_."
+	b := make([]byte, tokenLen)
+
+	s1 := rand.NewSource(time.Now().UnixNano())
+	r1 := rand.New(s1)
+	for i := range b {
+		b[i] = letterBytes[r1.Int63()%int64(len(letterBytes))]
+	}
+	token := string(b)
+
+	return token
 }
