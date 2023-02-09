@@ -9,7 +9,7 @@ OnLogs is lightweight web-based docker logs viewer that makes your containers de
 - 🔑 Secure and simple way to access logs without server/ssh accession
 - 🏗️ Built with Golang & Svelte.js to extract maximum performance and tiny bundle. Logs storage implemented on top of LevelDB
 - 🧸 Setup is easy as docker run command/compose snippet
-- 🖱 Get every service realtime logs stream with 1 click <img src="./.assets/1.gif" style="height:36px"/>
+- 🖱 Get every service realtime logs stream with 1 click <img src="./.assets/1.gif" style="height:80x"/>
 - 📱 Check logs from smartphone (insane, but we know it happens that you need it)
 - 🧾 Open-Source commercial friendly MIT license
 - 💾 Small size of Docker image (~ 13 MB)
@@ -18,7 +18,7 @@ OnLogs is lightweight web-based docker logs viewer that makes your containers de
 ### Features
 
 - 💻 One host can be used to view logs from all other hosts in case if you are running Cluster
-- 🔗 Share log messages to collegues via link <img src="./.assets/2.gif" style="height:36px"/>
+- 🔗 Share log messages to collegues via link <img src="./.assets/2.gif" style="height:80px"/>
 - 📊 Error/Info/Debug Statistics
 - 🔎 Search through logs (configurable case sensetivity)
 - 👁 View parameters (parsing JSON, show local/UTC time for every logline)
