@@ -1,5 +1,4 @@
 PASSWORD=fsadfsadfad
-JWT_SECRET=fasdfasdfasdfasd
 ENV_NAME = local
 PORT=2874
 ONLOGS_PATH_PREFIX=''
