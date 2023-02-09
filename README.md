@@ -1,35 +1,35 @@
 <a href="https://devforth.io"><img src="./df_powered_by.svg" style="height:36px"/></a>
 
 # OnLogs
-OnLogs is light docker logs listener that makes your containers debugging much easier.
 
-- 🧸 Simple
-- 🔑 Secure
-- ⏱ Fast
-- ✨Almost perfect. Almost✨ 
+OnLogs is lightweight web-based docker logs viewer that makes your containers debugging much easier. 
 
 ### Benefits
+
 - 🔑 Secure and simple way to access logs without server/ssh accession
-- 🏎 Using Golang & Svelte.js to get maximum work speed
-- 🧸 Simple setup as docker run command/compose snippet
-- 🖱 Get every service logs with 1 click
-- ⌚ Saves your time
-- 📱 Manage your logs from smartphone (we know it happens)
+- 🏗️ Built with Golang & Svelte.js to extract maximum performance and tiny bundle. Logs storage implemented on top of LevelDB
+- 🧸 Setup is easy as docker run command/compose snippet
+- 🖱 Get every service realtime logs stream with 1 click
+- 📱 Check logs from smartphone (insane, but we know it happens that you need it)
 - 🧾 Open-Source commercial friendly MIT license
-- 💾 Small size (13.22 MB)
+- 💾 Small size of Docker image (~ 13 MB)
+- 👥 Share access to logs with team members, revoke any time
 
 ### Features
-- 💻 One host can be used to manage logs from all other hosts
-- 🔗 Share log messages via link
-- 📊 Statistics
+
+- 💻 One host can be used to view logs from all other hosts in case if you are running Cluster
+- 🔗 Share log messages to collegues via link
+- 📊 Error/Info/Debug Statistics
 - 🔎 Search through logs (configurable case sensetivity)
 - 👁 View parameters (parsing JSON, show local/UTC time for every logline)
 - 🔴 Realtime logs updating
 
 ### Roadmap
-- 💽 Clear docker logs to avoid dublicates and doubling logs size on disk
+
+- 💽 Clear original docker logs to avoid dublicates and doubling logs size on disk. Currently we are on MVP state.
 - 🗂 Grouping hosts
-- 🏷 Search by tags (log status, time)
+- 🏷 Search & Filter by tags (log status, time)
+- 🔌Plugins and internal ability to notify about some event (e.g. notify when Error happens)
 - 📊 Improved statistics
 
 ## Hello world & ussage
