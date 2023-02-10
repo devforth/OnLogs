@@ -1,6 +1,8 @@
 package containerdb
 
-import "testing"
+import (
+	"testing"
+)
 
 func Test_containStr(t *testing.T) {
 	type args struct {
@@ -26,3 +28,17 @@ func Test_containStr(t *testing.T) {
 		})
 	}
 }
+
+// func TestPutLogMessage(t *testing.T) {
+// 	cont := "testCont"
+// 	host := "testHost"
+// 	vars.Counters_For_Hosts_Last_30_Min[host+"/"+cont] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+// 	db, _ := leveldb.OpenFile("leveldb/hosts"+host+"/container/"+cont, nil)
+// 	defer db.Close()
+
+// 	PutLogMessage(db, host, cont, []string{"2023-02-10T12:56:09.230421754Z", "vokAU6OdSulJGynsz wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
+// 	has, _ := db.Has([]byte("2023-02-10T12:56:09.230421754Z"), nil)
+// 	if !has {
+// 		t.Error("a")
+// 	}
+// }

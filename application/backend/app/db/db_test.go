@@ -1,6 +1,8 @@
 package db
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestIsTokenExists(t *testing.T) {
 	type args struct {
@@ -12,6 +14,7 @@ func TestIsTokenExists(t *testing.T) {
 		want bool
 	}{
 		{"Bad token", args{token: "fasdfadsf"}, false},
+		{"Valid token", args{token: CreateOnLogsToken()}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -19,5 +22,12 @@ func TestIsTokenExists(t *testing.T) {
 				t.Errorf("IsTokenExists() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCreateOnLogsToken(t *testing.T) {
+	token := CreateOnLogsToken()
+	if !IsTokenExists(token) {
+		t.Error("Invalid token")
 	}
 }
