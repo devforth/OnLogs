@@ -105,7 +105,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		}
 
 		var logLine string
-		if caseSensetivity {
+		if !caseSensetivity {
 			logLine = strings.ToLower(string(iter.Value()))
 			message = strings.ToLower(message)
 		} else {
