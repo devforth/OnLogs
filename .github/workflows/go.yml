@@ -29,21 +29,21 @@ jobs:
         go test ./... -coverprofile cover.out
         go tool cover -func cover.out > covered.txt
       
-    # - name: Get coverage
-    #   run: |
-    #     cd application/backend
-    #     for word in $(cat covered.txt); do total_percent=$word; done
-    #     echo $total_percent
-    #     echo "COVERAGE=$total_percent" >> $GITHUB_ENV
-    #     REF=${{ github.ref }}
-    #     IFS='/' read -ra PATHS <<< "$REF"
-    #     BRANCH_NAME="${PATHS[1]}_${PATHS[2]}"
-    #     echo $BRANCH_NAME
-    #     echo "BRANCH=$(echo ${BRANCH_NAME})" >> $GITHUB_ENV
+    - name: Get coverage
+      run: |
+        cd application/backend
+        for word in $(cat covered.txt); do total_percent=$word; done
+        echo $total_percent
+        echo "COVERAGE=$total_percent" >> $GITHUB_ENV
+        REF=${{ github.ref }}
+        IFS='/' read -ra PATHS <<< "$REF"
+        BRANCH_NAME="${PATHS[1]}_${PATHS[2]}"
+        echo $BRANCH_NAME
+        echo "BRANCH=$(echo ${BRANCH_NAME})" >> $GITHUB_ENV
         
     - name: Create passing badge
       uses: schneegans/dynamic-badges-action@v1.0.0
-      # if: ${{ env.COVERAGE!=null }}
+      if: ${{ env.COVERAGE!=null }}
       with:
         auth: ${{ secrets.GIST_SECRET }}
         gistID: 7a0933f8cba0bddbcc95c8b850e32663
@@ -53,13 +53,13 @@ jobs:
         color: green
         namedLogo: checkmarx
         
-    # - name: Create coverage badge
-    #   uses: schneegans/dynamic-badges-action@v1.0.0
-    #   with:
-    #     auth: ${{ secrets.GIST_SECRET }}
-    #     gistID: 7a0933f8cba0bddbcc95c8b850e32663
-    #     filename: onlogs_units_coverage__${{ env.BRANCH }}.json
-    #     label: Test Coverage
-    #     message: ${{ env.COVERAGE }}
-    #     color: green
-    #     namedLogo: go
+    - name: Create coverage badge
+      uses: schneegans/dynamic-badges-action@v1.0.0
+      with:
+        auth: ${{ secrets.GIST_SECRET }}
+        gistID: 7a0933f8cba0bddbcc95c8b850e32663
+        filename: onlogs_units_coverage__${{ env.BRANCH }}.json
+        label: Test Coverage
+        message: ${{ env.COVERAGE }}
+        color: green
+        namedLogo: go
