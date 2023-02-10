@@ -25,9 +25,9 @@ frontend/.gitignore
 *.sln
 *.sw?
 
-backend/leveldb
 backend/.gitignore
 backend/dist
+leveldb
 *_test.go
 
 .assets/
