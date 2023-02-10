@@ -73,7 +73,7 @@ func SendInitRequest() {
 
 	resp, err := http.Post(os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
 	if err != nil {
-		panic("ERROR: Can't send request to host!\n" + err.Error())
+		panic("ERROR: Can't send request to host: " + err.Error())
 	}
 
 	if resp.StatusCode != 200 {
@@ -102,7 +102,7 @@ func GetHost() string {
 		host = string(hostname)
 	}
 
-	if []byte(host)[0] < 32 || []byte(host)[0] < 126 {
+	if host[len(host)-1] < 32 || host[len(host)-1] > 126 {
 		host = host[:len(host)-1]
 	}
 	return host
