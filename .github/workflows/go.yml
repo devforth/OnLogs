@@ -22,6 +22,17 @@ jobs:
       run: |
         cd application/backend
         go get golang.org/x/tools/cmd/cover
+        
+    - name: Create failing badge
+      uses: schneegans/dynamic-badges-action@v1.0.0
+      with:
+        auth: ${{ secrets.GIST_SECRET }}
+        gistID: 7a0933f8cba0bddbcc95c8b850e32663
+        filename: onlogs_passing__${{ env.BRANCH }}.json
+        label: Tests
+        message: Failed
+        color: red
+        namedLogo: checkmarx
 
     - name: Test
       run: |
@@ -51,18 +62,6 @@ jobs:
         label: Tests
         message: Passed
         color: green
-        namedLogo: checkmarx
-        
-    - name: Create failing badge
-      uses: schneegans/dynamic-badges-action@v1.0.0
-      if: ${{ env.COVERAGE==null }}
-      with:
-        auth: ${{ secrets.GIST_SECRET }}
-        gistID: 7a0933f8cba0bddbcc95c8b850e32663
-        filename: onlogs_passing__${{ env.BRANCH }}.json
-        label: Tests
-        message: Failed
-        color: red
         namedLogo: checkmarx
         
     - name: Create coverage badge
