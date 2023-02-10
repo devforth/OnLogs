@@ -1,6 +1,8 @@
 package util
 
 import (
+	"net/http"
+	"os"
 	"testing"
 
 	"github.com/devforth/OnLogs/app/vars"
@@ -37,4 +39,83 @@ func TestCreateInitUser(t *testing.T) {
 	if !isExist {
 		t.Error("User was not created!")
 	}
+}
+
+func TestSendInitRequest(t *testing.T) {
+	defer func() {
+		r := recover().(string)
+		if r != "ERROR: Can't send request to host: Post \"/api/v1/addHost\": unsupported protocol scheme \"\"" {
+			t.Error("Not expected error: ", r)
+		}
+	}()
+	SendInitRequest()
+}
+
+func TestCreateJWT(t *testing.T) {
+	os.Setenv("JWT_SERCRET", "1231efdZF")
+	token := CreateJWT("test_user")
+
+	test_req, _ := http.NewRequest("GET", "", nil)
+	test_req.AddCookie(
+		&http.Cookie{
+			Name:  "onlogs-cookie",
+			Value: token,
+		},
+	)
+
+	username, err := GetUserFromJWT(*test_req)
+	if err != nil {
+		t.Error(err)
+	}
+	if username != "test_user" {
+		t.Error("Username in JWT is wrong: ", username)
+	}
+}
+
+func TestGetHost(t *testing.T) {
+	host, _ := os.Hostname()
+	if host[len(host)-1] < 32 || host[len(host)-1] > 126 {
+		host = host[:len(host)-1]
+	}
+
+	if GetHost() != host {
+		t.Error("Hosts is not matching!")
+	}
+}
+
+func TestGetUserFromJWT(t *testing.T) {
+	os.Setenv("JWT_SERCRET", "1231efdZF")
+
+	test_req1, _ := http.NewRequest("GET", "", nil)
+	test_req1.AddCookie(
+		&http.Cookie{
+			Name:  "onlogs-cookie",
+			Value: CreateJWT("test_user"),
+		},
+	)
+	test_req2, _ := http.NewRequest("GET", "", nil)
+	test_req2.AddCookie(
+		&http.Cookie{
+			Name:  "onlogs-cookie",
+			Value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdXRob3JpemVkIjp0cnVlLCJleHAiOjE2NzU4NDU4MDAsInVzZXIiOiJ0ZXN0X3VzZXIifQ.eqlUc3XkL8u-icC-2nihIrh1IedWP-cC9ewa4OI7wBg",
+		},
+	)
+
+	test_req3, _ := http.NewRequest("GET", "", nil)
+
+	username, _ := GetUserFromJWT(*test_req1)
+	if username != "test_user" {
+		t.Error("Username in JWT is wrong: ", username)
+	}
+
+	_, err := GetUserFromJWT(*test_req2)
+	if err.Error() != "Token is expired" {
+		t.Error("Token should be expired")
+	}
+
+	_, err = GetUserFromJWT(*test_req3)
+	if err.Error() != "401 - Unauthorized!" {
+		t.Error("Req should be unauthorized")
+	}
+
 }
