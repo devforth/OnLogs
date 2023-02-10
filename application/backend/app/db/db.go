@@ -19,8 +19,10 @@ func CreateOnLogsToken() string {
 
 func IsTokenExists(token string) bool {
 	tokensDB, _ := leveldb.OpenFile("leveldb/tokens", nil)
+	defer tokensDB.Close()
 
 	iter := tokensDB.NewIterator(nil, nil)
+	defer iter.Release()
 	iter.First()
 	if string(iter.Key()) == token {
 		tokensDB.Put([]byte(token), []byte("was used"), nil)
@@ -32,8 +34,6 @@ func IsTokenExists(token string) bool {
 			return true
 		}
 	}
-	defer iter.Release()
-	defer tokensDB.Close()
 
 	return false
 }
