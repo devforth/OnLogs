@@ -22,6 +22,7 @@ jobs:
       run: |
         cd application/backend
         go get golang.org/x/tools/cmd/cover
+        echo "BRANCH=$(echo ${BRANCH_NAME})" >> $GITHUB_ENV
         
     - name: Create failing badge
       uses: schneegans/dynamic-badges-action@v1.0.0
@@ -39,7 +40,6 @@ jobs:
         cd application/backend
         go test ./... -coverprofile cover.out
         go tool cover -func cover.out > covered.txt
-        echo "BRANCH=$(echo ${BRANCH_NAME})" >> $GITHUB_ENV
       
     - name: Get coverage
       run: |
