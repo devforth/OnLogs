@@ -12,15 +12,10 @@ import (
 
 func containStr(a string, b string, caseSens bool) bool {
 	if caseSens {
-		if strings.Contains(a, b) {
-			return true
-		}
-		return false
+		return strings.Contains(a, b)
 	}
-	if strings.Contains(strings.ToLower(a), strings.ToLower(b)) {
-		return true
-	}
-	return false
+
+	return strings.Contains(strings.ToLower(a), strings.ToLower(b))
 }
 
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) {
