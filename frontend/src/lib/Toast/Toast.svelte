@@ -8,7 +8,6 @@
   import Button from "../Button/Button.svelte";
   import { handleKeydown } from "../../utils/functions.js";
   import { onDestroy, onMount } from "svelte";
-  console.log($toastTimeoutId);
 
   onDestroy(() => {
     if ($toastTimeoutId) {
@@ -17,24 +16,23 @@
   });
 </script>
 
+<div class="toastContainer {$toast.status}">
+  <div class="toastIcoContainer"><i class="log log-{$toast.status}" /></div>
+  <h4>{$toast.tittle}</h4>
+  <p>{$toast.message}</p>
 
-  <div class="toastContainer {$toast.status}">
-    <div class="toastIcoContainer"><i class="log log-{$toast.status}" /></div>
-    <h4>{$toast.tittle}</h4>
-    <p>{$toast.message}</p>
+  <!-- <ProgressBar /> -->
 
-    <!-- <ProgressBar /> -->
-
-    <div class="toastButtonContainer">
-      <Button
-        title={"Close"}
-        minHeight={24}
-        CB={() => {
-          toastIsVisible.set(false);
-        }}
-      />
-    </div>
+  <div class="toastButtonContainer">
+    <Button
+      title={"Close"}
+      minHeight={24}
+      CB={() => {
+        toastIsVisible.set(false);
+      }}
+    />
   </div>
+</div>
 
 <svelte:window
   on:keydown={(e) => {
