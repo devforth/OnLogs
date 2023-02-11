@@ -31,14 +31,14 @@
 <div class="statsContainer">
   <div class="flex spaceBetween ">
     <i
-      class="log log-Chart clickable"
+      class="log log-Chart "
       on:click={() => {
-        navigate(
-          `${changeKey}/stats/${$lastChosenHost}/${$lastChosenService}`,
-          {
-            replace: true,
-          }
-        );
+        // navigate(
+        //   `${changeKey}/stats/${$lastChosenHost}/${$lastChosenService}`,
+        //   {
+        //     replace: true,
+        //   }
+        // );
       }}
       title="Counter updates every 30 min since OnLogs started. So, it may cause some asynchrony.
 "
