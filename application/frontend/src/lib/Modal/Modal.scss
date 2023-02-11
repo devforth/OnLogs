@@ -1,0 +1,44 @@
+.modalContainer {
+  min-width: 450px;
+  min-height: min-content;
+  background-color: $background-color;
+
+  box-shadow: $main-shadow;
+  padding: $normal-padding;
+  border-radius: $main-border-radius;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  @include for-mobile {
+    z-index: 15;
+    max-width: 96vw;
+    min-width: 40vw;
+    .modalContainer {
+      max-width: 86vw;
+      min-width: 40vw;
+      overflow-x: auto;
+    }
+    .attentionZone {
+      width: 86vw;
+      min-width: 40vw;
+      overflow-x: auto;
+    }
+  }
+}
+
+.closeButton {
+  color: $active-color;
+  height: 32px;
+  width: 32px;
+  border-radius: 100%;
+  background-color: rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  left: calc(100% - 40px);
+  top: 10px;
+  cursor: pointer;
+}

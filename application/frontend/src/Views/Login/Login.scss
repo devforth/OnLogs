@@ -1,0 +1,82 @@
+div.login.contentContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+div.loginForm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 0 15px 0 15px;
+
+  h1#title {
+    color: $active-color;
+  }
+
+  input {
+    font-family: "Ubuntu";
+    font-style: normal;
+    font-weight: 700;
+    font-size: 14px;
+    height: 30px;
+    padding-left: 15px;
+    background-color: #f8fafb;
+    border: 1px solid #a3a3b9;
+    border-radius: 10px;
+    :focus {
+      outline: none;
+    }
+  }
+
+  input.wrong {
+    border: 1px solid red;
+  }
+
+  div.bottom {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+
+    p {
+      font-family: "Ubuntu";
+      font-style: normal;
+      // font-weight: 700;
+      font-weight: 400;
+      font-size: 12px;
+      visibility: hidden;
+      color: red;
+    }
+
+    p.wrong {
+      visibility: initial;
+    }
+
+    div.confirmButton {
+      box-shadow: 1px 1px 15px rgba(5, 39, 70, 0.3);
+      border-radius: 20px;
+    }
+  }
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+}
+.loginContainer {
+  display: flex;
+  min-height: 25vh;
+  min-width: 20vw;
+
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  justify-content: center;
+  align-items: center;
+  background-color: $block-bg-color;
+  border-radius: $main-border-radius;
+  padding: $normal-padding;
+}

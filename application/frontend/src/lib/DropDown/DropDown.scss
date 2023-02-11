@@ -1,0 +1,69 @@
+.dropDownContainer {
+  box-shadow: $main-shadow;
+  border-radius: $main-border-radius;
+  background-color: $block-bg-color;
+  padding: 20px;
+  color: $text-dark-color;
+  position: absolute;
+  z-index: 5;
+  width: max-content;
+  right: 50%;
+  top: 110%;
+  transform: translate(50%);
+  @include for-mobile {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    transform: translate(20%, 0);
+  }
+
+  td {
+    padding-top: 12px;
+    vertical-align: middle;
+  }
+  & {
+    right: 100%;
+    transform: translate(25%);
+    .dropDownRawEl.text {
+      margin-right: 0px;
+    }
+  }
+
+  &.addHost#addHost {
+    @include for-mobile {
+      padding: 12px;
+      position: fixed;
+      left: 0;
+      right: 0;
+      width: auto;
+      top: 0;
+      z-index: 150;
+      transform: none;
+    }
+  }
+}
+
+.emptyBox {
+  height: 28px;
+  width: 1px;
+  opacity: 0;
+}
+
+.dropDownRawEl.ico {
+  margin-right: 12px;
+}
+
+.dropDownRawEl.text {
+  margin-right: 26px;
+  font-size: $main-font-s;
+}
+
+.rowContainer {
+  margin-bottom: 20px;
+}
+
+.isFirst {
+  td {
+    padding-top: 0;
+  }
+}

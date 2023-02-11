@@ -1,0 +1,40 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --base=/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION ",
+    "test": "vite build --base=/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION && node startDebug.js ",
+    "preview": "vite preview",
+    "sb": "start-storybook -p 6006",
+    "build-storybook": "build-storybook",
+    "buildfont": "node generate_font.js"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.19.3",
+    "@storybook/addon-actions": "^6.5.12",
+    "@storybook/addon-essentials": "^6.5.12",
+    "@storybook/addon-interactions": "^6.5.12",
+    "@storybook/addon-links": "^6.5.12",
+    "@storybook/builder-vite": "^0.2.3",
+    "@storybook/svelte": "^6.5.12",
+    "@storybook/testing-library": "^0.0.13",
+    "@sveltejs/vite-plugin-svelte": "^1.0.2",
+    "eslint-plugin-svelte3": "^4.0.0",
+    "fs-extra": "^11.1.0",
+    "sass": "^1.55.0",
+    "svelte": "^3.49.0",
+    "svelte-intersection-observer": "^0.10.0",
+    "vite": "^3.1.0"
+  },
+  "dependencies": {
+    "@vusion/webfonts-generator": "^0.8.0",
+    "chart.js": "^4.2.0",
+    "json-to-html": "^0.1.2",
+    "svelte-chartjs": "^3.1.2",
+    "svelte-loading-spinners": "^0.3.4",
+    "svelte-routing": "^1.6.0"
+  }
+}

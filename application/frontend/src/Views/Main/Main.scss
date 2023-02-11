@@ -1,0 +1,246 @@
+.contentContainer {
+  display: flex;
+  justify-content: space-around;
+}
+
+.subContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  box-sizing: border-box;
+
+  &Left {
+    min-width: 175px;
+    width: 20vw;
+    justify-content: space-between;
+    position: relative;
+
+    #listContainer {
+      min-height: 0;
+      flex-shrink: 2;
+    }
+
+    .clientPanelBox {
+      height: 90px;
+    }
+    @include for-mobile {
+      &.subContainer {
+        width: 1px;
+        position: absolute;
+      }
+      #listContainer {
+        @include hide;
+
+        &.active {
+          @include visible;
+          width: 100vw;
+
+          z-index: 11;
+          position: fixed;
+          .container {
+            padding: 12px;
+            height: 100vh !important;
+            max-height: calc(100vh - 97px) !important;
+          }
+        }
+      }
+      .clientPanelBox {
+        @include visible;
+        position: fixed;
+        bottom: 0px;
+        left: 0;
+        z-index: 100;
+        height: 90px;
+        .container {
+          min-height: 90px !important;
+        }
+      }
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      height: 100%;
+      div {
+        @include for-mobile {
+          border-radius: none;
+          padding: 0px;
+        }
+      }
+    }
+    #listContainer {
+      flex: 1;
+      margin-bottom: $normal-padding;
+    }
+  }
+  &Right {
+    width: 14vw;
+    justify-content: start;
+
+    overflow-y: overflow;
+    overflow-x: hidden;
+
+    &::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+      background-color: rgba(0, 0, 0, 0);
+    }
+
+    &.active::-webkit-scrollbar-thumb {
+      background-color: #0000002a;
+      border-radius: 10px;
+    }
+
+    &::-webkit-scrollbar-corner {
+      display: none;
+    }
+
+    @include for-mobile {
+      @include hide;
+    }
+    @include for-tablet {
+      @include hide;
+    }
+    // @include for-mobile {
+    //   position: absolute;
+    //   opacity: 0;
+    //   left: -99999px;
+    //   right: -99999px;
+    //   height: 1px;
+    //   width: 1px;
+    // }
+  }
+
+  &Middle {
+    justify-content: space-between;
+    height: 100%;
+    margin-left: $normal-padding;
+    margin-right: $normal-padding;
+    @include for-mobile {
+      margin-right: 0;
+      margin-left: 0;
+    }
+    @include for-tablet {
+      margin-right: 0;
+    }
+    @include for-desctop {
+      max-width: 65vw;
+    }
+    @include for-tablet {
+      max-width: 76vw;
+    }
+
+    flex: 1;
+    .container {
+      max-height: 100% !important;
+      @include for-mobile {
+        margin-bottom: 97px;
+        min-height: auto !important;
+      }
+    }
+  }
+  &Middle.withoutRightPanel {
+    width: 100%;
+    max-width: 100%;
+    margin-right: 0;
+    @include for-mobile {
+      width: 100vw;
+    }
+  }
+  @include for-mobile {
+    width: 100%;
+    border-radius: none;
+  }
+}
+
+.subContainerThumb {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.onLogsPanelHeader {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  justify-items: center;
+  position: relative;
+  padding: $container-padding;
+  i {
+    font-size: 18px;
+    line-height: 1.142;
+    display: flex;
+    justify-content: center;
+    justify-items: center;
+    flex-direction: column-reverse;
+
+    &:before {
+      display: flex;
+      justify-content: center;
+      justify-items: center;
+    }
+  }
+  h1 {
+    cursor: pointer;
+    padding: 6px;
+    padding-left: 0;
+    @include for-mobile {
+      margin-right: 24px;
+    }
+  }
+  @include for-mobile {
+    justify-content: end;
+  }
+}
+
+.subContainer {
+  & > .container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow: hidden;
+  }
+}
+
+button:hover {
+  transform: scale(1.1);
+  opacity: 0.8;
+}
+
+.onLogsPanel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 16px;
+}
+
+.relative {
+  position: relative;
+}
+.flex {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.flex-start {
+  justify-content: start;
+}
+div {
+  .contentContainer {
+    @include for-mobile {
+      padding: 0px;
+    }
+  }
+}
+.logSizeInformation {
+  margin-bottom: $normal-padding;
+}
+
+.spaceBetween {
+  justify-content: space-between;
+}
+.end {
+  justify-content: end;
+}

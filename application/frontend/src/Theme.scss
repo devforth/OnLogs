@@ -1,0 +1,226 @@
+@mixin dark-mode {
+  background-color: $background-color-dark;
+  .log {
+    color: inherit;
+  }
+  div {
+    color: $text-dark-color-dark;
+    .dropDownContainer {
+      background-color: $block-bg-color-dark;
+      color: $text-dark-color-dark;
+      box-shadow: $main-shadow-dark;
+    }
+    .container {
+      box-shadow: $container-shadow-dark;
+      background-color: $block-bg-color-dark;
+      color: $text-dark-color-dark;
+    }
+    .highlighted {
+      background-color: $active-color-dark;
+    }
+  }
+  .button {
+    background-color: $btn-primary-color-dark;
+    color: $text-onactive-color-dark;
+  }
+  .logsString {
+    border-color: $lines-color-dark;
+    &.new {
+      background-color: #c244db10;
+    }
+  }
+  input {
+    background-color: $inpun-color-dark;
+    border-color: $inputs-border-color;
+    color: $active-color-dark;
+    &:focus {
+      border-color: $inputs-border-color;
+    }
+  }
+  div.active {
+    .checkboxRoll {
+      background-color: $active-color-dark;
+    }
+  }
+  .userTable tr {
+    border-color: $lines-color-dark;
+  }
+  .addUserButton {
+    background-color: $active-color-dark;
+  }
+  .modalContainer {
+    background-color: $block-bg-color-dark;
+    color: $text-dark-color-dark;
+    box-shadow: $main-shadow-dark;
+    input {
+      outline: none;
+      background-color: $inpun-color-dark;
+      border-color: $inputs-border-color;
+      color: $text-onactive-color-dark;
+    }
+    label,
+    h3 {
+      color: inherit;
+    }
+  }
+  .contentContainer {
+    h1#title {
+      color: $active-color-dark;
+    }
+    input {
+      outline: none;
+      background-color: $inpun-color-dark;
+      border-color: $inputs-border-color;
+      color: $text-onactive-color-dark;
+    }
+  }
+
+  .buttonToBottomContainer {
+    background-color: $active-color-dark;
+
+    .icoContainer {
+      font-size: 14px;
+      z-index: 4;
+      color: white;
+    }
+  }
+
+  .toastContainer {
+    background-color: #797676;
+    box-shadow: $main-shadow-dark;
+  }
+  .searchIcoContainer {
+    color: $text-onactive-color-dark;
+  }
+  .textContainer {
+    .linksContainer {
+      p {
+        &:hover {
+          color: $active-color-dark;
+        }
+      }
+    }
+  }
+  div.clientPanel {
+    li {
+      &:hover {
+        opacity: 0.8;
+      }
+      &.active i {
+        color: $active-color-dark;
+      }
+
+      .higlightedOverlay.active {
+        &.active {
+          border-bottom: 9px solid $active-color-dark;
+        }
+      }
+    }
+  }
+
+  .secretModalContainer {
+    background-color: $block-bg-color-dark;
+    .labelItem {
+      &.active {
+        color: $active-color-dark;
+      }
+    }
+
+    .snippetContainer {
+      background-color: $inpun-color-dark;
+
+      pre {
+        color: $text-dark-color-dark;
+      }
+    }
+
+    .secretMoalTitle {
+      color: $text-dark-color-dark;
+    }
+  }
+  .loginContainer {
+    background-color: $block-bg-color-dark;
+  }
+
+  .logSizeContainer {
+    color: $text-dark-color-dark;
+
+    .commonText {
+      color: $text-dark-color-dark;
+    }
+
+    button.highlighted {
+      background-color: $text-onactive-color-dark;
+      color: $block-bg-color-dark;
+    }
+  }
+  .confirmationContainer {
+    .attentionZone {
+      background-color: $inpun-color-dark;
+    }
+  }
+
+  .serviceSettings {
+    .title {
+      border-bottom: 1px solid $lines-color-dark;
+    }
+  }
+
+  .toastContainer {
+    background-color: $block-bg-color-dark;
+
+    p {
+      color: $text-dark-color-dark;
+    }
+    h4 {
+      color: $text-dark-color-dark;
+    }
+  }
+
+  .progressBarContainer {
+    background-color: $background-color-dark;
+
+    .progressBarValue {
+      background-color: $active-color-dark;
+    }
+  }
+
+  div.loginForm h1#title {
+    color: $active-color-dark;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: #f8f0f020;
+    border-radius: 10px;
+  }
+  .timeSpan {
+    font-size: $main-font-s;
+    & div {
+      cursor: pointer;
+      &.active {
+        color: $active-color-dark;
+      }
+    }
+  }
+  .number {
+    color: #f99157;
+  }
+
+  .string {
+    color: #8abeb7;
+  }
+
+  .key {
+    color: #81a2be;
+  }
+}
+
+.dark-mode {
+  @include dark-mode;
+}
+
+@mixin center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}

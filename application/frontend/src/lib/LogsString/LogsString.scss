@@ -1,0 +1,106 @@
+.logsString {
+  display: flex;
+  vertical-align: middle;
+  align-items: flex-start;
+  position: relative;
+  gap: 10px;
+  padding-bottom: 5px;
+  padding-top: 5px;
+
+  font-size: $main-font-s;
+
+  @include for-mobile {
+    display: block;
+    line-height: 1.5;
+
+    .message {
+      // float: left;
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
+  @include for-tablet {
+    display: block;
+    line-height: 1.5;
+
+    .message {
+      // float: left;
+      display: flex;
+      flex-direction: column;
+    }
+  }
+
+  .onlogs {
+    color: $active-color;
+  }
+
+  .status {
+    vertical-align: middle;
+    margin-right: 12px;
+    min-width: 85px;
+
+    span {
+      font-size: 19px;
+      line-height: 100%;
+    }
+  }
+
+  .time {
+    width: 84px;
+    min-width: 84px;
+    margin-right: 12px;
+    text-align: center;
+    @include for-tablet {
+      width: 150px;
+    }
+    @include for-mobile {
+      width: 150px;
+    }
+  }
+
+  &:after {
+    content: "";
+    width: 100%;
+    position: absolute;
+    bottom: 0;
+
+    z-index: 1;
+  }
+  .hidden {
+    opacity: 0;
+  }
+  &:last-child {
+    border-top: solid 1px $lines-color;
+  }
+  &.new {
+    background-color: #4492db2c;
+  }
+
+  .log-Json {
+    position: absolute;
+    left: 12px;
+    font-size: $main-font-xl;
+    cursor: pointer;
+  }
+  pre {
+    white-space: pre-line;
+    word-break: break-all;
+  }
+}
+
+.emptyLogsString {
+  border-top: none !important;
+}
+
+.number {
+  color: #f99157;
+}
+
+.string {
+  color: #be998a;
+}
+
+.key {
+  color: #6e1963;
+}

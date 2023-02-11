@@ -1,0 +1,90 @@
+// colors
+$active-color: #4e49da;
+$inpun-color: #f8fafb;
+$text-onactive-color: #fbfcff;
+$text-dark-color: #1b1850;
+$text-placeholder-color: #a3a3b9;
+$lines-color: #c8d2e5;
+$background-color: #eaf0f7d7;
+$btn-common-color: #414860;
+$btn-primary-color: #ffffff;
+$block-bg-color: #ffffff;
+$active-transparent-color: #4e49da40;
+
+$active-color-dark: #c244db;
+$inpun-color-dark: #99a9b931;
+$text-onactive-color-dark: #e4e7eb;
+$text-dark-color-dark: #cbd2d9;
+$text-placeholder-color-dark: #e4e7eb;
+$lines-color-dark: #cbd2d9;
+$background-color-dark: #121212;
+$btn-primary-color-dark: #c244db;
+$lines-color-dark: #cbd2d938;
+$inputs-border-color: #ffffff00;
+$active-transparent-color-dark: #c244db40;
+
+$block-bg-color-dark: #1f2933;
+
+// shadows
+
+$main-shadow: 1px 1px 10px rgba(0, 0, 0, 0.15);
+$container-shadow: 1px 1px 30px rgba(5, 39, 70, 0.1);
+
+$main-shadow-dark: 1px 1px 5px rgba(0, 0, 0, 0.7);
+$container-shadow-dark: 1px 1px 12px rgba(23, 24, 24, 0.7);
+
+//border-radius
+
+$main-border-radius: 10px;
+$large-border-radius: 20px;
+
+//fonts
+$main-font-xs: 12px;
+$main-font-s: 14px;
+$main-font-m: 16px;
+$main-font-l: 22px;
+$main-font-xl: 28px;
+
+//line-height
+$line-height: 2.5;
+
+//paddings
+$normal-padding: 12px;
+$container-padding: 12px;
+$container-vertical-padding: 16px;
+
+//mixins
+@mixin hide {
+  position: absolute;
+  opacity: 0;
+  left: -99999px;
+  right: -99999px;
+  height: 1px;
+  width: 1px;
+}
+@mixin visible {
+  position: static;
+  opacity: 1;
+  left: 0px;
+  right: 0px;
+  height: auto;
+  width: auto;
+}
+
+@mixin for-mobile {
+  @media (min-width: 200px) and (max-width: 750px) {
+    @content;
+  }
+}
+
+@mixin for-tablet {
+  @media (min-width: 750px) and (max-width: 950px) {
+    @content;
+  }
+}
+
+@mixin for-desctop {
+  @media (min-width: 950px) {
+    @content;
+  }
+}
