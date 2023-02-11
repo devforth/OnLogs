@@ -33,6 +33,7 @@ export const toast = writable({
   status: "",
 });
 export const toastIsVisible = writable(false);
+export const toastTimeoutId = writable(null);
 
 // active menu option
 export const activeMenuOption = writable("home");
@@ -74,3 +75,7 @@ export const isPending = writable(false);
 //url hash
 
 export const urlHash = writable("");
+
+//cancel fetch (for bed connection)
+
+export const isFeatching = writable(false);

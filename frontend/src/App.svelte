@@ -5,6 +5,7 @@
   import {
     theme,
     activeMenuOption,
+    toastIsVisible,
     lastChosenHost,
     lastChosenService,
     urlHash,
@@ -92,5 +93,5 @@
     <Route path={`/`}><Main /></Route>
     <Route path={`/path`}><Main /></Route>
   </div>
-  <Toast />
+  {#if $toastIsVisible} <Toast />{/if}
 </Router>

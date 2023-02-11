@@ -5,6 +5,7 @@
     chosenLogsString,
     toast,
     toastIsVisible,
+    toastTimeoutId,
   } from "../../Stores/stores.js";
   import { copyCustomText } from "../../utils/functions.js";
 </script>
@@ -24,9 +25,11 @@
             status: "Success",
           });
           toastIsVisible.set(true);
-          setTimeout(() => {
-            toastIsVisible.set(false);
-          }, 5000);
+          toastTimeoutId.set(
+            setTimeout(() => {
+              toastIsVisible.set(false);
+            }, 3000)
+          );
         });
       }}
       minHeight={40}

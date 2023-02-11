@@ -17,6 +17,7 @@
     addHostMenuIsVisible,
     listScrollIsVisible,
     confirmationObj,
+    toastIsVisible,
   } from "../../Stores/stores.js";
   import UserMenu from "../../lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
@@ -54,6 +55,7 @@
   function handleClick(e) {
     if (!e.target.classList.contains("buttonToBottom"))
       lastLogTimestamp.set(new Date().getTime());
+    toastIsVisible.set(false);
   }
 
   export let host = "";
