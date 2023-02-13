@@ -67,6 +67,7 @@ export const getLogs = async function ({
   caseSens = false,
   hostName = "",
   startWith = "",
+  signal,
 }) {
   const newLogs = (
     await api.getLogs({
@@ -77,6 +78,7 @@ export const getLogs = async function ({
       caseSens,
       startWith,
       hostName,
+      signal,
     })
   ).reverse();
 
@@ -142,16 +144,20 @@ export const forceToBottom = () => {
   }
 };
 
-export const scrollToSpecificLog = (selector) => {
+export const scrollToSpecificLog = (selector, position) => {
   const el = document.querySelector(selector);
 
   if (!el) {
     return;
   } else {
-    el.scrollIntoView({
-      behavior: "auto",
-      block: "center",
-      inline: "center",
-    });
+    el.scrollIntoView(
+      position
+        ? position
+        : {
+            behavior: "auto",
+            block: "center",
+            inline: "center",
+          }
+    );
   }
 };

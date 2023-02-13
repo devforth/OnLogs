@@ -13,7 +13,7 @@ class fetchApi {
       : `wss://${document.location.host}/api/v1/`;
     this.authorized = true;
   }
-  async doFetch(method, path, body = null) {
+  async doFetch(method, path, body = null, signal) {
     if (body !== null) {
       body = JSON.stringify(body);
     }
@@ -24,7 +24,8 @@ class fetchApi {
         "Content-Type": "application/json",
       },
       credentials: "include",
-      body: body,
+      body,
+      signal,
     });
 
     if (response.status === 401) {
@@ -68,6 +69,7 @@ class fetchApi {
     caseSens = false,
     startWith = "",
     hostName = "",
+    signal,
   }) {
     return await this.doFetch(
       "GET",
@@ -75,7 +77,9 @@ class fetchApi {
         this.url
       }getLogs?host=${hostName}&id=${containerName}&search=${search}&limit=${limit}&startWith=${startWith}${
         search ? `&caseSens=${caseSens}` : ""
-      }`
+      }`,
+      null,
+      signal
     );
   }
 
