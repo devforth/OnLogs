@@ -45,12 +45,12 @@ jobs:
         go test ./... -coverprofile cover.out
         go tool cover -func cover.out > covered.txt
       
-    # - name: Get coverage
-    #   run: |
-    #     cd application/backend
-    #     for word in $(cat covered.txt); do total_percent=$word; done
-    #     echo $total_percent
-    #     echo "COVERAGE=$total_percent" >> $GITHUB_ENV
+    - name: Get coverage
+      run: |
+        cd application/backend
+        for word in $(cat covered.txt); do total_percent=$word; done
+        echo $total_percent
+        echo "COVERAGE=$total_percent" >> $GITHUB_ENV
         
     - name: Create passing badge
       uses: schneegans/dynamic-badges-action@v1.0.0
