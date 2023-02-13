@@ -15,7 +15,7 @@ func Test_containStr(t *testing.T) {
 		args args
 		want bool
 	}{
-		{"Not contain", args{a: "Amogus", b: "i", caseSens: false}, true},
+		{"Not contain", args{a: "Amogus", b: "sus", caseSens: false}, false},
 		{"Contain without caseSens", args{a: "Amogus", b: "O", caseSens: false}, true},
 		{"Contain, but caseSens", args{a: "Amogus", b: "O", caseSens: true}, false},
 		{"Contain", args{a: "Amogus", b: "o", caseSens: true}, true},
