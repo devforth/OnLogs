@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -110,5 +112,57 @@ func TestSizeByService(t *testing.T) {
 	b, _ := ioutil.ReadAll(rr1.Result().Body)
 	if !strings.Contains(string(b), "\"0.0\"") {
 		t.Error("Wrong size: ", string(b))
+	}
+}
+
+func TestLogin(t *testing.T) {
+	postBody, _ := json.Marshal(map[string]string{
+		"Login":    "testuser",
+		"Password": "testsuser",
+	})
+	req1, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody))
+	userdb.CreateUser("testuser", "testuser")
+
+	rr1 := httptest.NewRecorder()
+	handler1 := http.HandlerFunc(Login)
+	handler1.ServeHTTP(rr1, req1)
+	b, _ := ioutil.ReadAll(rr1.Result().Body)
+	if !strings.Contains(string(b), "Wrong") {
+		t.Error("Password must be wrong!")
+	}
+
+	postBody2, _ := json.Marshal(map[string]string{
+		"Login":    "testuser",
+		"Password": "testuser",
+	})
+	req2, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody2))
+	rr2 := httptest.NewRecorder()
+	handler2 := http.HandlerFunc(Login)
+	handler2.ServeHTTP(rr2, req2)
+	b2, _ := ioutil.ReadAll(rr2.Result().Body)
+	if !strings.Contains(string(b2), "null") {
+		t.Error("Password must be wrong!")
+	}
+}
+
+func TestLogout(t *testing.T) {
+	postBody, _ := json.Marshal(map[string]string{
+		"Login":    "testuser",
+		"Password": "testuser",
+	})
+	req1, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody))
+	userdb.CreateUser("testuser", "testuser")
+
+	rr1 := httptest.NewRecorder()
+	handler1 := http.HandlerFunc(Login)
+	handler1.ServeHTTP(rr1, req1)
+
+	rr2 := httptest.NewRecorder()
+	req1.AddCookie(rr1.Result().Cookies()[0])
+	handler2 := http.HandlerFunc(Logout)
+	handler2.ServeHTTP(rr2, req1)
+
+	if rr2.Result().Cookies()[0].Value != "toDelete" {
+		t.Error("Wrong cookie value!")
 	}
 }
