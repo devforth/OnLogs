@@ -369,7 +369,7 @@ func GetAllStats(w http.ResponseWriter, req *http.Request) {
 	to_return["other"] += vars.Counters_For_Hosts_Last_30_Min[host]["other"]
 
 	if period.Value > 1 {
-		var tmp_stats map[string]map[string]int
+		var tmp_stats map[string]int
 		iter := vars.Stat_Hosts_DBs[host].NewIterator(nil, nil)
 		defer iter.Release()
 		iter.Last()
@@ -381,11 +381,11 @@ func GetAllStats(w http.ResponseWriter, req *http.Request) {
 		}
 		for iter.Next() {
 			json.Unmarshal(iter.Value(), &tmp_stats)
-			to_return["debug"] += tmp_stats["onlogs_all"]["debug"]
-			to_return["error"] += tmp_stats["onlogs_all"]["error"]
-			to_return["info"] += tmp_stats["onlogs_all"]["info"]
-			to_return["warn"] += tmp_stats["onlogs_all"]["warn"]
-			to_return["other"] += tmp_stats["onlogs_all"]["other"]
+			to_return["debug"] += tmp_stats["debug"]
+			to_return["error"] += tmp_stats["error"]
+			to_return["info"] += tmp_stats["info"]
+			to_return["warn"] += tmp_stats["warn"]
+			to_return["other"] += tmp_stats["other"]
 		}
 	}
 	w.Header().Add("Content-Type", "application/json")
@@ -423,7 +423,7 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 	to_return["other"] += vars.Counters_For_Containers_Last_30_Min[location]["other"]
 
 	if data.Value > 1 {
-		var tmp_stats map[string]map[string]int
+		var tmp_stats map[string]int
 		current_db := vars.Stat_Containers_DBs[location]
 		if vars.Stat_Containers_DBs[location] == nil {
 			current_db, _ = leveldb.OpenFile("leveldb/hosts/"+data.Host+"/containers/"+data.Service+"/statistics", nil)
@@ -443,11 +443,11 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 		}
 		for iter.Next() {
 			json.Unmarshal(iter.Value(), &tmp_stats)
-			to_return["debug"] += tmp_stats[location]["debug"]
-			to_return["error"] += tmp_stats[location]["error"]
-			to_return["info"] += tmp_stats[location]["info"]
-			to_return["warn"] += tmp_stats[location]["warn"]
-			to_return["other"] += tmp_stats[location]["other"]
+			to_return["debug"] += tmp_stats["debug"]
+			to_return["error"] += tmp_stats["error"]
+			to_return["info"] += tmp_stats["info"]
+			to_return["warn"] += tmp_stats["warn"]
+			to_return["other"] += tmp_stats["other"]
 		}
 	}
 	w.Header().Add("Content-Type", "application/json")
