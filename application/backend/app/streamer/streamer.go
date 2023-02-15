@@ -3,6 +3,7 @@ package streamer
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
@@ -45,6 +46,7 @@ func StreamLogs() {
 	for {
 		createStreams(vars.DockerContainers)
 		time.Sleep(20 * time.Second)
+		vars.Year = strconv.Itoa(time.Now().UTC().Year())
 		vars.DockerContainers = daemon.GetContainersList()
 	}
 }
