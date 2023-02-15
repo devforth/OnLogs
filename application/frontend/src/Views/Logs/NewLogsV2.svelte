@@ -116,6 +116,7 @@
 
   async function checkIfHashIsInUrl() {
     getLogsFromWS();
+    topFetchIsStarted = true;
     let timeStamp = "";
     if ($urlHash) {
       timeStamp = $urlHash.slice(1);
@@ -175,7 +176,7 @@
           hostName: $lastChosenHost,
         })),
       ];
-      console.log("downLOgs", downLogs);
+
       if (limit - downLogs.length) {
         upperLogs = await api.getLogs({
           containerName: $lastChosenService,
@@ -201,10 +202,19 @@
       await tick();
       isPending.set(false);
 
-      scrollToSpecificLog(".chosen");
-
       urlHash.set("");
+      let counter = 0;
+      const intervalId = setInterval(() => {
+        counter = counter + 1;
+        scrollToSpecificLog(".chosen");
+        if (counter > 10 || document.querySelector(".chosen")) {
+          clearInterval(intervalId);
+        }
+      }, 500);
     }
+    setTimeout(() => {
+      topFetchIsStarted = false;
+    }, 5000);
   }
 
   function addLogFromWS(logfromWS) {
@@ -379,9 +389,8 @@
 
     if (!$isFeatching && !topFetchIsStarted) {
       isFeatching.set(true);
-      console.log("before", topFetchIsStarted);
+
       topFetchIsStarted = true;
-      console.log("after", topFetchIsStarted);
 
       const data = await getLogs({
         containerName: $lastChosenService,
@@ -488,6 +497,8 @@
     })();
   }
 
+  
+
   $: {
     isInterceptorVIsible(intersects[0], fetchedLogs, !mouseDownBlockFetch);
   }
@@ -557,11 +568,15 @@
     }, 1000);
 
     window.addEventListener("resize", () => {
-      limit = Math.round(logsContEl.offsetHeight / 300) * 10;
+      const logsContEl = document.querySelector("#logs");
+      if (logsContEl) {
+        limit = Math.round(logsContEl.offsetHeight / 300) * 10;
+      }
     });
   });
 
   afterUpdate(() => {
+  
     if (autoscroll) {
       div && div.scrollTo(0, div.scrollHeight ? div.scrollHeight : 0);
     }
@@ -604,7 +619,6 @@
                 ? 'chosen'
                 : ''}"
               on:click={(e) => {
-                console.log(e.target);
                 let option = "";
                 if ($chosenLogsString !== logItem?.at(0)) {
                   option = logItem?.at(0);
