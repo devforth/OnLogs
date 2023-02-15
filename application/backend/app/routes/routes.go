@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
@@ -646,6 +647,29 @@ func GetUsers(w http.ResponseWriter, req *http.Request) {
 	users := userdb.GetUsers()
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string][]string{"users": users})
+}
+
+func UpdateUserSettings(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	var settings map[string]interface{}
+	body, _ := ioutil.ReadAll(req.Body)
+	json.Unmarshal(body, &settings)
+	username, _ := util.GetUserFromJWT(*req)
+	userdb.UpdateUserSettings(username, settings)
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+}
+
+func GetUserSettings(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+	username, _ := util.GetUserFromJWT(*req)
+
+	w.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(userdb.GetUserSettings(username))
 }
 
 func EditUser(w http.ResponseWriter, req *http.Request) {

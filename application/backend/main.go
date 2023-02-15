@@ -38,6 +38,8 @@ func main() {
 	pathPrefix := os.Getenv("ONLOGS_PATH_PREFIX")
 	http.HandleFunc(pathPrefix+"/", routes.Frontend)
 	http.HandleFunc(pathPrefix+"/api/v1/addHost", routes.AddHost)
+	http.HandleFunc(pathPrefix+"/api/v1/updateUserSettings", routes.UpdateUserSettings)
+	http.HandleFunc(pathPrefix+"/api/v1/getUserSettings", routes.GetUserSettings)
 	http.HandleFunc(pathPrefix+"/api/v1/addLogLine", routes.AddLogLine)
 	http.HandleFunc(pathPrefix+"/api/v1/changeFavorite", routes.ChangeFavourite)
 	http.HandleFunc(pathPrefix+"/api/v1/checkCookie", routes.CheckCookie)
