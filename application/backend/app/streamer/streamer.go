@@ -27,6 +27,8 @@ func createStreams(containers []string) {
 					fmt.Println("ERROR: " + container + ": " + err.Error())
 				}
 			}
+			statusesDB, _ := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containers/"+container+"/statuses", nil)
+			vars.Statuses_DBs[util.GetHost()+"/"+container] = statusesDB
 			vars.ActiveDBs[container] = newDB
 			vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
 			if os.Getenv("CLIENT") != "" {

@@ -497,6 +497,28 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(containerdb.GetLogs(false, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
 }
 
+func GetLogsByTag(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	params := req.URL.Query()
+	limit, _ := strconv.Atoi(params.Get("limit"))
+	caseSensetive, err := strconv.ParseBool(params.Get("caseSens"))
+	if err != nil {
+		caseSensetive = false
+	}
+	w.Header().Add("Content-Type", "application/json")
+	if params.Get("host") == "" {
+		panic("Host is not mentioned!")
+	}
+
+	json.NewEncoder(w).Encode(containerdb.GetLogsByStatus(
+		params.Get("host"), params.Get("id"), params.Get("message"), params.Get("status"),
+		limit, params.Get("startWith"), false, true, caseSensetive,
+	))
+}
+
 func GetLogWithPrev(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return

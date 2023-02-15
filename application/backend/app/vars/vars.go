@@ -9,6 +9,7 @@ var (
 	ActiveDBs                           = map[string]*leveldb.DB{}
 	Stat_Containers_DBs                 = map[string]*leveldb.DB{}
 	Stat_Hosts_DBs                      = map[string]*leveldb.DB{}
+	Statuses_DBs                        = map[string]*leveldb.DB{}
 	Active_Daemon_Streams               = []string{}
 	DockerContainers                    = []string{}
 	Connections                         = map[string][]websocket.Conn{}
