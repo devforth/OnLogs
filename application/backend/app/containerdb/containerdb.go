@@ -46,7 +46,7 @@ func getDB(host string, container string, dbType string) *leveldb.DB {
 
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) {
 	if len(message_item[0]) < 30 {
-		fmt.Println("ERROR: got broken timestamp: ", message_item)
+		fmt.Println("ERROR: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
 		return
 	}
 
