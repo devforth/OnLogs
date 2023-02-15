@@ -1,6 +1,9 @@
 package vars
 
 import (
+	"strconv"
+	"time"
+
 	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -9,6 +12,7 @@ var (
 	ActiveDBs                           = map[string]*leveldb.DB{}
 	Stat_Containers_DBs                 = map[string]*leveldb.DB{}
 	Stat_Hosts_DBs                      = map[string]*leveldb.DB{}
+	Statuses_DBs                        = map[string]*leveldb.DB{}
 	Active_Daemon_Streams               = []string{}
 	DockerContainers                    = []string{}
 	Connections                         = map[string][]websocket.Conn{}
@@ -16,6 +20,7 @@ var (
 	Counters_For_Containers_Last_30_Min = map[string]map[string]int{}
 	FavsDB, _                           = leveldb.OpenFile("leveldb/favourites", nil)
 	UsersDB, _                          = leveldb.OpenFile("leveldb/users", nil) // should i ever close it?
+	Year                                = strconv.Itoa(time.Now().UTC().Year())
 )
 
 type UserData struct {

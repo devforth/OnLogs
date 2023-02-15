@@ -3,6 +3,7 @@ package streamer
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
@@ -27,6 +28,8 @@ func createStreams(containers []string) {
 					fmt.Println("ERROR: " + container + ": " + err.Error())
 				}
 			}
+			statusesDB, _ := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containers/"+container+"/statuses", nil)
+			vars.Statuses_DBs[util.GetHost()+"/"+container] = statusesDB
 			vars.ActiveDBs[container] = newDB
 			vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
 			if os.Getenv("CLIENT") != "" {
@@ -43,6 +46,7 @@ func StreamLogs() {
 	for {
 		createStreams(vars.DockerContainers)
 		time.Sleep(20 * time.Second)
+		vars.Year = strconv.Itoa(time.Now().UTC().Year())
 		vars.DockerContainers = daemon.GetContainersList()
 	}
 }
