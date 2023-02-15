@@ -260,6 +260,7 @@ func GetChartData(w http.ResponseWriter, req *http.Request) {
 		to_return[datetime]["warn"] += tmp_stats["warn"]
 		to_return[datetime]["other"] += tmp_stats["other"]
 	}
+	to_return["now"] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	to_return["now"]["error"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["error"]
 	to_return["now"]["debug"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["debug"]
 	to_return["now"]["info"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["info"]
