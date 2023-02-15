@@ -248,3 +248,46 @@ func TestGetStats(t *testing.T) {
 		t.Error("Wrong value!\n", res)
 	}
 }
+
+func TestGetChartData(t *testing.T) {
+	postBody1, _ := json.Marshal(map[string]string{
+		"Login":    "testuser",
+		"Password": "testuser",
+	})
+	req1, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody1))
+	userdb.CreateUser("testuser", "testuser")
+	rr1 := httptest.NewRecorder()
+	handler1 := http.HandlerFunc(Login)
+	handler1.ServeHTTP(rr1, req1)
+
+	cur_db, _ := leveldb.OpenFile("leveldb/hosts/test/statistics", nil)
+	vars.Stat_Hosts_DBs["test"] = cur_db
+	vars.Counters_For_Containers_Last_30_Min["test/test"] = map[string]int{"error": 2, "debug": 1, "info": 3, "warn": 5, "other": 4}
+	to_put, _ := json.Marshal(vars.Counters_For_Containers_Last_30_Min["test/test"])
+	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), ".")[0], " ", "T", 1) + "Z"
+	cur_db.Put([]byte(datetime), to_put, nil)
+
+	rr2 := httptest.NewRecorder()
+	postBody2, _ := json.Marshal(map[string]interface{}{
+		"host":        "test",
+		"service":     "test",
+		"unit":        "hour",
+		"unitsAmount": 2,
+	})
+	req2, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody2))
+	req2.AddCookie(rr1.Result().Cookies()[0])
+	handler2 := http.HandlerFunc(GetChartData)
+	handler2.ServeHTTP(rr2, req2)
+
+	res := map[string]map[string]int{}
+	b, _ := ioutil.ReadAll(rr2.Body)
+	json.Unmarshal(b, &res)
+	datetime = datetime[:len(datetime)-6] + "00Z"
+	if res[datetime]["debug"] != 1 || res[datetime]["error"] != 2 ||
+		res[datetime]["info"] != 3 || res[datetime]["other"] != 4 ||
+		res[datetime]["warn"] != 5 || res["now"]["debug"] != 1 ||
+		res["now"]["error"] != 2 || res["now"]["info"] != 3 ||
+		res["now"]["other"] != 4 || res["now"]["warn"] != 5 {
+		t.Error("Wrong value!\n", res[datetime])
+	}
+}
