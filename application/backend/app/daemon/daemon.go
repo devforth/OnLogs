@@ -142,9 +142,10 @@ func CreateDaemonToDBStream(containerName string) {
 			continue
 		}
 
-		containerdb.PutLogMessage(current_db, host, containerName, strings.SplitN(string(to_put), " ", 2))
+		logItem := strings.SplitN(string(to_put), " ", 2)
+		containerdb.PutLogMessage(current_db, host, containerName, logItem)
 
-		to_send, _ := json.Marshal([]string{string(to_put[:30]), string(to_put[31:])})
+		to_send, _ := json.Marshal(logItem)
 		for _, c := range vars.Connections[containerName] {
 			c.WriteMessage(1, to_send)
 		}
