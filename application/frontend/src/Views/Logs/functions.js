@@ -35,15 +35,13 @@ export const transformLogString = (t, options) => {
   return options
     ? new Date(
         new Date().setTime(
-          new Date(t?.at(0)?.slice(0, 19)?.replace("T", " "))?.getTime()
+          new Date(t?.at(0)?.slice(0, 22)?.replace("T", " "))?.getTime()
         )
       ).toLocaleString("sv-EN", {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",
+        fractionalSecondDigits: 3,
       })
     : new Date(
         new Date().setTime(
