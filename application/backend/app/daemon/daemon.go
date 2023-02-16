@@ -45,17 +45,15 @@ func sendLogMessage(container string, message string) {
 	}
 }
 
-func validateMessage(message string) ([]byte, bool) {
-	to_put := []byte(message)[:len(message)]
-	if len(to_put) < 31 {
-		return nil, false
+func validateMessage(message string) (string, bool) {
+	for !strings.HasPrefix(message, vars.Year) {
+		message = message[1:]
+		if len(message) < 31 {
+			return "", false
+		}
 	}
 
-	for to_put[0] < 32 || to_put[0] > 126 { // is it ok?
-		to_put = to_put[1:]
-	}
-
-	return to_put, true
+	return message, true
 }
 
 func createConnection(containerName string) net.Conn {
@@ -103,12 +101,12 @@ func CreateDaemonToHostStream(containerName string) {
 			return
 		}
 
-		to_put, valid := validateMessage(logLine)
+		logLine, valid := validateMessage(logLine)
 		if !valid {
 			continue
 		}
 
-		sendLogMessage(containerName, string(to_put))
+		sendLogMessage(containerName, logLine)
 
 		if time.Now().Unix()-lastSleep > 1 {
 			time.Sleep(5 * time.Millisecond)
@@ -137,14 +135,13 @@ func CreateDaemonToDBStream(containerName string) {
 			return
 		}
 
-		to_put, valid := validateMessage(logLine)
+		logLine, valid := validateMessage(logLine)
 		if !valid {
 			continue
 		}
+		logItem := strings.SplitN(logLine, " ", 2)
 
-		logItem := strings.SplitN(string(to_put), " ", 2)
 		containerdb.PutLogMessage(current_db, host, containerName, logItem)
-
 		to_send, _ := json.Marshal(logItem)
 		for _, c := range vars.Connections[containerName] {
 			c.WriteMessage(1, to_send)

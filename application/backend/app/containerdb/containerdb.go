@@ -50,10 +50,6 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 		return
 	}
 
-	for !strings.HasPrefix(message_item[0], vars.Year) && len(message_item[0]) > 20 {
-		message_item[0] = message_item[0][1:]
-	}
-
 	if host == "" {
 		panic("Host is not mentioned!")
 	}
