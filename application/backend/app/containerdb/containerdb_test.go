@@ -35,28 +35,28 @@ func Test_containStr(t *testing.T) {
 func TestPutLogMessage(t *testing.T) {
 	cont := "testCont"
 	host := "testHost"
-	vars.Counters_For_Containers_Last_30_Min[host+"/"+cont] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	vars.Counters_For_Containers_Last_30_Min[host+"/"+cont] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	db, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+cont+"/logs", nil)
 	statusDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+cont+"statuses", nil)
 	vars.Statuses_DBs[host+"/"+cont] = statusDB
 	defer statusDB.Close()
 	defer db.Close()
 
-	PutLogMessage(db, host, cont, []string{"fasd2023-02-10T12:56:09.230421754Z", "vokAU6OdSulJGynsz wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
-	PutLogMessage(db, host, cont, []string{"2023-02-10T12:57:09.230421754Z", "ERROR wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
-	PutLogMessage(db, host, cont, []string{"2023-02-10T12:58:09.230421754Z", "WARN vokAU6OdSulJGynsz\r\n"})
-	PutLogMessage(db, host, cont, []string{"2023-02-10T12:59:09.230421754Z", "DEBUG wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
-	PutLogMessage(db, host, cont, []string{"2023-02-10T12:59:59.230421754Z", "INFO fasdfasdfB&^*inuk\r\n"})
+	PutLogMessage(db, host, cont, []string{vars.Year + "-02-10T12:56:09.230421754Z", "vokAU6OdSulJGynsz wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
+	PutLogMessage(db, host, cont, []string{vars.Year + "-02-10T12:57:09.230421754Z", "ERROR wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
+	PutLogMessage(db, host, cont, []string{vars.Year + "-02-10T12:58:09.230421754Z", "WARN vokAU6OdSulJGynsz\r\n"})
+	PutLogMessage(db, host, cont, []string{vars.Year + "-02-10T12:59:09.230421754Z", "DEBUG wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
+	PutLogMessage(db, host, cont, []string{vars.Year + "-02-10T12:59:59.230421754Z", "INFO fasdfasdfB&^*inuk\r\n"})
 
 	keys := []string{
-		"2023-02-10T12:56:09.230421754Z", "2023-02-10T12:57:09.230421754Z",
-		"2023-02-10T12:58:09.230421754Z", "2023-02-10T12:59:09.230421754Z",
-		"2023-02-10T12:59:59.230421754Z",
+		vars.Year + "-02-10T12:56:09.230421754Z", vars.Year + "-02-10T12:57:09.230421754Z",
+		vars.Year + "-02-10T12:58:09.230421754Z", vars.Year + "-02-10T12:59:09.230421754Z",
+		vars.Year + "-02-10T12:59:59.230421754Z",
 	}
 	for _, key := range keys {
 		has, _ := db.Has([]byte(key), nil)
 		if !has {
-			t.Error("Key is not in db: ", key)
+			t.Error("Key is not in db: " + key)
 		}
 	}
 
@@ -72,35 +72,35 @@ func TestPutLogMessage(t *testing.T) {
 			t.Error("Not expected error: ", r)
 		}
 	}()
-	PutLogMessage(db, "", cont, []string{"2023-02-10T12:57:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "", cont, []string{vars.Year + "-02-10T12:57:09.230421754Z", "fasdf\r\n"})
 }
 
 func TestGetLogs(t *testing.T) {
 	db, _ := leveldb.OpenFile("leveldb/hosts/Test/containers/TestGetLogsCont/logs", nil)
-	vars.Counters_For_Containers_Last_30_Min["Test/TestGetLogsCont"] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	vars.Counters_For_Containers_Last_30_Min["Test/TestGetLogsCont"] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	statusDB, _ := leveldb.OpenFile("leveldb/hosts/Test/containers/TestGetLogsCont/statuses", nil)
 	vars.Statuses_DBs["Test/TestGetLogsCont"] = statusDB
 	defer statusDB.Close()
 
-	PutLogMessage(db, "Test", "TestGetLogsCont", []string{"2023-02-10T12:57:09.230421754Z", "fasdf\r\n"})
-	PutLogMessage(db, "Test", "TestGetLogsCont", []string{"2023-02-10T12:51:09.230421754Z", "fasdf\r\n"})
-	PutLogMessage(db, "Test", "TestGetLogsCont", []string{"2023-02-10T12:52:09.230421754Z", "fasdf\r\n"})
-	PutLogMessage(db, "Test", "TestGetLogsCont", []string{"2023-02-10T12:53:09.230421754Z", "fasdf\r\n"})
-	PutLogMessage(db, "Test", "TestGetLogsCont", []string{"2023-02-10T12:54:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "Test", "TestGetLogsCont", []string{vars.Year + "-02-10T12:57:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "Test", "TestGetLogsCont", []string{vars.Year + "-02-10T12:51:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "Test", "TestGetLogsCont", []string{vars.Year + "-02-10T12:52:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "Test", "TestGetLogsCont", []string{vars.Year + "-02-10T12:53:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "Test", "TestGetLogsCont", []string{vars.Year + "-02-10T12:54:09.230421754Z", "fasdf\r\n"})
 	db.Close()
-	logs := GetLogs(false, true, "Test", "TestGetLogsCont", "", 30, "2023-02-10T12:57:09.230421754Z", false)
+	logs := GetLogs(false, true, "Test", "TestGetLogsCont", "", 30, vars.Year+"-02-10T12:57:09.230421754Z", false)
 	if len(logs) != 5 {
 		t.Error("5 logItems must be returned!")
 	}
-	if logs[0][0] != "2023-02-10T12:57:09.230421754Z" {
+	if logs[0][0] != vars.Year+"-02-10T12:57:09.230421754Z" {
 		t.Error("Invalid first logItem datetime: ", logs[0][0])
 	}
 
-	logs = GetLogs(true, false, "Test", "TestGetLogsCont", "", 30, "2023-02-10T12:51:09.230421754Z", false)
+	logs = GetLogs(true, false, "Test", "TestGetLogsCont", "", 30, vars.Year+"-02-10T12:51:09.230421754Z", false)
 	if len(logs) != 4 {
 		t.Error("4 logItems must be returned!")
 	}
-	if logs[0][0] != "2023-02-10T12:52:09.230421754Z" {
+	if logs[0][0] != vars.Year+"-02-10T12:52:09.230421754Z" {
 		t.Error("Invalid first logItem datetime: ", logs[0][0])
 	}
 }

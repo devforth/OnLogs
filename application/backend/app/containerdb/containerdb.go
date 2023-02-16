@@ -50,10 +50,6 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 		return
 	}
 
-	for !strings.HasPrefix(message_item[0], vars.Year) && len(message_item[0]) > 20 {
-		message_item[0] = message_item[0][1:]
-	}
-
 	if host == "" {
 		panic("Host is not mentioned!")
 	}
@@ -87,6 +83,9 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 func GetLogsByStatus(host string, container string, message string, status string, limit int, startWith string, getPrev bool, include bool, caseSensetivity bool) [][]string {
 	logs_db := getDB(host, container, "logs")
 	db := getDB(host, container, "statuses")
+	if host != util.GetHost() || vars.ActiveDBs[container] == nil {
+		defer logs_db.Close()
+	}
 
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()
@@ -157,7 +156,7 @@ func GetLogsByStatus(host string, container string, message string, status strin
 
 func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) [][]string {
 	db := getDB(host, container, "logs")
-	if host != util.GetHost() {
+	if host != util.GetHost() || vars.ActiveDBs[container] == nil {
 		defer db.Close()
 	}
 

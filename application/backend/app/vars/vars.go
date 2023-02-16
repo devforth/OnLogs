@@ -16,8 +16,8 @@ var (
 	Active_Daemon_Streams               = []string{}
 	DockerContainers                    = []string{}
 	Connections                         = map[string][]websocket.Conn{}
-	Counters_For_Hosts_Last_30_Min      = map[string]map[string]int{}
-	Counters_For_Containers_Last_30_Min = map[string]map[string]int{}
+	Counters_For_Hosts_Last_30_Min      = map[string]map[string]uint64{}
+	Counters_For_Containers_Last_30_Min = map[string]map[string]uint64{}
 	FavsDB, _                           = leveldb.OpenFile("leveldb/favourites", nil)
 	UsersDB, _                          = leveldb.OpenFile("leveldb/users", nil) // should i ever close it?
 	Year                                = strconv.Itoa(time.Now().UTC().Year())

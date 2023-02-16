@@ -12,13 +12,10 @@ func Test_validateMessage(t *testing.T) {
 	tests := []struct {
 		name  string
 		args  args
-		want  []byte
+		want  string
 		want1 bool
 	}{
-		{"Bad message", args{message: string([]byte{10})}, nil, false},
-		{"Bad message for validation", args{message: string([]byte{10, 10, 10, 10, 10, 10, 10, 10, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50,
-			50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50})}, []byte{50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50,
-			50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50}, true},
+		{"Bad message", args{message: string([]byte{10})}, "", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

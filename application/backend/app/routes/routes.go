@@ -243,7 +243,7 @@ func GetChartData(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	to_return := map[string]map[string]int{}
+	to_return := map[string]map[string]uint64{}
 	for iter.Next() {
 		var datetime string
 		if data.Unit == "month" {
@@ -251,8 +251,8 @@ func GetChartData(w http.ResponseWriter, req *http.Request) {
 		} else {
 			datetime = strings.Split(string(iter.Key()), sep)[0] + formatting
 		}
-		to_return[datetime] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-		tmp_stats := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+		to_return[datetime] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+		tmp_stats := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 		json.Unmarshal(iter.Value(), &tmp_stats)
 
 		to_return[datetime]["error"] += tmp_stats["error"]
@@ -261,7 +261,7 @@ func GetChartData(w http.ResponseWriter, req *http.Request) {
 		to_return[datetime]["warn"] += tmp_stats["warn"]
 		to_return[datetime]["other"] += tmp_stats["other"]
 	}
-	to_return["now"] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	to_return["now"] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	to_return["now"]["error"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["error"]
 	to_return["now"]["debug"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["debug"]
 	to_return["now"]["info"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["info"]
@@ -362,7 +362,7 @@ func GetAllStats(w http.ResponseWriter, req *http.Request) {
 
 	searchTo := time.Now().Add(-(time.Hour * time.Duration(period.Value/2))).UTC()
 
-	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	to_return := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	host := util.GetHost()
 	to_return["debug"] += vars.Counters_For_Hosts_Last_30_Min[host]["debug"]
 	to_return["error"] += vars.Counters_For_Hosts_Last_30_Min[host]["error"]
@@ -371,7 +371,7 @@ func GetAllStats(w http.ResponseWriter, req *http.Request) {
 	to_return["other"] += vars.Counters_For_Hosts_Last_30_Min[host]["other"]
 
 	if period.Value > 1 {
-		var tmp_stats map[string]int
+		var tmp_stats map[string]uint64
 		iter := vars.Stat_Hosts_DBs[host].NewIterator(nil, nil)
 		defer iter.Release()
 		iter.Last()
@@ -417,7 +417,7 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 
 	searchTo := time.Now().Add(-(time.Hour * time.Duration(data.Value/2))).UTC()
 
-	to_return := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	to_return := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	to_return["debug"] += vars.Counters_For_Containers_Last_30_Min[location]["debug"]
 	to_return["error"] += vars.Counters_For_Containers_Last_30_Min[location]["error"]
 	to_return["info"] += vars.Counters_For_Containers_Last_30_Min[location]["info"]
@@ -425,7 +425,7 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 	to_return["other"] += vars.Counters_For_Containers_Last_30_Min[location]["other"]
 
 	if data.Value > 1 {
-		var tmp_stats map[string]int
+		var tmp_stats map[string]uint64
 		current_db := vars.Stat_Containers_DBs[location]
 		if vars.Stat_Containers_DBs[location] == nil {
 			current_db, _ = leveldb.OpenFile("leveldb/hosts/"+data.Host+"/containers/"+data.Service+"/statistics", nil)

@@ -10,7 +10,7 @@ import (
 )
 
 func restartStats(host string, container string, current_db *leveldb.DB) {
-	var used_storage map[string]map[string]int
+	var used_storage map[string]map[string]uint64
 	var location string
 	if container == "" {
 		used_storage = vars.Counters_For_Hosts_Last_30_Min
@@ -19,7 +19,7 @@ func restartStats(host string, container string, current_db *leveldb.DB) {
 		used_storage = vars.Counters_For_Containers_Last_30_Min
 		location = host + "/" + container
 	}
-	copy := map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	copy := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	copy["error"] = used_storage[location]["error"]
 	copy["debug"] = used_storage[location]["debug"]
 	copy["info"] = used_storage[location]["info"]
@@ -38,7 +38,7 @@ func restartStats(host string, container string, current_db *leveldb.DB) {
 
 func RunStatisticForContainer(host string, container string) {
 	location := host + "/" + container
-	vars.Counters_For_Containers_Last_30_Min[location] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	vars.Counters_For_Containers_Last_30_Min[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	if vars.Stat_Containers_DBs[location] == nil {
 		current_db, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/statistics", nil)
 		defer current_db.Close()
@@ -59,7 +59,7 @@ func RunStatisticForContainer(host string, container string) {
 
 // TODO improve counters
 func RunStatisticForHost(host string) {
-	vars.Counters_For_Hosts_Last_30_Min[host] = map[string]int{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	vars.Counters_For_Hosts_Last_30_Min[host] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	if vars.Stat_Hosts_DBs[host] == nil {
 		current_db, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/statistics", nil)
 		defer current_db.Close()
