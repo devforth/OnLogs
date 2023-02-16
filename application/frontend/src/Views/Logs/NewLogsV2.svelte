@@ -24,6 +24,7 @@
   import {
     getLogLineStatus,
     transformLogString,
+    transformLogStringForTimeBudget,
     getLogs,
     getPrevLogs,
     scrollToBottom,
@@ -40,6 +41,10 @@
 
   let elements = [];
   let intersects = [];
+
+  let dateEls = [];
+  let dateIntersects = [];
+  let lastVisibleEl = null;
   let endOffLogs = null;
   let startOfLogs = null;
   let startOfLogsIntersect = null;
@@ -48,6 +53,7 @@
   let initialScroll = 0;
   let lastScrollTop = 0;
   let scrollDirection = "up";
+  let pinedDate = ";";
   let lastFetchActionIsFetch = true;
   let scrollFromButton = false;
   let stopLogsUnfetch = false;
@@ -64,10 +70,23 @@
   let signal = null;
   let topFetchIsStarted = false;
 
+  function findLastVisibleLog() {
+    let index = dateIntersects.indexOf(true);
+    if (dateEls[index]) {
+      pinedDate = dateEls[index].classList.value;
+    }
+  }
+
+  $: {
+    if (dateIntersects) {
+      findLastVisibleLog();
+    }
+  }
+
   //fetch params:
 
   let searchText = "";
-  let limit = 30;
+  let limit = 60;
 
   let startWith = "";
   let tmpStartWith = [];
@@ -132,6 +151,7 @@
     setTimeout(() => {
       setTimeout(() => {
         setInitialScroll(1);
+        topFetchIsStarted = false;
       }, 1000);
     });
   }
@@ -358,6 +378,7 @@
               newLogs = [...data, ...newLogs];
               visibleLogs = [...logsToVisible, ...visibleLogs];
               previousLogs = [...logsToPrevious, ...previousLogs];
+              previousLogs.length = limit;
 
               allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
             }
@@ -409,7 +430,8 @@
       isFeatching.set(false);
 
       if (initialService === $lastChosenService) {
-        if (data.length) {
+        if (data.length === limit) {
+          console.log(data.length);
           let numberOfNewLogs = data.length;
 
           const logsToPrevious = visibleLogs.splice(0, numberOfNewLogs);
@@ -497,8 +519,6 @@
     })();
   }
 
-  
-
   $: {
     isInterceptorVIsible(intersects[0], fetchedLogs, !mouseDownBlockFetch);
   }
@@ -510,6 +530,10 @@
   // }
   $: {
     isInterceptorVIsible(intersects[3], unfetchedLogs, mouseDownBlockFetch);
+  }
+  $: {
+    if (allLogs) {
+    }
   }
 
   $: {
@@ -570,13 +594,13 @@
     window.addEventListener("resize", () => {
       const logsContEl = document.querySelector("#logs");
       if (logsContEl) {
-        limit = Math.round(logsContEl.offsetHeight / 300) * 10;
+        limit = Math.round(logsContEl.offsetHeight / 200) * 10;
+        console.log("resized", limit);
       }
     });
   });
 
   afterUpdate(() => {
-  
     if (autoscroll) {
       div && div.scrollTo(0, div.scrollHeight ? div.scrollHeight : 0);
     }
@@ -585,12 +609,12 @@
 </script>
 
 <LogsViewHeder bind:searchText />
+<div><div class="timeBudge pined">{pinedDate}</div></div>
 
 {#if allLogs.length === 0 && !$isPending}
   <h2 class="noLogsMessage">No logs written yet</h2>
 {/if}
 {#if $isPending}<Spiner />{:else}
-  {startOfLogsIntersect}
   <div id="logs" class="logs" bind:this={div}>
     <div class="logsTableContainer">
       <table class="logsTable {$store.breakLines ? 'breakLines' : ''}">
@@ -603,6 +627,15 @@
         </IntersectionObserver>
 
         {#each allLogs as logItem, i}
+          {#if transformLogStringForTimeBudget(logItem, $store.UTCtime) !== transformLogStringForTimeBudget(allLogs[i - 1], $store.UTCtime) && i - 1 >= 0}
+            <div class="timeBudgeContainer">
+              <div class="timeBadgeWrapper">
+                <div class="timeBudge">
+                  {transformLogStringForTimeBudget(logItem, $store.UTCtime)}
+                </div>
+              </div>
+            </div>
+          {/if}
           <div
             class="{i === limit * 1.5 - 1
               ? 'newLogsEnd'
@@ -660,6 +693,7 @@
                 >
                   <div class="observer" bind:this={elements[3]} />
                 </IntersectionObserver>{/if}
+
               <LogsString
                 time={transformLogString(logItem, $store.UTCtime)}
                 message={logItem?.at(1)}
@@ -668,6 +702,15 @@
                   new Date(logItem?.at(0)).getTime()}
               />
             </div>
+            <IntersectionObserver
+              element={dateEls[i]}
+              bind:intersecting={dateIntersects[i]}
+            >
+              <div
+                class={transformLogStringForTimeBudget(logItem, $store.UTCtime)}
+                bind:this={dateEls[i]}
+              />
+            </IntersectionObserver>
           </div>
         {/each}
 
@@ -697,6 +740,7 @@
         </div>
       {/if}
     </div>
+    <div class="timeBudgeContainer" />
   </div>{/if}
 <svelte:window
   on:mousedown={(e) => {

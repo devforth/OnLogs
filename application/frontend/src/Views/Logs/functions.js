@@ -37,24 +37,47 @@ export const transformLogString = (t, options) => {
         new Date().setTime(
           new Date(t?.at(0)?.slice(0, 22)?.replace("T", " "))?.getTime()
         )
-      ).toLocaleString("sv-EN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        fractionalSecondDigits: 3,
+      )
+        .toLocaleString("sv-EN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          fractionalSecondDigits: 3,
+        })
+        .replace(",", ".")
+    : new Date(
+        new Date().setTime(
+          new Date(t?.at(0)?.slice(0, 19)?.replace("T", " "))?.getTime() -
+            timezoneOffsetSec * 1000
+        )
+      )
+        .toLocaleString("sv-EN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          fractionalSecondDigits: 3,
+        })
+        .replace(",", ".");
+};
+
+export const transformLogStringForTimeBudget = (t, options) => {
+  return options
+    ? new Date(
+        new Date().setTime(
+          new Date(t?.at(0)?.slice(0, 22)?.replace("T", " "))?.getTime()
+        )
+      ).toLocaleString("en-US", {
+        month: "short",
+        day: "2-digit",
       })
     : new Date(
         new Date().setTime(
           new Date(t?.at(0)?.slice(0, 19)?.replace("T", " "))?.getTime() -
             timezoneOffsetSec * 1000
         )
-      ).toLocaleString("sv-EN", {
-        year: "numeric",
+      ).toLocaleString("en-US", {
         month: "short",
         day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
       });
 };
 

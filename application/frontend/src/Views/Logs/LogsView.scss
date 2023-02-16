@@ -149,6 +149,34 @@ h2.noLogsMessage {
     }
   }
 }
+.timeBadgeWrapper {
+  margin-left: $normal-padding;
+  @include for-mobile {
+    margin-left: 0;
+  }
+}
+.timeBudge {
+  padding: 8px 14px 8px 14px;
+  position: relative;
+  text-align: center;
+  width: max-content;
+  margin-left: auto;
+  margin-right: auto;
+  background-color: $active-color;
+  margin-top: $normal-padding;
+  margin-bottom: $normal-padding;
+  border-radius: $main-border-radius;
+  font-size: $main-font-m;
+  z-index: 10;
+  &.pined {
+    position: absolute;
+
+    left: 0;
+    right: 0;
+    opacity: 60%;
+    z-index: 2;
+  }
+}
 
 .logs::-webkit-scrollbar {
   width: 10px;
