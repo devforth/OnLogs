@@ -380,11 +380,20 @@
             if (data.length) {
               let numberOfNewLogs = data.length;
 
-              const logsToPrevious = visibleLogs.splice(0, numberOfNewLogs);
+              const logsToPrevious = visibleLogs.splice(
+                visibleLogs.length - numberOfNewLogs,
+                numberOfNewLogs
+              );
 
-              const logsToVisible = newLogs.splice(0, numberOfNewLogs);
+              const logsToVisible = newLogs.splice(
+                newLogs.length - numberOfNewLogs,
+                numberOfNewLogs
+              );
 
-              previousLogs.splice(0, numberOfNewLogs);
+              previousLogs.splice(
+                previousLogs.length - numberOfNewLogs,
+                numberOfNewLogs
+              );
               newLogs = [...data, ...newLogs];
               visibleLogs = [...logsToVisible, ...visibleLogs];
               previousLogs = [...logsToPrevious, ...previousLogs];
@@ -441,7 +450,6 @@
 
       if (initialService === $lastChosenService) {
         if (data.length === limit) {
-          console.log(data.length);
           let numberOfNewLogs = data.length;
 
           const logsToPrevious = visibleLogs.splice(0, numberOfNewLogs);
