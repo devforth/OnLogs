@@ -16,6 +16,7 @@ import (
 
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/golang-jwt/jwt"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func Contains(a string, list []string) bool {
@@ -166,4 +167,37 @@ func GenerateJWTSecret() string {
 	token := string(b)
 
 	return token
+}
+
+func GetDockerContainerID(host string, container string) string {
+	idDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containersMeta", nil)
+	defer idDB.Close()
+	iter := idDB.NewIterator(nil, nil)
+	defer iter.Release()
+
+	iter.Last()
+	for iter.Key() != nil {
+		if string(iter.Key()) == container {
+			return string(iter.Value())
+		}
+		iter.Prev()
+	}
+
+	return ""
+}
+
+func DeleteDockerLogs(host string, container string) error {
+	containerID := GetDockerContainerID(host, container)
+	files, err := os.ReadDir("/var/lib/docker/containers/" + containerID)
+	if err != nil || len(files) == 0 {
+		return err
+	}
+
+	for _, file := range files {
+		if file.Name() == containerID+"-json.log" {
+			os.WriteFile("/var/lib/docker/containers/"+containerID+"/"+containerID+"-json.log", nil, 0640)
+		}
+	}
+
+	return nil
 }

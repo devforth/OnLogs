@@ -709,6 +709,22 @@ func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
+func DeleteDockerLogs(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	var logItem struct {
+		Host    string
+		Service string
+	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&logItem)
+
+	w.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": util.DeleteDockerLogs(logItem.Host, logItem.Service)})
+}
+
 func DeleteContainer(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
