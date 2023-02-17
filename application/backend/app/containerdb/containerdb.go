@@ -3,7 +3,6 @@ package containerdb
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/devforth/OnLogs/app/util"
@@ -30,12 +29,6 @@ func getDB(host string, container string, dbType string) *leveldb.DB {
 	var err error
 	if res_db == nil {
 		path := "leveldb/hosts/" + host + "/containers/" + container + "/" + dbType
-
-		_, pathErr := os.Stat(path)
-		if os.IsNotExist(pathErr) {
-			return nil
-		}
-
 		res_db, err = leveldb.OpenFile(path, nil)
 		if err != nil {
 			res_db, _ = leveldb.RecoverFile(path, nil)
@@ -44,10 +37,10 @@ func getDB(host string, container string, dbType string) *leveldb.DB {
 	return res_db
 }
 
-func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) {
+func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
 	if len(message_item[0]) < 30 {
-		fmt.Println("ERROR: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
-		return
+		fmt.Println("WARNING: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
+		return nil
 	}
 
 	if host == "" {
@@ -77,7 +70,7 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("other"), nil)
 	}
 
-	db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
+	return db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
 }
 
 func GetLogsByStatus(host string, container string, message string, status string, limit int, startWith string, getPrev bool, include bool, caseSensetivity bool) [][]string {
@@ -223,41 +216,30 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	return to_return
 }
 
-func DeleteContainer(host string, container string) {
+func DeleteContainer(host string, container string, fullDelete bool) {
+	if fullDelete {
+		os.RemoveAll("leveldb/hosts/" + host + "/containers/" + container)
+	} else {
+		files, _ := os.ReadDir("leveldb/hosts/" + host + "/containers/" + container)
+		for _, file := range files {
+			os.RemoveAll("leveldb/hosts/" + host + "/containers/" + container + "/" + file.Name())
+		}
+	}
+
 	if vars.ActiveDBs[container] != nil {
 		vars.ActiveDBs[container].Close()
+		newActiveDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/logs", nil)
+		vars.ActiveDBs[container] = newActiveDB
 	}
-	os.RemoveAll("leveldb/hosts" + host + "/container/" + container)
-}
-
-// TODO remove all logs
-func DeleteContainerLogs(host string, container string) {
-	path := "leveldb/hosts" + host + "/container/" + container + "/logs"
-	files, _ := os.ReadDir(path)
-	lastNum := 0
-	var lastName string
-	for _, file := range files {
-		if strings.HasSuffix(file.Name(), ".log") {
-			os.Remove(path + "/" + file.Name())
-			continue
-		}
-
-		if !strings.HasSuffix(file.Name(), "ldb") {
-			continue
-		}
-
-		num, _ := strconv.Atoi(file.Name()[:len(file.Name())-4])
-		if num > lastNum {
-			lastNum = num
-			lastName = file.Name()
-		}
+	if vars.Statuses_DBs[host+"/"+container] != nil {
+		vars.Statuses_DBs[host+"/"+container].Close()
+		newStatusesDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/statuses", nil)
+		vars.Statuses_DBs[host+"/"+container] = newStatusesDB
 	}
-
-	for _, file := range files {
-		if !strings.HasSuffix(file.Name(), "ldb") || file.Name() == lastName {
-			continue
-		}
-
-		os.Remove(path + "/" + file.Name())
+	if vars.Stat_Containers_DBs[host+"/"+container] != nil {
+		vars.Stat_Containers_DBs[host+"/"+container].Close()
+		newStatDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/statistics", nil)
+		vars.Statuses_DBs[host+"/"+container] = newStatDB
 	}
+	vars.Counters_For_Containers_Last_30_Min[host+"/"+container] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 }

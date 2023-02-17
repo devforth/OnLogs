@@ -426,10 +426,12 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 
 	if data.Value > 1 {
 		var tmp_stats map[string]uint64
-		current_db := vars.Stat_Containers_DBs[location]
+		var current_db *leveldb.DB
 		if vars.Stat_Containers_DBs[location] == nil {
 			current_db, _ = leveldb.OpenFile("leveldb/hosts/"+data.Host+"/containers/"+data.Service+"/statistics", nil)
 			defer current_db.Close()
+		} else {
+			current_db = vars.Stat_Containers_DBs[location]
 		}
 		iter := current_db.NewIterator(nil, nil)
 		defer iter.Release()
@@ -702,7 +704,7 @@ func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
 
-	go containerdb.DeleteContainerLogs(logItem.Host, logItem.Service)
+	go containerdb.DeleteContainer(logItem.Host, logItem.Service, false)
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
@@ -724,7 +726,7 @@ func DeleteContainer(w http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Can't delete myself!"})
 	}
 
-	go containerdb.DeleteContainer(logItem.Host, logItem.Service)
+	go containerdb.DeleteContainer(logItem.Host, logItem.Service, true)
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }

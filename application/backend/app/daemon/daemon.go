@@ -141,7 +141,17 @@ func CreateDaemonToDBStream(containerName string) {
 		}
 		logItem := strings.SplitN(logLine, " ", 2)
 
-		containerdb.PutLogMessage(current_db, host, containerName, logItem)
+		err := containerdb.PutLogMessage(current_db, host, containerName, logItem)
+		if err != nil {
+			if err.Error() == "leveldb: closed" {
+				current_db = vars.ActiveDBs[containerName]
+				containerdb.PutLogMessage(current_db, host, containerName, logItem)
+			} else {
+				fmt.Println("ERROR: " + err.Error())
+				closeActiveStream(containerName)
+				return
+			}
+		}
 		to_send, _ := json.Marshal(logItem)
 		for _, c := range vars.Connections[containerName] {
 			c.WriteMessage(1, to_send)
