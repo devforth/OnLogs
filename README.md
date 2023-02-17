@@ -51,6 +51,7 @@
       - "traefik.http.services.onlogs.loadbalancer.server.port=<any port>"
     volumes:
      - /var/run/docker.sock:/var/run/docker.sock
+     - /var/lib/docker/containers:/var/lib/docker/containers # if you want to delete dublicating logs from docker
      - /etc/hostname:/etc/hostname
      - onlogs-volume:/leveldb
 
