@@ -214,61 +214,16 @@ func GetChartData(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var searchTo time.Time
-	var sep, formatting string
-	if data.Unit == "hour" {
-		searchTo = time.Now().Add(-(time.Hour * time.Duration(data.UnitsAmount)))
-		sep = ":"
-		formatting = ":00Z"
-	} else if data.Unit == "day" {
-		searchTo = time.Now().AddDate(0, 0, -data.UnitsAmount)
-		sep = "T"
-		formatting = "T00:00Z"
-	} else if data.Unit == "month" {
-		searchTo = time.Now().AddDate(0, -data.UnitsAmount, 0)
-		formatting = "-01T00:00Z"
-	} else {
+	if !util.Contains(data.Unit, []string{"hour", "day", "month"}) {
 		w.Header().Add("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid data!"})
-		return
 	}
 
-	iter := vars.Stat_Hosts_DBs[data.Host].NewIterator(nil, nil)
-	iter.Last()
-	defer iter.Release()
-	for iter.Prev() {
-		tmp_time, _ := time.Parse(time.RFC3339, string(iter.Key()))
-		if searchTo.After(tmp_time) {
-			break
-		}
-	}
-
-	to_return := map[string]map[string]uint64{}
-	for iter.Next() {
-		var datetime string
-		if data.Unit == "month" {
-			datetime = string(iter.Key())[:7] + formatting
-		} else {
-			datetime = strings.Split(string(iter.Key()), sep)[0] + formatting
-		}
-		to_return[datetime] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-		tmp_stats := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-		json.Unmarshal(iter.Value(), &tmp_stats)
-
-		to_return[datetime]["error"] += tmp_stats["error"]
-		to_return[datetime]["debug"] += tmp_stats["debug"]
-		to_return[datetime]["info"] += tmp_stats["info"]
-		to_return[datetime]["warn"] += tmp_stats["warn"]
-		to_return[datetime]["other"] += tmp_stats["other"]
-	}
-	to_return["now"] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	to_return["now"]["error"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["error"]
-	to_return["now"]["debug"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["debug"]
-	to_return["now"]["info"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["info"]
-	to_return["now"]["warn"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["warn"]
-	to_return["now"]["other"] = vars.Counters_For_Containers_Last_30_Min[data.Host+"/"+data.Service]["other"]
 	w.Header().Add("Content-Type", "application/json")
-	e, _ := json.Marshal(to_return)
+	e, _ := json.Marshal(
+		statistics.GetChartData(
+			data.Host, data.Service, data.Unit, data.UnitsAmount,
+		))
 	w.Write(e)
 }
 
@@ -360,38 +315,8 @@ func GetAllStats(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&period)
 
-	searchTo := time.Now().Add(-(time.Hour * time.Duration(period.Value/2))).UTC()
-
-	to_return := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	host := util.GetHost()
-	to_return["debug"] += vars.Counters_For_Hosts_Last_30_Min[host]["debug"]
-	to_return["error"] += vars.Counters_For_Hosts_Last_30_Min[host]["error"]
-	to_return["info"] += vars.Counters_For_Hosts_Last_30_Min[host]["info"]
-	to_return["warn"] += vars.Counters_For_Hosts_Last_30_Min[host]["warn"]
-	to_return["other"] += vars.Counters_For_Hosts_Last_30_Min[host]["other"]
-
-	if period.Value > 1 {
-		var tmp_stats map[string]uint64
-		iter := vars.Stat_Hosts_DBs[host].NewIterator(nil, nil)
-		defer iter.Release()
-		iter.Last()
-		for iter.Prev() {
-			tmp_time, _ := time.Parse(time.RFC3339, string(iter.Key()))
-			if searchTo.After(tmp_time) {
-				break
-			}
-		}
-		for iter.Next() {
-			json.Unmarshal(iter.Value(), &tmp_stats)
-			to_return["debug"] += tmp_stats["debug"]
-			to_return["error"] += tmp_stats["error"]
-			to_return["info"] += tmp_stats["info"]
-			to_return["warn"] += tmp_stats["warn"]
-			to_return["other"] += tmp_stats["other"]
-		}
-	}
 	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(to_return)
+	json.NewEncoder(w).Encode(statistics.GetStatisticsByHost(util.GetHost(), period.Value))
 }
 
 func GetStats(w http.ResponseWriter, req *http.Request) {
@@ -407,53 +332,14 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 
 	decoder := json.NewDecoder(req.Body)
 	err := decoder.Decode(&data)
-	location := data.Host + "/" + data.Service
 
 	if err != nil {
 		w.Header().Add("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid data!"})
 		return
 	}
-
-	searchTo := time.Now().Add(-(time.Hour * time.Duration(data.Value/2))).UTC()
-
-	to_return := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	to_return["debug"] += vars.Counters_For_Containers_Last_30_Min[location]["debug"]
-	to_return["error"] += vars.Counters_For_Containers_Last_30_Min[location]["error"]
-	to_return["info"] += vars.Counters_For_Containers_Last_30_Min[location]["info"]
-	to_return["warn"] += vars.Counters_For_Containers_Last_30_Min[location]["warn"]
-	to_return["other"] += vars.Counters_For_Containers_Last_30_Min[location]["other"]
-
-	if data.Value > 1 {
-		var tmp_stats map[string]uint64
-		current_db := vars.Stat_Containers_DBs[location]
-		if vars.Stat_Containers_DBs[location] == nil {
-			current_db, _ = leveldb.OpenFile("leveldb/hosts/"+data.Host+"/containers/"+data.Service+"/statistics", nil)
-			defer current_db.Close()
-		}
-		iter := current_db.NewIterator(nil, nil)
-		defer iter.Release()
-		iter.Last()
-		for iter.Prev() {
-			tmp_time, err := time.Parse(time.RFC3339, string(iter.Key()))
-			if err != nil { // TODO no errors should be here, so this may be removed
-				current_db.Delete(iter.Key(), nil)
-			}
-			if searchTo.After(tmp_time) {
-				break
-			}
-		}
-		for iter.Next() {
-			json.Unmarshal(iter.Value(), &tmp_stats)
-			to_return["debug"] += tmp_stats["debug"]
-			to_return["error"] += tmp_stats["error"]
-			to_return["info"] += tmp_stats["info"]
-			to_return["warn"] += tmp_stats["warn"]
-			to_return["other"] += tmp_stats["other"]
-		}
-	}
 	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(to_return)
+	json.NewEncoder(w).Encode(statistics.GetStatisticsByService(data.Host, data.Service, data.Value))
 }
 
 func GetPrevLogs(w http.ResponseWriter, req *http.Request) {
@@ -691,7 +577,24 @@ func EditUser(w http.ResponseWriter, req *http.Request) {
 }
 
 func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
+		return
+	}
+
+	var logItem struct {
+		Host    string `json:"host"`
+		Service string `json:"service"`
+	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&logItem)
+
+	go containerdb.DeleteContainer(logItem.Host, logItem.Service, false)
+	w.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+}
+
+func DeleteDockerLogs(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
 
@@ -702,13 +605,12 @@ func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
 
-	go containerdb.DeleteContainerLogs(logItem.Host, logItem.Service)
 	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": util.DeleteDockerLogs(logItem.Host, logItem.Service)})
 }
 
 func DeleteContainer(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
 
@@ -724,7 +626,7 @@ func DeleteContainer(w http.ResponseWriter, req *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Can't delete myself!"})
 	}
 
-	go containerdb.DeleteContainer(logItem.Host, logItem.Service)
+	go containerdb.DeleteContainer(logItem.Host, logItem.Service, true)
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }

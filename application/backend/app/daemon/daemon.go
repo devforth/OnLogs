@@ -141,7 +141,17 @@ func CreateDaemonToDBStream(containerName string) {
 		}
 		logItem := strings.SplitN(logLine, " ", 2)
 
-		containerdb.PutLogMessage(current_db, host, containerName, logItem)
+		err := containerdb.PutLogMessage(current_db, host, containerName, logItem)
+		if err != nil {
+			if err.Error() == "leveldb: closed" {
+				current_db = vars.ActiveDBs[containerName]
+				containerdb.PutLogMessage(current_db, host, containerName, logItem)
+			} else {
+				fmt.Println("ERROR: " + err.Error())
+				closeActiveStream(containerName)
+				return
+			}
+		}
 		to_send, _ := json.Marshal(logItem)
 		for _, c := range vars.Connections[containerName] {
 			c.WriteMessage(1, to_send)
@@ -174,14 +184,13 @@ func GetContainersList() []string {
 	json.Unmarshal([]byte(body), &result)
 
 	var names []string
+	containersDB, _ := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
+	defer containersDB.Close()
 	for i := 0; i < len(result); i++ {
-		for key, element := range result[i] {
-			if key == "Names" {
-				name := element.([]interface{})[0].(string)
-				str := fmt.Sprintf("%v", name)
-				names = append(names, string(str[1:]))
-			}
-		}
+		name := fmt.Sprintf("%v", result[i]["Names"].([]interface{})[0].(string))[1:]
+		id := result[i]["Id"].(string)
+		containersDB.Put([]byte(name), []byte(id), nil)
 	}
+
 	return names
 }
