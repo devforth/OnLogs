@@ -151,29 +151,36 @@ h2.noLogsMessage {
 }
 .timeBadgeWrapper {
   margin-left: $normal-padding;
+  position: relative;
   @include for-mobile {
     margin-left: 0;
   }
 }
 .timeBudge {
-  padding: 8px 14px 8px 14px;
+  padding: 6px 12px 6px 12px;
   position: relative;
   text-align: center;
   width: max-content;
   margin-left: auto;
   margin-right: auto;
+
   background-color: $active-color;
+  color: $text-onactive-color-dark;
   margin-top: $normal-padding;
   margin-bottom: $normal-padding;
-  border-radius: $main-border-radius;
-  font-size: $main-font-m;
+  border-radius: 20px;
+  font-size: $main-font-s;
   z-index: 10;
+  font-weight: 600;
   &.pined {
     position: absolute;
+    margin-top: 0;
+    margin-bottom: 0;
 
     left: 0;
     right: 0;
-    opacity: 60%;
+    // transform: translateY(-50%);
+
     z-index: 2;
   }
 }

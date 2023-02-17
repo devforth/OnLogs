@@ -9,6 +9,7 @@
   import IntersectionObserver from "svelte-intersection-observer";
   import Spiner from "./Spiner.svelte";
   import LogStringHeader from "./LogStringHeader.svelte";
+  import { fade } from "svelte/transition";
 
   import {
     store,
@@ -69,6 +70,8 @@
   let controller = null;
   let signal = null;
   let topFetchIsStarted = false;
+  let pinedBadgeTimer = null;
+  let pinedBadgeIsVisible = false;
 
   function findLastVisibleLog() {
     let index = dateIntersects.indexOf(true);
@@ -306,6 +309,7 @@
 
     tmpStartWith = [];
     startWith = "";
+    pinedDate = "";
   }
 
   function resetSearchParams() {
@@ -502,8 +506,42 @@
         isPending.set(true);
         closeWS();
         await checkIfHashIsInUrl();
+        addScrollLIstenersToLogs();
       }
     })();
+  }
+
+  function addScrollLIstenersToLogs() {
+    let isEventOnScroll = false;
+
+    const interval = setInterval(() => {
+      const logsContEl = document.querySelector("#logs");
+
+      if (logsContEl) {
+        logsContEl.addEventListener("scroll", function () {
+          let st = window.pageYOffset || logsContEl.scrollTop;
+          if (st > lastScrollTop) {
+            scrollDirection = "down";
+          } else {
+            scrollDirection = "up";
+          }
+          lastScrollTop = st <= 0 ? 0 : st; // For Mobile or negative scrolling
+
+          pinedBadgeIsVisible = true;
+          if (pinedBadgeTimer !== null) {
+            clearTimeout(pinedBadgeTimer);
+          }
+          pinedBadgeTimer = setTimeout(function () {
+            pinedBadgeIsVisible = false;
+          }, 350);
+        });
+        isEventOnScroll = true;
+      }
+      if (isEventOnScroll) {
+        clearInterval(interval);
+        isEventOnScroll = false;
+      }
+    }, 1000);
   }
 
   $: {
@@ -568,28 +606,9 @@
   };
 
   onMount(async () => {
+    console.log("mounted");
     checkIfScrollOnTop();
     initialScroll = 1;
-    let isEventOnScroll = false;
-    const interval = setInterval(() => {
-      const logsContEl = document.querySelector("#logs");
-
-      if (logsContEl) {
-        logsContEl.addEventListener("scroll", function () {
-          let st = window.pageYOffset || logsContEl.scrollTop;
-          if (st > lastScrollTop) {
-            scrollDirection = "down";
-          } else {
-            scrollDirection = "up";
-          }
-          lastScrollTop = st <= 0 ? 0 : st; // For Mobile or negative scrolling
-        });
-        isEventOnScroll = true;
-      }
-      if (isEventOnScroll) {
-        clearInterval(interval);
-      }
-    }, 1000);
 
     window.addEventListener("resize", () => {
       const logsContEl = document.querySelector("#logs");
@@ -609,7 +628,14 @@
 </script>
 
 <LogsViewHeder bind:searchText />
-<div><div class="timeBudge pined">{pinedDate}</div></div>
+{#if pinedDate}<div>
+    {#if pinedBadgeIsVisible}<div
+        transition:fade={{ duration: 250 }}
+        class="timeBudge pined"
+      >
+        {pinedDate}
+      </div>{/if}
+  </div>{/if}
 
 {#if allLogs.length === 0 && !$isPending}
   <h2 class="noLogsMessage">No logs written yet</h2>

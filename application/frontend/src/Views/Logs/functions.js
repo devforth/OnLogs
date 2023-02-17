@@ -66,19 +66,24 @@ export const transformLogStringForTimeBudget = (t, options) => {
         new Date().setTime(
           new Date(t?.at(0)?.slice(0, 22)?.replace("T", " "))?.getTime()
         )
-      ).toLocaleString("en-US", {
-        month: "short",
-        day: "2-digit",
-      })
+      )
+        .toLocaleString("en-US", {
+          month: "short",
+          day: "2-digit",
+          year: "numeric",
+        })
+        .replace(",", "")
     : new Date(
         new Date().setTime(
           new Date(t?.at(0)?.slice(0, 19)?.replace("T", " "))?.getTime() -
             timezoneOffsetSec * 1000
         )
-      ).toLocaleString("en-US", {
-        month: "short",
-        day: "2-digit",
-      });
+      )
+        .toLocaleString("en-US", {
+          month: "short",
+          day: "2-digit",
+        })
+        .replace(",", "");
 };
 
 export const getLogs = async function ({
