@@ -186,16 +186,18 @@
               {#if !service.isDisabled}<li
                   class="serviceListItem  "
                   id={listEl.host}
-                  on:click={(e) => {
-                    choseSublistEl(listEl.host, service.serviceName);
-                    lastChosenHost.set(listEl.host);
-                    lastChosenService.set(service.serviceName);
+                  on:click={({ target }) => {
+                    if (!target.id.includes("heart")) {
+                      choseSublistEl(listEl.host, service.serviceName);
+                      lastChosenHost.set(listEl.host);
+                      lastChosenService.set(service.serviceName);
 
-                    if (!e.target.className.includes("log")) {
-                      activeMenuOption.set("home");
+                      if (!target.className.includes("log")) {
+                        activeMenuOption.set("home");
+                      }
+
+                      initialVisitcounter = 1;
                     }
-
-                    initialVisitcounter = 1;
                   }}
                 >
                   <div class="hostRow {customListElClass}">
@@ -221,12 +223,14 @@
                           <i class="log log-Wheel" />
                         </div>
                         <div
+                          id={`heartButtonCont-${i}`}
                           class="listElementButton"
                           on:click={() => {
                             favoriteToggle(listEl.host, service.serviceName);
                           }}
                         >
                           <i
+                            id={`heartButton-${i}`}
                             class="log {service.isFavorite
                               ? 'log-Heart'
                               : 'log-EmptyHeart'}"
@@ -279,15 +283,17 @@
               {#if service.isDisabled}<li
                   class="serviceListItem  "
                   id={listEl.host}
-                  on:click={(e) => {
-                    choseSublistEl(listEl.host, service.serviceName);
-                    lastChosenHost.set(listEl.host);
-                    lastChosenService.set(service.serviceName);
-                    if (!e.target.className.includes("log")) {
-                      activeMenuOption.set("home");
-                    }
+                  on:click={({ target }) => {
+                    if (!target.id.includes("heart")) {
+                      choseSublistEl(listEl.host, service.serviceName);
+                      lastChosenHost.set(listEl.host);
+                      lastChosenService.set(service.serviceName);
+                      if (!target.className.includes("log")) {
+                        activeMenuOption.set("home");
+                      }
 
-                    initialVisitcounter = 1;
+                      initialVisitcounter = 1;
+                    }
                   }}
                 >
                   <div class="hostRow {customListElClass}">
@@ -313,12 +319,14 @@
                           <i class="log log-Wheel" />
                         </div>
                         <div
+                          id={`heartButtonContDissabled-${i}`}
                           class="listElementButton"
                           on:click={() => {
                             favoriteToggle(listEl.host, service.serviceName);
                           }}
                         >
                           <i
+                            id={`heartButtonDissabled-${i}`}
                             class="log {service.isFavorite
                               ? 'log-Heart'
                               : 'log-EmptyHeart'}"
