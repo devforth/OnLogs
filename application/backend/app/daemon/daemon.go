@@ -184,14 +184,13 @@ func GetContainersList() []string {
 	json.Unmarshal([]byte(body), &result)
 
 	var names []string
+	containersDB, _ := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
+	defer containersDB.Close()
 	for i := 0; i < len(result); i++ {
-		for key, element := range result[i] {
-			if key == "Names" {
-				name := element.([]interface{})[0].(string)
-				str := fmt.Sprintf("%v", name)
-				names = append(names, string(str[1:]))
-			}
-		}
+		name := fmt.Sprintf("%v", result[i]["Names"].([]interface{})[0].(string))[1:]
+		id := result[i]["Id"].(string)
+		containersDB.Put([]byte(name), []byte(id), nil)
 	}
+
 	return names
 }
