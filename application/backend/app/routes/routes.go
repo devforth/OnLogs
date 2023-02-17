@@ -693,13 +693,13 @@ func EditUser(w http.ResponseWriter, req *http.Request) {
 }
 
 func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
 
 	var logItem struct {
-		Host    string
-		Service string
+		Host    string `json:"host"`
+		Service string `json:"service"`
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
@@ -710,7 +710,7 @@ func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
 }
 
 func DeleteDockerLogs(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
 
@@ -726,7 +726,7 @@ func DeleteDockerLogs(w http.ResponseWriter, req *http.Request) {
 }
 
 func DeleteContainer(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
 
