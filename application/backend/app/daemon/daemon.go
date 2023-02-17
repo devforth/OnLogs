@@ -189,6 +189,8 @@ func GetContainersList() []string {
 	for i := 0; i < len(result); i++ {
 		name := fmt.Sprintf("%v", result[i]["Names"].([]interface{})[0].(string))[1:]
 		id := result[i]["Id"].(string)
+
+		names = append(names, name)
 		containersDB.Put([]byte(name), []byte(id), nil)
 	}
 
