@@ -10,12 +10,18 @@
   import Spiner from "./Spiner.svelte";
   import LogStringHeader from "./LogStringHeader.svelte";
   import { fade } from "svelte/transition";
+  import { handleKeydown } from "../../utils/functions.js";
+
+  import { copyCustomText } from "../../utils/functions.js";
 
   import {
     store,
     lastChosenHost,
     lastChosenService,
     lastLogTimestamp,
+    toast,
+    toastIsVisible,
+    toastTimeoutId,
     chosenLogsString,
     isPending,
     urlHash,
@@ -629,7 +635,7 @@
 
 <LogsViewHeder bind:searchText />
 {#if pinedDate}<div>
-    {#if pinedBadgeIsVisible}<div
+    {#if pinedBadgeIsVisible || endOffLogsIntersect}<div
         transition:fade={{ duration: 250 }}
         class="timeBudge pined"
       >
@@ -673,17 +679,9 @@
             bind:this={elements[i]}
           >
             <div
-              class="chosenString clickable {$chosenLogsString ===
-              logItem?.at(0)
+              class="chosenString  {$chosenLogsString === logItem?.at(0)
                 ? 'chosen'
                 : ''}"
-              on:click={(e) => {
-                let option = "";
-                if ($chosenLogsString !== logItem?.at(0)) {
-                  option = logItem?.at(0);
-                }
-                chosenLogsString.set(option);
-              }}
             >
               {#if $chosenLogsString === logItem?.at(0)}
                 <LogStringHeader />
@@ -726,6 +724,38 @@
                 status={getLogLineStatus(logItem?.at(1))}
                 isHiglighted={new Date($lastLogTimestamp).getTime() <
                   new Date(logItem?.at(0)).getTime()}
+                sharedLinkCallBack={() => {
+                  let option = "";
+                  // if ($chosenLogsString !== logItem?.at(0)) {
+                  option = logItem?.at(0);
+                  // }
+                  chosenLogsString.set(option);
+                  const copiedUrl = `${location.href}#${$chosenLogsString}`;
+                  copyCustomText(copiedUrl, () => {
+                    toast.set({
+                      tittle: "Success",
+                      message: "URL has been copied",
+                      position: "",
+                      status: "Success",
+                    });
+                    if (!$toastIsVisible) {
+                      console.log("toast  invisible");
+                      toastIsVisible.set(true);
+                      toastTimeoutId.set(
+                        setTimeout(() => {
+                          toastIsVisible.set(false);
+                          console.log("close toast after timeout");
+                        }, 3000)
+                      );
+                    } else {
+                      clearTimeout($toastTimeoutId);
+                      toastIsVisible.set(false);
+                      setTimeout(() => {
+                        toastIsVisible.set(true);
+                      }, 400);
+                    }
+                  });
+                }}
               />
             </div>
             <IntersectionObserver
@@ -776,5 +806,10 @@
     mouseDownBlockFetch = false;
     clearInterval(extremalScrollId);
     interceptorsWait = false;
+  }}
+  on:keydown={(e) => {
+    handleKeydown(e, "Escape", () => {
+      chosenLogsString.set("");
+    });
   }}
 />

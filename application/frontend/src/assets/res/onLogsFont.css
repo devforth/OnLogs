@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?a5fb001097894217b607f546cf0087a8?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?a5fb001097894217b607f546cf0087a8") format("woff2"),
-url("onLogsFont.woff?a5fb001097894217b607f546cf0087a8") format("woff"),
-url("onLogsFont.ttf?a5fb001097894217b607f546cf0087a8") format("truetype"),
-url("onLogsFont.svg?a5fb001097894217b607f546cf0087a8#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?fb3061db604c9d0a2451f579a74b3573?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?fb3061db604c9d0a2451f579a74b3573") format("woff2"),
+url("onLogsFont.woff?fb3061db604c9d0a2451f579a74b3573") format("woff"),
+url("onLogsFont.ttf?fb3061db604c9d0a2451f579a74b3573") format("truetype"),
+url("onLogsFont.svg?fb3061db604c9d0a2451f579a74b3573#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -128,18 +128,21 @@ url("onLogsFont.svg?a5fb001097894217b607f546cf0087a8#onLogsFont") format("svg");
 .log-Share:before {
 	content: "\f123";
 }
-.log-Success:before {
+.log-ShareLink:before {
 	content: "\f124";
 }
-.log-Sun:before {
+.log-Success:before {
 	content: "\f125";
 }
-.log-User:before {
+.log-Sun:before {
 	content: "\f126";
 }
-.log-Warning:before {
+.log-User:before {
 	content: "\f127";
 }
-.log-Wheel:before {
+.log-Warning:before {
 	content: "\f128";
+}
+.log-Wheel:before {
+	content: "\f129";
 }

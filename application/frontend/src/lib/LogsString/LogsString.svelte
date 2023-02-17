@@ -5,6 +5,7 @@
   export let message = "";
   export let width = "";
   export let isHiglighted = false;
+  export let sharedLinkCallBack = () => {};
 
   $: parsedStr = tryToParseLogString(message);
   import { store } from "../../Stores/stores.js";
@@ -20,7 +21,20 @@
     ><p><span> ◉ </span>{status.toUpperCase()}</p></td
   >
 
-  <td class="time"><p>{message?.trim()?.length > 0 ? time : ""}</p></td>
+  <td class="time row_group"
+    ><p>{message?.trim()?.length > 0 ? time : ""}</p>
+    {#if message?.trim()?.length > 0}
+      <div
+        id={`thumb-shared-${time}`}
+        class="shareLinkButtonThumb"
+        on:click={() => {
+          console.log("click to");
+          sharedLinkCallBack();
+        }}
+      >
+        <i class="log log-ShareLink" id={`shared-${time}`} />
+      </div>{/if}
+  </td>
   <td class="message"
     >{#if !parsedStr}<p>
         {message}

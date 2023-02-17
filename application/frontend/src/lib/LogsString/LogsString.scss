@@ -37,25 +37,50 @@
 
   .status {
     vertical-align: middle;
-    margin-right: 12px;
-    min-width: 85px;
+    // margin-right: 12px;
+    min-width: 68px;
+    line-height: 100%;
 
     span {
-      font-size: 19px;
-      line-height: 100%;
+      font-size: 18px;
+      line-height: 50%;
     }
   }
 
   .time {
     width: 84px;
     min-width: 84px;
-    margin-right: 12px;
+    margin-right: 8px;
     text-align: center;
+    display: flex;
     @include for-tablet {
+      margin: 0;
       width: 150px;
+      // display: table-cell;
+      position: absolute;
+      right: 0;
+      top: 0;
+      justify-content: end;
+      flex-direction: row-reverse;
     }
     @include for-mobile {
+      margin: 0;
       width: 150px;
+      // display: table-cell;
+      position: absolute;
+      right: 0;
+      top: 0;
+      justify-content: end;
+      flex-direction: row-reverse;
+    }
+  }
+
+  .shareLinkButtonThumb {
+    margin-left: 4px;
+    opacity: 0;
+    cursor: pointer;
+    @include for-tablet {
+      margin: 0 4px 0 0;
     }
   }
 
@@ -86,6 +111,15 @@
   pre {
     white-space: pre-line;
     word-break: break-all;
+  }
+}
+
+.logsString:hover {
+  .shareLinkButtonThumb {
+    opacity: 0.6;
+    &:hover {
+      opacity: 1;
+    }
   }
 }
 

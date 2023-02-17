@@ -18,6 +18,7 @@
     listScrollIsVisible,
     confirmationObj,
     toastIsVisible,
+    chosenLogsString,
   } from "../../Stores/stores.js";
   import UserMenu from "../../lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
@@ -52,10 +53,14 @@
   let userForAdding = "";
   let withoutRightPanel = false;
 
-  function handleClick(e) {
-    if (!e.target.classList.contains("buttonToBottom"))
+  function handleClick({ target }) {
+    if (!target.classList.contains("buttonToBottom")) {
       lastLogTimestamp.set(new Date().getTime());
-    toastIsVisible.set(false);
+    }
+    if (!target.id.includes("shared") && !target.id.includes("toastClose")) {
+      if (!$toastIsVisible) chosenLogsString.set("");
+      toastIsVisible.set(false);
+    }
   }
 
   export let host = "";

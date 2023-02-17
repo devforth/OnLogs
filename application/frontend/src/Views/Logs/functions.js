@@ -82,6 +82,7 @@ export const transformLogStringForTimeBudget = (t, options) => {
         .toLocaleString("en-US", {
           month: "short",
           day: "2-digit",
+          year: "numeric",
         })
         .replace(",", "");
 };

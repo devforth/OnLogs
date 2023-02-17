@@ -33,7 +33,6 @@ div .chosen {
   tr {
     background-color: $active-transparent-color-dark;
     border-radius: $main-border-radius;
-    padding: 12px 0 12px 0;
   }
 }
 .logStringHeaderContainer {
@@ -179,7 +178,7 @@ h2.noLogsMessage {
 
     left: 0;
     right: 0;
-    // transform: translateY(-50%);
+    // transform: translateY(%);
 
     z-index: 2;
   }
