@@ -9,18 +9,26 @@
   box-sizing: border-box;
   justify-content: end;
   cursor: pointer;
+  position: relative;
 }
 
 .active {
-  justify-content: end;
   .checkboxRoll {
     background-color: $active-color;
+    position: absolute;
+    // left: 0;
+    transform: translateX(-85%);
+    transition: all 100ms;
   }
 }
 
 .inactive {
-  justify-content: start;
-  transition: justify-content 4s 1s;
+  .checkboxRoll {
+    right: 0;
+    transform: translateX(0);
+    transition: all 200ms;
+  }
+
   .checkboxRoll {
     background-color: $btn-common-color;
   }

@@ -113,6 +113,15 @@ table {
   font-size: $main-font-m;
   border: 1px solid $lines-color;
   margin-top: 42px;
+
+  border: 1px solid $text-placeholder-color;
+  color: $text-dark-color;
+
+  &:focus {
+    outline: none;
+    border: 2px solid $active-color;
+    // caret-color: transparent;
+  }
 }
 .editInputContainer {
   display: flex;

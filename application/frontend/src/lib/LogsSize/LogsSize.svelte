@@ -15,27 +15,11 @@
   export let isAllLogs = false;
   let logsSize = 0;
   let fetchCount = 0;
+  let updateIntervalID = null;
+  let UPDATE_INTERVAL = 30000;
 
   async function clearLogs() {
-    confirmationObj.set({
-      action: async function () {
-        const data = await fetchApi.cleanLogs(
-          $lastChosenHost,
-          $lastChosenService
-        );
-        if (data) {
-          await fetchAllLogs();
-          await fetchServiceLogs();
-          confirmationObj.update((pv) => {
-            return { ...pv, isVisible: false };
-          });
-        }
-      },
-      message:
-        "You want to delete host service logs. This data will be lost. This action cannot be undone.",
-
-      isVisible: true,
-    });
+    confirmationObj.set({ ...$confirmationObj, isVisible: true });
   }
 
   async function fetchAllLogs() {
@@ -52,14 +36,28 @@
     }
   }
 
+  async function updateDataFromInterval(cb) {
+    let alreadyStarted = false;
+    if (updateIntervalID) {
+      clearInterval(updateIntervalID);
+    }
+    if (!alreadyStarted) {
+      await cb();
+      alreadyStarted = true;
+    }
+    updateIntervalID = setInterval(async () => {
+      await cb();
+    }, UPDATE_INTERVAL);
+  }
+
   $: {
-    if ($lastChosenService && !isAllLogs) {
-      fetchServiceLogs();
+    if (($lastChosenHost || $lastChosenService) && !isAllLogs) {
+      updateDataFromInterval(fetchServiceLogs);
     }
   }
   $: {
-    if ($lastChosenHost && isAllLogs) {
-      fetchAllLogs();
+    if (($lastChosenHost || $lastChosenService) && isAllLogs) {
+      updateDataFromInterval(fetchAllLogs);
     }
   }
 </script>

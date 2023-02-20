@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?fb3061db604c9d0a2451f579a74b3573?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?fb3061db604c9d0a2451f579a74b3573") format("woff2"),
-url("onLogsFont.woff?fb3061db604c9d0a2451f579a74b3573") format("woff"),
-url("onLogsFont.ttf?fb3061db604c9d0a2451f579a74b3573") format("truetype"),
-url("onLogsFont.svg?fb3061db604c9d0a2451f579a74b3573#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?b1b1fa2c569a9742068bfa91c7006c7a?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?b1b1fa2c569a9742068bfa91c7006c7a") format("woff2"),
+url("onLogsFont.woff?b1b1fa2c569a9742068bfa91c7006c7a") format("woff"),
+url("onLogsFont.ttf?b1b1fa2c569a9742068bfa91c7006c7a") format("truetype"),
+url("onLogsFont.svg?b1b1fa2c569a9742068bfa91c7006c7a#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -137,12 +137,15 @@ url("onLogsFont.svg?fb3061db604c9d0a2451f579a74b3573#onLogsFont") format("svg");
 .log-Sun:before {
 	content: "\f126";
 }
-.log-User:before {
+.log-Tips:before {
 	content: "\f127";
 }
-.log-Warning:before {
+.log-User:before {
 	content: "\f128";
 }
-.log-Wheel:before {
+.log-Warning:before {
 	content: "\f129";
+}
+.log-Wheel:before {
+	content: "\f12a";
 }

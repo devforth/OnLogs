@@ -32,7 +32,7 @@
   input {
     background-color: $inpun-color-dark;
     border-color: $inputs-border-color;
-    color: $active-color-dark;
+    color: $text-dark-color-dark;
     &:focus {
       border-color: $inputs-border-color;
     }
@@ -154,10 +154,8 @@
       color: $block-bg-color-dark;
     }
   }
-  .confirmationContainer {
-    .attentionZone {
-      background-color: $inpun-color-dark;
-    }
+  .deleteModalContainer {
+    background-color: $block-bg-color-dark;
   }
 
   .serviceSettings {
@@ -182,6 +180,12 @@
 
     .progressBarValue {
       background-color: $active-color-dark;
+    }
+  }
+
+  .deleteModalContainer {
+    .log-Tips {
+      color: $lines-color-dark;
     }
   }
 

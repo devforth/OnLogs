@@ -6,6 +6,7 @@ export const store = writable({
   // used insensitive prop coz for now default value MUST be true
   caseInSensitive: true,
   transformJson: true,
+  deleteFromDocker: false,
 });
 
 //chosen logs string

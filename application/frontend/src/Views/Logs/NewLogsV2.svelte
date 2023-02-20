@@ -480,7 +480,7 @@
           limit,
 
           caseSens: !$store.caseInSensitive,
-          startWith: allLogs.at(-1)[0],
+          startWith: allLogs.at(-1) ? allLogs.at(-1)[0] : "",
           hostName: $lastChosenHost,
         });
         isFeatching.set(false);
@@ -747,12 +747,10 @@
                       status: "Success",
                     });
                     if (!$toastIsVisible) {
-                      console.log("toast  invisible");
                       toastIsVisible.set(true);
                       toastTimeoutId.set(
                         setTimeout(() => {
                           toastIsVisible.set(false);
-                          console.log("close toast after timeout");
                         }, 3000)
                       );
                     } else {

@@ -1,5 +1,16 @@
-.confirmationContainer {
+.deleteModalContainer {
+  background-color: $block-bg-color;
+  font-size: $main-font-m;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   padding: $normal-padding;
+  border-radius: $main-border-radius;
+  box-shadow: $main-shadow;
+  min-width: 350px;
+  z-index: 7;
+
   max-width: 450px;
   @include for-mobile {
     width: 80vw;
@@ -7,19 +18,7 @@
   .confirmationName {
     margin: 20px 0 20px 0;
   }
-  .attentionZone {
-    margin-left: -$normal-padding;
-    margin-right: -$normal-padding;
-    min-height: 150px;
-    background-color: $inpun-color;
-    width: calc(100% + 2 * $normal-padding);
-    padding: $normal-padding;
-    box-sizing: border-box;
-    border-radius: $main-border-radius;
 
-    font-size: $main-font-m;
-    line-height: 200%;
-  }
   .buttonsBox {
     display: flex;
     justify-content: space-between;
@@ -30,5 +29,76 @@
   }
   .confirmationText {
     margin: 20px 0 0 0;
+  }
+
+  .deleteModalTitle {
+    margin-top: 16px;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  .optionsBox {
+    display: flex;
+    flex-direction: column;
+    margin-top: 24px;
+    margin-bottom: 48px;
+    align-items: center;
+  }
+
+  .optionBox {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    // margin-left: 62px;
+    p,
+    .checkboxContainerThumb {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+  .buttonsBox {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 24px;
+  }
+
+  .confirmationText {
+    .boldText {
+      font-weight: 700;
+    }
+  }
+
+  .log-Tips {
+    line-height: 1;
+    font-size: $main-font-m;
+    position: absolute;
+    right: 16px;
+    top: 16px;
+    color: $lines-color;
+  }
+}
+.tipsContainer {
+  position: relative;
+}
+
+.tipsText {
+  position: absolute;
+  line-height: 1.5;
+  top: 0%;
+  right: 0%;
+  transform: translate(106%);
+  max-width: 236px;
+  background-color: $block-bg-color;
+  z-index: 8;
+  height: 238px !important;
+  font-size: $main-font-s;
+  border-radius: $main-border-radius;
+  box-shadow: $main-shadow;
+  @include for-mobile {
+    transform: translate(0%, -108%);
+  }
+  @include for-tablet {
+    transform: translate(0%, -108%);
   }
 }

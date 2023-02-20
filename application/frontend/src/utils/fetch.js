@@ -175,6 +175,13 @@ class fetchApi {
       `${this.url}getLogWithPrev?host=${hostName}&id=${containerName}&limit=${limit}&startWith=${startWith}`
     );
   }
+
+  async cleanDockerLogs(host, service) {
+    return await this.doFetch("POST", `${this.url}deleteDockerLogs`, {
+      host,
+      service,
+    });
+  }
 }
 
 export default fetchApi;

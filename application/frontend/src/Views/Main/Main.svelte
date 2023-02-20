@@ -251,7 +251,7 @@
       : ''}"
   >
     <div class="logSizeInformation">
-      <Container minHeightVh={0} max-height={20}
+      <Container minHeightVh={0} max-height={20} noShadows={true}
         ><LogsSize
           discribeText={"Space used by all logs"}
           isAllLogs={true}
@@ -259,25 +259,19 @@
       >
     </div>
     <div class="logSizeInformation">
-      <Container minHeightVh={0}
+      <Container minHeightVh={0} noShadows={true}
         ><LogsSize discribeText={"Space used by service"} /></Container
       >
     </div>
     <div class="subContainerThumb">
-      <Container minHeightVh={0}><Stats /></Container>
+      <Container minHeightVh={0} noShadows={true}><Stats /></Container>
     </div>
   </div>
 </div>
-<Modal
-  modalIsOpen={$confirmationObj.isVisible}
-  closeFunction={() => {
-    confirmationObj.update((pv) => {
-      return { ...pv, isVisible: false };
-    });
-  }}
->
-  <ConfirmationMenu /></Modal
->
+{#if $confirmationObj.isVisible}
+  <ConfirmationMenu />
+{/if}
+
 <Modal modalIsOpen={addUserModOpen} storeProp={addUserModalOpen}
   ><UserManageForm
     bind:userData={newUserData}
