@@ -31,7 +31,8 @@
     }
   }
 
-  .onlogs {
+  .onlogs,
+  .META {
     color: $active-color;
   }
 
@@ -58,9 +59,9 @@
       width: 150px;
       // display: table-cell;
       position: absolute;
-      right: 0;
+      left: 0;
       top: 0;
-      justify-content: end;
+      justify-content: start;
       flex-direction: row-reverse;
     }
     @include for-mobile {
@@ -68,9 +69,9 @@
       width: 150px;
       // display: table-cell;
       position: absolute;
-      right: 0;
+      left: 0;
       top: 0;
-      justify-content: end;
+      justify-content: start;
       flex-direction: row-reverse;
     }
   }
