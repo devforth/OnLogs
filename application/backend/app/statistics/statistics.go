@@ -14,7 +14,6 @@ func restartStats(host string, container string, current_db *leveldb.DB) {
 	var used_storage map[string]map[string]uint64
 	var location string
 	if container == "" {
-		used_storage = vars.Counters_For_Hosts_Last_30_Min
 		location = host
 	} else {
 		used_storage = vars.Counters_For_Containers_Last_30_Min
@@ -48,28 +47,7 @@ func RunStatisticForContainer(host string, container string) {
 	defer delete(vars.Stat_Containers_DBs, location)
 	defer restartStats(host, container, vars.Stat_Containers_DBs[location])
 	for {
-		vars.Counters_For_Hosts_Last_30_Min[host]["error"] += vars.Counters_For_Containers_Last_30_Min[location]["error"]
-		vars.Counters_For_Hosts_Last_30_Min[host]["debug"] += vars.Counters_For_Containers_Last_30_Min[location]["debug"]
-		vars.Counters_For_Hosts_Last_30_Min[host]["info"] += vars.Counters_For_Containers_Last_30_Min[location]["info"]
-		vars.Counters_For_Hosts_Last_30_Min[host]["warn"] += vars.Counters_For_Containers_Last_30_Min[location]["warn"]
-		vars.Counters_For_Hosts_Last_30_Min[host]["other"] += vars.Counters_For_Containers_Last_30_Min[location]["other"]
 		restartStats(host, container, vars.Stat_Containers_DBs[location])
-		time.Sleep(30 * time.Minute)
-	}
-}
-
-// TODO improve counters
-func RunStatisticForHost(host string) {
-	vars.Counters_For_Hosts_Last_30_Min[host] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	if vars.Stat_Hosts_DBs[host] == nil {
-		current_db, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/statistics", nil)
-		defer current_db.Close()
-		vars.Stat_Hosts_DBs[host] = current_db
-	}
-	defer delete(vars.Stat_Hosts_DBs, host)
-	defer restartStats(host, "", vars.Stat_Hosts_DBs[host])
-	for {
-		restartStats(host, "", vars.Stat_Hosts_DBs[host])
 		time.Sleep(30 * time.Minute)
 	}
 }
@@ -137,8 +115,9 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 		return nil
 	}
 
+	location := host + "/" + service
 	to_return := map[string]map[string]uint64{}
-	iter := vars.Stat_Hosts_DBs[host].NewIterator(nil, nil)
+	iter := vars.Stat_Containers_DBs[location].NewIterator(nil, nil)
 	iter.Last()
 	defer iter.Release()
 	hasPrev := true
@@ -168,11 +147,11 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 	}
 
 	to_return["now"] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	to_return["now"]["error"] = vars.Counters_For_Containers_Last_30_Min[host+"/"+service]["error"]
-	to_return["now"]["debug"] = vars.Counters_For_Containers_Last_30_Min[host+"/"+service]["debug"]
-	to_return["now"]["info"] = vars.Counters_For_Containers_Last_30_Min[host+"/"+service]["info"]
-	to_return["now"]["warn"] = vars.Counters_For_Containers_Last_30_Min[host+"/"+service]["warn"]
-	to_return["now"]["other"] = vars.Counters_For_Containers_Last_30_Min[host+"/"+service]["other"]
+	to_return["now"]["error"] = vars.Counters_For_Containers_Last_30_Min[location]["error"]
+	to_return["now"]["debug"] = vars.Counters_For_Containers_Last_30_Min[location]["debug"]
+	to_return["now"]["info"] = vars.Counters_For_Containers_Last_30_Min[location]["info"]
+	to_return["now"]["warn"] = vars.Counters_For_Containers_Last_30_Min[location]["warn"]
+	to_return["now"]["other"] = vars.Counters_For_Containers_Last_30_Min[location]["other"]
 
 	return to_return
 }

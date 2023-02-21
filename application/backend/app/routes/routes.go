@@ -148,8 +148,6 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-
-	go statistics.RunStatisticForHost(addReq.Hostname)
 }
 
 func ChangeFavourite(w http.ResponseWriter, req *http.Request) {
