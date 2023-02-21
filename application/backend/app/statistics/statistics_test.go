@@ -11,17 +11,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-func TestRunStatisticForHost(t *testing.T) {
-	go RunStatisticForHost("Test")
-	time.Sleep(1 * time.Second)
-	if vars.Counters_For_Hosts_Last_30_Min["Test"] == nil {
-		t.Error("No counter variable for host was created!")
-	}
-	vars.Counters_For_Hosts_Last_30_Min["Test"] = nil
-}
-
 func TestRunStatisticForContainer(t *testing.T) {
-	go RunStatisticForHost("Test")
 	go RunStatisticForContainer("Test", "TestContainer")
 	time.Sleep(1 * time.Second)
 	if vars.Counters_For_Containers_Last_30_Min["Test/TestContainer"] == nil {
@@ -51,8 +41,8 @@ func TestGetStatisticsByService(t *testing.T) {
 
 func TestGetChartData(t *testing.T) {
 	cur_db, _ := leveldb.OpenFile("leveldb/hosts/test/statistics", nil)
-	vars.Stat_Hosts_DBs["test"] = cur_db
 	vars.Counters_For_Containers_Last_30_Min["test/test"] = map[string]uint64{"error": 2, "debug": 1, "info": 3, "warn": 5, "other": 4}
+	vars.Stat_Containers_DBs["test/test"] = cur_db
 	to_put, _ := json.Marshal(vars.Counters_For_Containers_Last_30_Min["test/test"])
 	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), ".")[0], " ", "T", 1) + "Z"
 	cur_db.Put([]byte(datetime), to_put, nil)

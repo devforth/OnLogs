@@ -148,8 +148,6 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-
-	go statistics.RunStatisticForHost(addReq.Hostname)
 }
 
 func ChangeFavourite(w http.ResponseWriter, req *http.Request) {
@@ -294,15 +292,11 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	size := util.GetDirSize(params.Get("host"), params.Get("service"))
-	if size < 0.1 && size != 0.0 {
-		size = 0.1
-	}
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
 	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
+	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", util.GetDirSize(params.Get("host"), params.Get("service")))}) // MiB
 }
 
 func GetStats(w http.ResponseWriter, req *http.Request) {
