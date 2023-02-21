@@ -47,7 +47,6 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/deleteDockerLogs", routes.DeleteDockerLogs)
 	http.HandleFunc(pathPrefix+"/api/v1/deleteUser", routes.DeleteUser)
 	http.HandleFunc(pathPrefix+"/api/v1/editUser", routes.EditUser)
-	http.HandleFunc(pathPrefix+"/api/v1/getAllStats", routes.GetAllStats)
 	http.HandleFunc(pathPrefix+"/api/v1/getChartData", routes.GetChartData)
 	http.HandleFunc(pathPrefix+"/api/v1/getHosts", routes.GetHosts)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogWithPrev", routes.GetLogWithPrev)

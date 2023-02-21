@@ -172,44 +172,6 @@ func TestLogout(t *testing.T) {
 	}
 }
 
-func TestGetAllStats(t *testing.T) {
-	postBody1, _ := json.Marshal(map[string]string{
-		"Login":    "testuser",
-		"Password": "testuser",
-	})
-	req1, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody1))
-	userdb.CreateUser("testuser", "testuser")
-	rr1 := httptest.NewRecorder()
-	handler1 := http.HandlerFunc(Login)
-	handler1.ServeHTTP(rr1, req1)
-	rr2 := httptest.NewRecorder()
-
-	vars.Counters_For_Hosts_Last_30_Min[util.GetHost()] = map[string]uint64{"error": 1, "debug": 2, "info": 3, "warn": 4, "other": 5}
-	os.RemoveAll("leveldb/hosts/" + util.GetHost() + "/statistics")
-	statDB, _ := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/statistics", nil)
-	vars.Stat_Hosts_DBs[util.GetHost()] = statDB
-	to_put, _ := json.Marshal(vars.Counters_For_Hosts_Last_30_Min[util.GetHost()])
-	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), ".")[0], " ", "T", 1) + "Z"
-	statDB.Put([]byte(datetime), to_put, nil)
-
-	postBody2, _ := json.Marshal(map[string]int{
-		"period": 2,
-	})
-	req2, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody2))
-	req2.AddCookie(rr1.Result().Cookies()[0])
-	handler2 := http.HandlerFunc(GetAllStats)
-	handler2.ServeHTTP(rr2, req2)
-
-	b, _ := ioutil.ReadAll(rr2.Result().Body)
-	res := map[string]int{}
-	json.Unmarshal(b, &res)
-	if res["debug"] != 4 || res["error"] != 2 ||
-		res["info"] != 6 || res["other"] != 10 ||
-		res["warn"] != 8 {
-		t.Error("Wrong value!")
-	}
-}
-
 func TestGetStats(t *testing.T) {
 	postBody1, _ := json.Marshal(map[string]string{
 		"Login":    "testuser",
