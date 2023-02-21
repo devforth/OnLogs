@@ -39,8 +39,7 @@
   import { changeKey } from "../../utils/changeKey.js";
   import Stats from "../../lib/Stats/Stats.svelte";
   import MainChartMenu from "../../lib/ChartMenu/MainChartMenu.svelte";
-  import Spiner from "../Logs/Spiner.svelte";
-  import { debug } from "svelte/internal";
+  import SettingsController from "./SettingsController.svelte";
 
   let api = new fetchApi();
   let hostList = [];
@@ -147,6 +146,7 @@
   // }
 </script>
 
+<SettingsController />
 <div class="contentContainer">
   <div class="subContainerLeft subContainer ">
     <div

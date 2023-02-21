@@ -182,6 +182,16 @@ class fetchApi {
       service,
     });
   }
+
+  async updateSettings(options) {
+    return await this.doFetch("POST", `${this.url}updateUserSettings`, {
+      ...options,
+    });
+  }
+
+  async getUserSettings() {
+    return await this.doFetch("GET", `${this.url}getUserSettings`);
+  }
 }
 
 export default fetchApi;

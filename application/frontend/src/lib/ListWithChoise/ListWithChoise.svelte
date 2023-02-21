@@ -152,8 +152,17 @@
       }
     );
   }
+  function choseInitialHost() {
+    listData.forEach((h, i) => {
+      if (h.host === $lastChosenHost) {
+        openHeaderIndexs = [i, ...openHeaderIndexs];
+      }
+    });
+  }
 
-  onMount(() => {});
+  $: {
+    listData && choseInitialHost();
+  }
 </script>
 
 <div class="listWithChoise {$listScrollIsVisible ? 'active' : ''}">
