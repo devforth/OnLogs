@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -74,7 +75,6 @@ func RunStatisticForHost(host string) {
 }
 
 func GetStatisticsByService(host string, service string, value int) map[string]uint64 {
-	searchTo := time.Now().Add(-(time.Hour * time.Duration(value/2))).UTC()
 	location := host + "/" + service
 
 	to_return := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
@@ -84,36 +84,38 @@ func GetStatisticsByService(host string, service string, value int) map[string]u
 	to_return["warn"] += vars.Counters_For_Containers_Last_30_Min[location]["warn"]
 	to_return["other"] += vars.Counters_For_Containers_Last_30_Min[location]["other"]
 
-	if value > 1 {
-		var tmp_stats map[string]uint64
-		var current_db *leveldb.DB
-		if vars.Stat_Containers_DBs[location] == nil {
-			current_db, _ = leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+service+"/statistics", nil)
-			defer current_db.Close()
-		} else {
-			current_db = vars.Stat_Containers_DBs[location]
-		}
-		iter := current_db.NewIterator(nil, nil)
-		defer iter.Release()
-		iter.Last()
-		for iter.Prev() {
-			tmp_time, err := time.Parse(time.RFC3339, string(iter.Key()))
-			if err != nil { // TODO no errors should be here, so this may be removed
-				current_db.Delete(iter.Key(), nil)
-			}
-			if searchTo.After(tmp_time) {
-				break
-			}
-		}
-		for iter.Next() {
-			json.Unmarshal(iter.Value(), &tmp_stats)
-			to_return["debug"] += tmp_stats["debug"]
-			to_return["error"] += tmp_stats["error"]
-			to_return["info"] += tmp_stats["info"]
-			to_return["warn"] += tmp_stats["warn"]
-			to_return["other"] += tmp_stats["other"]
-		}
+	if value < 1 {
+		return to_return
 	}
+
+	searchTo := time.Now().Add(-(time.Hour * time.Duration(value/2))).UTC()
+	var tmp_stats map[string]uint64
+	current_db := util.GetDB(host, service, "statistics")
+	if vars.Stat_Containers_DBs[location] == nil {
+		defer current_db.Close()
+	}
+	iter := current_db.NewIterator(nil, nil)
+	defer iter.Release()
+	iter.Last()
+	hasPrev := true
+	for hasPrev {
+		tmp_time, err := time.Parse(time.RFC3339, string(iter.Key()))
+		if err != nil { // TODO no errors should be here, so this may be removed
+			current_db.Delete(iter.Key(), nil)
+		}
+		if searchTo.After(tmp_time) {
+			break
+		}
+
+		json.Unmarshal(iter.Value(), &tmp_stats)
+		to_return["debug"] += tmp_stats["debug"]
+		to_return["error"] += tmp_stats["error"]
+		to_return["info"] += tmp_stats["info"]
+		to_return["warn"] += tmp_stats["warn"]
+		to_return["other"] += tmp_stats["other"]
+		hasPrev = iter.Prev()
+	}
+
 	return to_return
 }
 
