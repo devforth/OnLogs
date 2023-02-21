@@ -282,6 +282,7 @@ func GetSizeByAll(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", totalSize)}) // MiB
 }
 
+// TODO need to return 0.0 when there is no logs for container in db
 func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
@@ -581,14 +582,14 @@ func DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var logItem struct {
+	var containerItem struct {
 		Host    string `json:"host"`
 		Service string `json:"service"`
 	}
 	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&logItem)
+	decoder.Decode(&containerItem)
 
-	go containerdb.DeleteContainer(logItem.Host, logItem.Service, false)
+	go containerdb.DeleteContainer(containerItem.Host, containerItem.Service, false)
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }

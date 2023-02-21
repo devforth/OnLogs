@@ -18,25 +18,6 @@ func containStr(a string, b string, caseSens bool) bool {
 	return strings.Contains(strings.ToLower(a), strings.ToLower(b))
 }
 
-func getDB(host string, container string, dbType string) *leveldb.DB {
-	var res_db *leveldb.DB
-	if dbType == "logs" {
-		res_db = vars.ActiveDBs[container]
-	} else if dbType == "statuses" {
-		res_db = vars.Statuses_DBs[host+"/"+container]
-	}
-
-	var err error
-	if res_db == nil {
-		path := "leveldb/hosts/" + host + "/containers/" + container + "/" + dbType
-		res_db, err = leveldb.OpenFile(path, nil)
-		if err != nil {
-			res_db, _ = leveldb.RecoverFile(path, nil)
-		}
-	}
-	return res_db
-}
-
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
 	if len(message_item[0]) < 30 {
 		fmt.Println("WARNING: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
@@ -74,8 +55,8 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 }
 
 func GetLogsByStatus(host string, container string, message string, status string, limit int, startWith string, getPrev bool, include bool, caseSensetivity bool) [][]string {
-	logs_db := getDB(host, container, "logs")
-	db := getDB(host, container, "statuses")
+	logs_db := util.GetDB(host, container, "logs")
+	db := util.GetDB(host, container, "statuses")
 	if host != util.GetHost() || vars.ActiveDBs[container] == nil {
 		defer logs_db.Close()
 	}
@@ -148,7 +129,7 @@ func GetLogsByStatus(host string, container string, message string, status strin
 }
 
 func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) [][]string {
-	db := getDB(host, container, "logs")
+	db := util.GetDB(host, container, "logs")
 	if host != util.GetHost() || vars.ActiveDBs[container] == nil {
 		defer db.Close()
 	}
