@@ -6,7 +6,7 @@
   gap: 10px;
   padding-bottom: 5px;
   padding-top: 5px;
-
+  font-family: $mono-font;
   font-size: $main-font-s;
 
   @include for-mobile {
@@ -39,7 +39,7 @@
     vertical-align: middle;
     // margin-right: 12px;
     min-width: 68px;
-    line-height: 100%;
+    line-height: 130%;
 
     span {
       font-size: 18px;
@@ -49,7 +49,7 @@
 
   .time {
     width: 84px;
-    min-width: 84px;
+    min-width: 101px;
     margin-right: 8px;
     text-align: center;
     display: flex;
