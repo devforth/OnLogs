@@ -19,19 +19,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-func Contains(a string, list []string) bool {
-	for _, b := range list {
-		if strings.Compare(b, a) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func CreateInitUser() {
-	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
-}
-
 func replaceVarForAllFilesInDir(dirName string, dir_files []fs.DirEntry) {
 	for _, dir_file := range dir_files {
 		if strings.HasSuffix(dir_file.Name(), ".js") || strings.HasSuffix(dir_file.Name(), ".css") || strings.HasSuffix(dir_file.Name(), ".html") {
@@ -47,6 +34,19 @@ func replaceVarForAllFilesInDir(dirName string, dir_files []fs.DirEntry) {
 			}
 		}
 	}
+}
+
+func Contains(a string, list []string) bool {
+	for _, b := range list {
+		if strings.Compare(b, a) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func CreateInitUser() {
+	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
 }
 
 func ReplacePrefixVariableForFrontend() {
@@ -92,6 +92,27 @@ func CreateJWT(login string) string {
 	tokenString, _ := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
 	return tokenString
+}
+
+func GetDB(host string, container string, dbType string) *leveldb.DB {
+	var res_db *leveldb.DB
+	if dbType == "logs" {
+		res_db = vars.ActiveDBs[container]
+	} else if dbType == "statuses" {
+		res_db = vars.Statuses_DBs[host+"/"+container]
+	} else if dbType == "statistics" {
+		res_db = vars.Stat_Containers_DBs[host+"/"+container]
+	}
+
+	var err error
+	if res_db == nil {
+		path := "leveldb/hosts/" + host + "/containers/" + container + "/" + dbType
+		res_db, err = leveldb.OpenFile(path, nil)
+		if err != nil {
+			res_db, _ = leveldb.RecoverFile(path, nil)
+		}
+	}
+	return res_db
 }
 
 func GetHost() string {
@@ -170,6 +191,11 @@ func GenerateJWTSecret() string {
 }
 
 func GetDockerContainerID(host string, container string) string {
+	_, err := os.ReadDir("leveldb/hosts/" + host)
+	if err != nil {
+		return ""
+	}
+
 	idDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containersMeta", nil)
 	defer idDB.Close()
 	iter := idDB.NewIterator(nil, nil)
