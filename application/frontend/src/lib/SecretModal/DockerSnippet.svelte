@@ -4,7 +4,7 @@
 </script>
 
 <pre class="secretSnippet">
-  docker run --restart always --name onlogs \
+docker run -d --restart always --name onlogs \
   -e CLIENT=true \
   -e HOST={origin} \
   -e ONLOGS_TOKEN={token} \
