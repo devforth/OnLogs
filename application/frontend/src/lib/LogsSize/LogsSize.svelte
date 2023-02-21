@@ -75,6 +75,6 @@
       />
     </div>
   {/if}
-  <h3 class="title">{logsSize} MiB</h3>
+  <h3 class="title">{logsSize} <span>MiB</span></h3>
   <p class="commonText">{discribeText}</p>
 </div>

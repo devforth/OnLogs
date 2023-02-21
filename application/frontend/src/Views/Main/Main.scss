@@ -1,6 +1,6 @@
 .contentContainer {
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
 }
 
 .subContainer {
@@ -13,16 +13,17 @@
   &Left {
     min-width: 175px;
     width: 20vw;
+    max-width: 250px;
     justify-content: space-between;
     position: relative;
 
     #listContainer {
       min-height: 0;
-      flex-shrink: 2;
+      flex-shrink: 1;
     }
 
     .clientPanelBox {
-      height: 90px;
+      height: 60px;
     }
     @include for-mobile {
       &.subContainer {
@@ -78,6 +79,7 @@
   &Right {
     width: 14vw;
     justify-content: start;
+    max-width: 140px;
 
     overflow-y: overflow;
     overflow-x: hidden;
@@ -86,6 +88,13 @@
       width: 10px;
       height: 10px;
       background-color: rgba(0, 0, 0, 0);
+    }
+
+    @include for-desctop {
+      &.withBreakLine {
+        width: 70vw;
+        flex-shrink: 2;
+      }
     }
 
     &.active::-webkit-scrollbar-thumb {
@@ -114,6 +123,7 @@
   }
 
   &Middle {
+    flex-shrink: 0;
     justify-content: space-between;
     height: 100%;
     margin-left: $normal-padding;
@@ -126,7 +136,10 @@
       margin-right: 0;
     }
     @include for-desctop {
-      max-width: 65vw;
+      &.withBreakLine {
+        width: 70vw;
+        flex-shrink: 2;
+      }
     }
     @include for-tablet {
       max-width: 76vw;

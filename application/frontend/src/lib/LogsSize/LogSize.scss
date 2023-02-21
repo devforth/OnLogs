@@ -11,6 +11,9 @@
   .title {
     margin-top: 10px;
     margin-bottom: 10px;
+    & span {
+      font-size: 0.7rem;
+    }
   }
   .commonText {
     color: $text-placeholder-color;

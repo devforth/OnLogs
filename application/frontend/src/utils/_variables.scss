@@ -78,7 +78,7 @@ $container-vertical-padding: 16px;
 }
 
 @mixin for-tablet {
-  @media (min-width: 750px) and (max-width: 950px) {
+  @media (min-width: 750px) and (max-width: 1150px) {
     @content;
   }
 }

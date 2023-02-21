@@ -19,6 +19,7 @@
     confirmationObj,
     toastIsVisible,
     chosenLogsString,
+    store,
   } from "../../Stores/stores.js";
   import UserMenu from "../../lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
@@ -227,7 +228,7 @@
   </div>
   <div
     class="subContainerMiddle subContainer {withoutRightPanel &&
-      'withoutRightPanel'}"
+      'withoutRightPanel'} {$store.breakLines ? '' : 'withBreakLine'}"
   >
     <!-- <Container minHeightVh={17.36}>1213414</Container> -->
     <Container minHeightVh={92.6}>
