@@ -119,40 +119,6 @@ func GetStatisticsByService(host string, service string, value int) map[string]u
 	return to_return
 }
 
-func GetStatisticsByHost(host string, value int) map[string]uint64 {
-	searchTo := time.Now().Add(-(time.Hour * time.Duration(value/2))).UTC()
-
-	to_return := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
-	to_return["debug"] += vars.Counters_For_Hosts_Last_30_Min[host]["debug"]
-	to_return["error"] += vars.Counters_For_Hosts_Last_30_Min[host]["error"]
-	to_return["info"] += vars.Counters_For_Hosts_Last_30_Min[host]["info"]
-	to_return["warn"] += vars.Counters_For_Hosts_Last_30_Min[host]["warn"]
-	to_return["other"] += vars.Counters_For_Hosts_Last_30_Min[host]["other"]
-
-	if value > 1 {
-		var tmp_stats map[string]uint64
-		iter := vars.Stat_Hosts_DBs[host].NewIterator(nil, nil)
-		defer iter.Release()
-		iter.Last()
-		for iter.Prev() {
-			tmp_time, _ := time.Parse(time.RFC3339, string(iter.Key()))
-			if searchTo.After(tmp_time) {
-				break
-			}
-		}
-		for iter.Next() {
-			json.Unmarshal(iter.Value(), &tmp_stats)
-			to_return["debug"] += tmp_stats["debug"]
-			to_return["error"] += tmp_stats["error"]
-			to_return["info"] += tmp_stats["info"]
-			to_return["warn"] += tmp_stats["warn"]
-			to_return["other"] += tmp_stats["other"]
-		}
-	}
-
-	return to_return
-}
-
 func GetChartData(host string, service string, unit string, uAmount int) map[string]map[string]uint64 {
 	var searchTo time.Time
 	var sep, formatting string
@@ -171,18 +137,17 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 		return nil
 	}
 
+	to_return := map[string]map[string]uint64{}
 	iter := vars.Stat_Hosts_DBs[host].NewIterator(nil, nil)
 	iter.Last()
 	defer iter.Release()
-	for iter.Prev() {
+	hasPrev := true
+	for hasPrev {
 		tmp_time, _ := time.Parse(time.RFC3339, string(iter.Key()))
 		if searchTo.After(tmp_time) {
 			break
 		}
-	}
 
-	to_return := map[string]map[string]uint64{}
-	for iter.Next() {
 		var datetime string
 		if unit == "month" {
 			datetime = string(iter.Key())[:7] + formatting
@@ -198,7 +163,10 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 		to_return[datetime]["info"] += tmp_stats["info"]
 		to_return[datetime]["warn"] += tmp_stats["warn"]
 		to_return[datetime]["other"] += tmp_stats["other"]
+
+		hasPrev = iter.Prev()
 	}
+
 	to_return["now"] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
 	to_return["now"]["error"] = vars.Counters_For_Containers_Last_30_Min[host+"/"+service]["error"]
 	to_return["now"]["debug"] = vars.Counters_For_Containers_Last_30_Min[host+"/"+service]["debug"]

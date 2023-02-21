@@ -305,21 +305,6 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
-func GetAllStats(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
-		return
-	}
-
-	var period struct {
-		Value int `json:"period"` // 1 = 30min, 2 = 1hr, 48 = 1d
-	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&period)
-
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(statistics.GetStatisticsByHost(util.GetHost(), period.Value))
-}
-
 func GetStats(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return

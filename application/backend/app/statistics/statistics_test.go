@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
 )
@@ -47,23 +46,6 @@ func TestGetStatisticsByService(t *testing.T) {
 		res["info"] != 6 || res["other"] != 10 ||
 		res["warn"] != 8 {
 		t.Error("Wrong value!\n", res)
-	}
-}
-
-func TestGetStatisticsByHost(t *testing.T) {
-	vars.Counters_For_Hosts_Last_30_Min[util.GetHost()] = map[string]uint64{"error": 1, "debug": 2, "info": 3, "warn": 4, "other": 5}
-	os.RemoveAll("leveldb/hosts/" + util.GetHost() + "/statistics")
-	statDB, _ := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/statistics", nil)
-	vars.Stat_Hosts_DBs[util.GetHost()] = statDB
-	to_put, _ := json.Marshal(vars.Counters_For_Hosts_Last_30_Min[util.GetHost()])
-	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), ".")[0], " ", "T", 1) + "Z"
-	statDB.Put([]byte(datetime), to_put, nil)
-
-	res := GetStatisticsByHost(util.GetHost(), 2)
-	if res["debug"] != 4 || res["error"] != 2 ||
-		res["info"] != 6 || res["other"] != 10 ||
-		res["warn"] != 8 {
-		t.Error("Wrong value!")
 	}
 }
 
