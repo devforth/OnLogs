@@ -190,3 +190,16 @@ export const scrollToSpecificLog = (selector, position) => {
     );
   }
 };
+
+export const findSearchTextInLogs = (sel, searchText, caseSens) => {
+  const nodes = document.querySelectorAll(sel);
+
+  let regex = caseSens
+    ? new RegExp(searchText, "g")
+    : new RegExp(searchText, "gi");
+  nodes.forEach((n) => {
+    n.innerHTML = n.innerHTML.replace(regex, function (match, n) {
+      return `<span class="searchedText">${match}</span>`;
+    });
+  });
+};

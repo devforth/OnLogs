@@ -10,9 +10,8 @@
   import Spiner from "./Spiner.svelte";
   import LogStringHeader from "./LogStringHeader.svelte";
   import { fade } from "svelte/transition";
-  import { handleKeydown } from "../../utils/functions.js";
-
-  import { copyCustomText } from "../../utils/functions.js";
+  import { handleKeydown, copyCustomText } from "../../utils/functions.js";
+  import { findSearchTextInLogs } from "../../Views/Logs/functions.js";
 
   import {
     store,
@@ -26,6 +25,7 @@
     isPending,
     urlHash,
     isFeatching,
+    chosenStatus,
   } from "../../Stores/stores";
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
   import {
@@ -38,6 +38,7 @@
     scrollToNewLogsEnd,
     scrollToSpecificLog,
   } from "./functions";
+  import { debug } from "svelte/internal";
   const api = new fetchApi();
   let visibleLogs = [];
   let newLogs = [];
@@ -78,6 +79,18 @@
   let topFetchIsStarted = false;
   let pinedBadgeTimer = null;
   let pinedBadgeIsVisible = false;
+
+  async function highlightSearchText() {
+    if (searchText) {
+      await tick();
+
+      findSearchTextInLogs(
+        ".string, .message p",
+        searchText,
+        !$store.caseInSensitive
+      );
+    }
+  }
 
   function findLastVisibleLog() {
     let index = dateIntersects.indexOf(true);
@@ -135,10 +148,6 @@
       pauseWS = false;
 
       logsFromWS = [];
-      getFullLogsSetIsTrottle = true;
-      setTimeout(() => {
-        getFullLogsSetIsTrottle = false;
-      }, 500);
     }
   }
 
@@ -585,6 +594,7 @@
   }
   $: {
     if (allLogs) {
+      highlightSearchText();
     }
   }
 
@@ -762,6 +772,7 @@
                     }
                   });
                 }}
+                getLogsByTagOptions={(limit, searchText)}
               />
             </div>
             <IntersectionObserver

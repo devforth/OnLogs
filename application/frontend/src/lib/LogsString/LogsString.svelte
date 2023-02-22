@@ -1,14 +1,19 @@
 <script>
   import { tryToParseLogString } from "../../utils/functions";
+  import { chosenStatus } from "../../Stores/stores";
+  import fetchApi from "../../utils/fetch";
   export let status = "";
   export let time = "";
   export let message = "";
   export let width = "";
   export let isHiglighted = false;
   export let sharedLinkCallBack = () => {};
+  export let getLogsByTagOptions = {};
 
-  $: parsedStr = tryToParseLogString(message);
   import { store } from "../../Stores/stores.js";
+
+  let activeStatus = "";
+  $: parsedStr = tryToParseLogString(message);
 </script>
 
 <tr
@@ -17,33 +22,42 @@
     : ''}"
   style="width: {width}px"
 >
-  <td class="status {status ? status : 'hidden'}"
-    ><p><span> ◉ </span>{status.toUpperCase()}</p></td
+  <td
+    on:click={async () => {
+      if (!$chosenStatus) {
+        chosenStatus.set(status);
+      } else {
+        chosenStatus.set("");
+      }
+    }}
+    class="status {status ? status : 'hidden'} {status === $chosenStatus
+      ? 'chosenStatus'
+      : ''}"><p><span> ◉ </span>{status.toUpperCase()}</p></td
   >
 
   <td class="time row_group"
     ><p>{message?.trim()?.length > 0 ? time : ""}</p>
-    {#if message?.trim()?.length > 0}
-      <div
-        id={`thumb-shared-${time}`}
-        class="shareLinkButtonThumb"
-        on:click={() => {
-          console.log("click to");
-          sharedLinkCallBack();
-        }}
-      >
-        <i class="log log-ShareLink" id={`shared-${time}`} />
-      </div>{/if}
+    <div>
+      {#if message?.trim()?.length > 0}
+        <div
+          id={`thumb-shared-${time}`}
+          class="shareLinkButtonThumb"
+          on:click={() => {
+            sharedLinkCallBack();
+          }}
+        >
+          <i class="log log-ShareLink" id={`shared-${time}`} />
+        </div>{/if}
+    </div>
   </td>
-  <td class="message"
-    >{#if !parsedStr}<p>
-        {message}
-      </p>{:else}
-      {#if $store.transformJson}<p>{parsedStr.startText}</p>
-        <pre>{@html parsedStr.html}</pre>
-        <p>{parsedStr.endText}</p>
-      {:else}<p>
-          {message}
-        </p>{/if}{/if}
+  <td class="message">
+    {#if !parsedStr}<p>
+        {@html message}
+      </p>{:else if $store.transformJson}<p>{parsedStr.startText}</p>
+      <pre>{@html parsedStr.html}</pre>
+      <p>{parsedStr.endText}</p>
+    {:else}<p>
+        {@html message}
+      </p>{/if}
   </td>
 </tr>
