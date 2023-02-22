@@ -7,7 +7,7 @@
     image: devforth/onlogs 
     restart: always
     environment:
-      - CLIENT=true
+      - AGENT=true
       - HOST={origin}
       - ONLOGS_TOKEN={token}
     volumes:
