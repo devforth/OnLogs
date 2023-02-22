@@ -306,7 +306,12 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 		panic("Host is not mentioned!")
 	}
 	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", util.GetDirSize(params.Get("host"), params.Get("service")))}) // MiB
+
+	size := util.GetDirSize(params.Get("host"), params.Get("service"))
+	if size < 0.1 && size != 0.0 {
+		size = 0.1
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
 func GetStats(w http.ResponseWriter, req *http.Request) {
