@@ -44,5 +44,12 @@ func SendLogMessage(container string, message_item []string) {
 }
 
 func SendUpdate(containers []string) {
+	postBody, _ := json.Marshal(map[string]interface{}{
+		"Hostname": util.GetHost(),
+		"Token":    os.Getenv("ONLOGS_TOKEN"),
+		"Services": containers,
+	})
+	responseBody := bytes.NewBuffer(postBody)
 
+	http.Post(os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
 }
