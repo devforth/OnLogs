@@ -14,7 +14,7 @@ import (
 
 func main() {
 	godotenv.Load(".env")
-	if os.Getenv("CLIENT") != "" {
+	if os.Getenv("AGENT") != "" {
 		streamer.StreamLogs()
 	}
 

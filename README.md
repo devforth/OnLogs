@@ -75,10 +75,10 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 ## Available Environment Options:
 | Environment Variable       | Description   | Defaults | Required |
 |----------------------------|---------------------------------|--------|-----------------|
-| PASSWORD           | Password for default user                        |                    | if `CLIENT=false`
-| PORT               | Port to listen on                                | `2874`             | if `CLIENT=false`
+| PASSWORD           | Password for default user                        |                    | if `AGENT=false`
+| PORT               | Port to listen on                                | `2874`             | if `AGENT=false`
 | JWT_SECRET         | Secret for JWT tokens for users                  | Generates randomly | -
 | ONLOGS_PATH_PREFIX | Base path if you using OnLogs not on subdomain   |                    | only if using on path prefix
-| CLIENT             | Toggles client mode. If enabled, there will be no web interface available and all logs will be sent  and stored on HOST                                                      | `false` | -
-| HOST               | Url to OnLogs host from protocol to domain name. |                    | if `CLIENT=true`
-| ONLOGS_TOKEN       | Token that will use client to authorize and connect to HOST | Generates with OnLogs interface   | if `CLIENT=true`
+| AGENT             | Toggles agent mode. If enabled, there will be no web interface available and all logs will be sent  and stored on HOST                                                      | `false` | -
+| HOST               | Url to OnLogs host from protocol to domain name. |                    | if `AGENT=true`
+| ONLOGS_TOKEN       | Token that will use agent to authorize and connect to HOST | Generates with OnLogs interface   | if `AGENT=true`
