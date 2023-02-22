@@ -121,7 +121,7 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	if vars.Counters_For_Hosts_Last_30_Min[logItem.Host] == nil {
 		go statistics.RunStatisticForContainer(logItem.Host, logItem.Container)
 	}
-	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/containers"+logItem.Container+"/logs", nil)
+	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/containers/"+logItem.Container+"/logs", nil)
 	containerdb.PutLogMessage(current_db, logItem.Host, logItem.Container, logItem.LogLine)
 	defer current_db.Close()
 
