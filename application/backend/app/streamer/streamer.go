@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/devforth/OnLogs/app/agent"
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/statistics"
 	"github.com/devforth/OnLogs/app/util"
@@ -32,7 +33,7 @@ func createStreams(containers []string) {
 			vars.Statuses_DBs[util.GetHost()+"/"+container] = statusesDB
 			vars.ActiveDBs[container] = newDB
 			vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
-			if os.Getenv("CLIENT") != "" {
+			if os.Getenv("AGENT") != "" {
 				go daemon.CreateDaemonToHostStream(container)
 			} else {
 				go daemon.CreateDaemonToDBStream(container)
@@ -43,10 +44,16 @@ func createStreams(containers []string) {
 
 func StreamLogs() {
 	vars.DockerContainers = daemon.GetContainersList()
+	if os.Getenv("AGENT") != "" {
+		agent.SendInitRequest(vars.DockerContainers)
+	}
 	for {
 		createStreams(vars.DockerContainers)
 		time.Sleep(20 * time.Second)
 		vars.Year = strconv.Itoa(time.Now().UTC().Year())
 		vars.DockerContainers = daemon.GetContainersList()
+		if os.Getenv("AGENT") != "" {
+			agent.SendUpdate(vars.DockerContainers)
+		}
 	}
 }

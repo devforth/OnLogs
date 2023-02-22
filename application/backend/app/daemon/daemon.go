@@ -2,17 +2,15 @@ package daemon
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
-	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/devforth/OnLogs/app/agent"
 	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
@@ -28,21 +26,6 @@ func createLogMessage(db *leveldb.DB, message string) string {
 		db.Put([]byte(datetime+"Z"), []byte(message), nil)
 	}
 	return datetime + "Z " + message
-}
-
-// TODO handle unsended logs better
-func sendLogMessage(container string, message string) {
-	message_item := strings.SplitN(message, " ", 2)
-	postBody, _ := json.Marshal(map[string]interface{}{
-		"Host":      util.GetHost(),
-		"LogLine":   []string{message_item[0], message_item[1]},
-		"Container": container,
-	})
-	resp, _ := http.Post(os.Getenv("HOST")+"/api/v1/addLogLine", "application/json", bytes.NewBuffer(postBody))
-	if resp.StatusCode != 200 {
-		time.Sleep(1 * time.Minute)
-		sendLogMessage(container, message)
-	}
 }
 
 func validateMessage(message string) (string, bool) {
@@ -90,14 +73,14 @@ func CreateDaemonToHostStream(containerName string) {
 	reader := bufio.NewReader(connection)
 	readHeader(*reader)
 
-	sendLogMessage(containerName, createLogMessage(nil, "ONLOGS: Container listening started!"))
+	agent.SendLogMessage(containerName, strings.SplitN(createLogMessage(nil, "ONLOGS: Container listening started!"), " ", 2))
 
 	lastSleep := time.Now().Unix()
 	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n') // TODO read bytes instead of strings
 		if get_string_error != nil {
 			closeActiveStream(containerName)
-			sendLogMessage(containerName, createLogMessage(nil, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")"))
+			agent.SendLogMessage(containerName, strings.SplitN(createLogMessage(nil, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")"), " ", 2))
 			return
 		}
 
@@ -105,8 +88,8 @@ func CreateDaemonToHostStream(containerName string) {
 		if !valid {
 			continue
 		}
-
-		sendLogMessage(containerName, logLine)
+		message_item := strings.SplitN(logLine, " ", 2)
+		agent.SendLogMessage(containerName, message_item)
 
 		if time.Now().Unix()-lastSleep > 1 {
 			time.Sleep(5 * time.Millisecond)

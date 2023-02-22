@@ -2,7 +2,6 @@ package util
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -65,24 +64,6 @@ func ReplacePrefixVariableForFrontend() {
 	replaceVarForAllFilesInDir("", files)
 }
 
-func SendInitRequest() {
-	postBody, _ := json.Marshal(map[string]string{
-		"Hostname": GetHost(),
-		"Token":    os.Getenv("ONLOGS_TOKEN"),
-	})
-	responseBody := bytes.NewBuffer(postBody)
-
-	resp, err := http.Post(os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
-	if err != nil {
-		panic("ERROR: Can't send request to host: " + err.Error())
-	}
-
-	if resp.StatusCode != 200 {
-		b, _ := ioutil.ReadAll(resp.Body)
-		panic("ERROR: Response status from host is " + resp.Status + "\nResponse body: " + string(b))
-	}
-}
-
 func CreateJWT(login string) string {
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
@@ -102,6 +83,8 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 		res_db = vars.Statuses_DBs[host+"/"+container]
 	} else if dbType == "statistics" {
 		res_db = vars.Stat_Containers_DBs[host+"/"+container]
+	} else {
+		panic("Wrong db type!")
 	}
 
 	var err error

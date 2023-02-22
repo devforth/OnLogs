@@ -121,12 +121,16 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	if vars.Counters_For_Hosts_Last_30_Min[logItem.Host] == nil {
 		go statistics.RunStatisticForContainer(logItem.Host, logItem.Container)
 	}
-	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/containers"+logItem.Container+"/logs", nil)
+	location := logItem.Host + "/" + logItem.Container
+	if vars.Statuses_DBs[location] == nil {
+		vars.Statuses_DBs[location] = util.GetDB(logItem.Host, logItem.Container, "statuses")
+	}
+	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/containers/"+logItem.Container+"/logs", nil)
 	containerdb.PutLogMessage(current_db, logItem.Host, logItem.Container, logItem.LogLine)
 	defer current_db.Close()
 
 	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
-	for _, c := range vars.Connections[logItem.Host+"/"+logItem.Container] {
+	for _, c := range vars.Connections[location] {
 		c.WriteMessage(1, to_send)
 	}
 }
@@ -140,6 +144,7 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 	var addReq struct {
 		Hostname string
 		Token    string
+		Services []string
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&addReq)
@@ -147,6 +152,11 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 	if !db.IsTokenExists(addReq.Token) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
+	}
+
+	vars.AgentsActiveContainers[addReq.Hostname] = addReq.Services
+	for _, container := range addReq.Services {
+		os.MkdirAll("leveldb/hosts/"+addReq.Hostname+"/containers/"+container, 0700)
 	}
 }
 
@@ -245,7 +255,7 @@ func GetHosts(w http.ResponseWriter, req *http.Request) {
 		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
 			isFavorite, _ := vars.FavsDB.Has([]byte(util.GetHost()+"/"+container.Name()), nil)
-			if util.Contains(container.Name(), activeContainers) {
+			if util.Contains(container.Name(), activeContainers) || util.Contains(container.Name(), vars.AgentsActiveContainers[host.Name()]) {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
 			} else {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true, "isFavorite": isFavorite})
@@ -296,7 +306,12 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 		panic("Host is not mentioned!")
 	}
 	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", util.GetDirSize(params.Get("host"), params.Get("service")))}) // MiB
+
+	size := util.GetDirSize(params.Get("host"), params.Get("service"))
+	if size < 0.1 && size != 0.0 {
+		size = 0.1
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
 func GetStats(w http.ResponseWriter, req *http.Request) {
@@ -361,29 +376,18 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	json.NewEncoder(w).Encode(containerdb.GetLogs(false, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
-}
 
-func GetLogsByTag(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
-		return
+	if params.Get("status") != "" {
+		json.NewEncoder(w).Encode(containerdb.GetLogsByStatus(
+			params.Get("host"), params.Get("id"), params.Get("message"), params.Get("status"),
+			limit, params.Get("startWith"), false, true, caseSensetive,
+		))
+	} else {
+		json.NewEncoder(w).Encode(containerdb.GetLogs(
+			false, false, params.Get("host"), params.Get("id"), params.Get("search"),
+			limit, params.Get("startWith"), caseSensetive,
+		))
 	}
-
-	params := req.URL.Query()
-	limit, _ := strconv.Atoi(params.Get("limit"))
-	caseSensetive, err := strconv.ParseBool(params.Get("caseSens"))
-	if err != nil {
-		caseSensetive = false
-	}
-	w.Header().Add("Content-Type", "application/json")
-	if params.Get("host") == "" {
-		panic("Host is not mentioned!")
-	}
-
-	json.NewEncoder(w).Encode(containerdb.GetLogsByStatus(
-		params.Get("host"), params.Get("id"), params.Get("message"), params.Get("status"),
-		limit, params.Get("startWith"), false, true, caseSensetive,
-	))
 }
 
 func GetLogWithPrev(w http.ResponseWriter, req *http.Request) {

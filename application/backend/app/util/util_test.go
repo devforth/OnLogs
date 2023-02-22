@@ -41,16 +41,6 @@ func TestCreateInitUser(t *testing.T) {
 	}
 }
 
-func TestSendInitRequest(t *testing.T) {
-	defer func() {
-		r := recover().(string)
-		if r != "ERROR: Can't send request to host: Post \"/api/v1/addHost\": unsupported protocol scheme \"\"" {
-			t.Error("Not expected error: ", r)
-		}
-	}()
-	SendInitRequest()
-}
-
 func TestCreateJWT(t *testing.T) {
 	os.Setenv("JWT_SERCRET", "1231efdZF")
 	token := CreateJWT("test_user")

@@ -5,7 +5,7 @@
 
 <pre class="secretSnippet">
 docker run -d --restart always --name onlogs \
-  -e CLIENT=true \
+  -e AGENT=true \
   -e HOST={origin} \
   -e ONLOGS_TOKEN={token} \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
