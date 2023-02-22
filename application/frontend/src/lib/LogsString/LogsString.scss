@@ -41,10 +41,19 @@
     // margin-right: 12px;
     min-width: 68px;
     line-height: 130%;
+    cursor: pointer;
+    & :hover {
+      transform: scale(1.02);
+    }
 
     span {
       font-size: 18px;
       line-height: 50%;
+    }
+
+    &.chosenStatus {
+      background-color: $active-transparent-color;
+      border-radius: 6px;
     }
   }
 
@@ -110,7 +119,7 @@
     cursor: pointer;
   }
   pre {
-    white-space: pre-line;
+    white-space: pre-wrap;
     word-break: break-all;
   }
 }
