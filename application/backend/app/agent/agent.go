@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/devforth/OnLogs/app/util"
 )
@@ -31,8 +30,7 @@ func SendInitRequest(containers []string) {
 }
 
 // TODO handle unsended logs better
-func SendLogMessage(container string, message string) {
-	message_item := strings.SplitN(message, " ", 2)
+func SendLogMessage(container string, message_item []string) {
 	postBody, _ := json.Marshal(map[string]interface{}{
 		"Host":      util.GetHost(),
 		"LogLine":   []string{message_item[0], message_item[1]},

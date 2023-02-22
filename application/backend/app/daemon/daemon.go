@@ -73,14 +73,14 @@ func CreateDaemonToHostStream(containerName string) {
 	reader := bufio.NewReader(connection)
 	readHeader(*reader)
 
-	agent.SendLogMessage(containerName, createLogMessage(nil, "ONLOGS: Container listening started!"))
+	agent.SendLogMessage(containerName, strings.SplitN(createLogMessage(nil, "ONLOGS: Container listening started!"), " ", 2))
 
 	lastSleep := time.Now().Unix()
 	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n') // TODO read bytes instead of strings
 		if get_string_error != nil {
 			closeActiveStream(containerName)
-			agent.SendLogMessage(containerName, createLogMessage(nil, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")"))
+			agent.SendLogMessage(containerName, strings.SplitN(createLogMessage(nil, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")"), " ", 2))
 			return
 		}
 
@@ -88,8 +88,8 @@ func CreateDaemonToHostStream(containerName string) {
 		if !valid {
 			continue
 		}
-
-		agent.SendLogMessage(containerName, logLine)
+		message_item := strings.SplitN(logLine, " ", 2)
+		agent.SendLogMessage(containerName, message_item)
 
 		if time.Now().Unix()-lastSleep > 1 {
 			time.Sleep(5 * time.Millisecond)
