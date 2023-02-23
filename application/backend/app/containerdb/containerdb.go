@@ -101,12 +101,14 @@ func GetLogsByStatus(host string, container string, message string, status strin
 		res, _ := logs_db.Get(iter.Key(), nil)
 		logLine := string(res)
 
+		logLineToCompare := logLine
+		messageToCompare := message
 		if !caseSensetivity {
-			logLine = strings.ToLower(logLine)
-			message = strings.ToLower(message)
+			logLineToCompare = strings.ToLower(logLine)
+			messageToCompare = strings.ToLower(message)
 		}
 
-		if !strings.Contains(logLine, message) {
+		if !strings.Contains(logLineToCompare, messageToCompare) {
 			if getPrev {
 				iter.Next()
 			} else {

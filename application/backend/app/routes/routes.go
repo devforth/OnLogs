@@ -379,7 +379,7 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 
 	if params.Get("status") != "" {
 		json.NewEncoder(w).Encode(containerdb.GetLogsByStatus(
-			params.Get("host"), params.Get("id"), params.Get("message"), params.Get("status"),
+			params.Get("host"), params.Get("id"), params.Get("search"), params.Get("status"),
 			limit, params.Get("startWith"), false, true, caseSensetive,
 		))
 	} else {
@@ -542,6 +542,30 @@ func GetUserSettings(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(userdb.GetUserSettings(username))
 }
 
+func EditHostname(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
+		return
+	}
+
+	var data struct {
+		Host string
+		Name string
+	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&data)
+
+	if data.Name != "" {
+		if data.Host != util.GetHost() {
+			// TODO ask for command
+		} else {
+			os.WriteFile("/etc/hosntame", []byte(data.Name), 0644)
+		}
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+}
+
 func EditUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
@@ -591,6 +615,29 @@ func DeleteDockerLogs(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": util.DeleteDockerLogs(logItem.Host, logItem.Service)})
+}
+
+func AskForDelete(w http.ResponseWriter, req *http.Request) {
+	var logItem struct {
+		Hostname string
+		Token    string
+	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&logItem)
+
+	if !db.IsTokenExists(logItem.Token) {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	to_delete := []string{}
+	if len(vars.ToDelete[logItem.Hostname]) != 0 {
+		to_delete = vars.ToDelete[logItem.Hostname]
+		vars.ToDelete[logItem.Hostname] = []string{}
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"Services": to_delete})
 }
 
 func DeleteContainer(w http.ResponseWriter, req *http.Request) {

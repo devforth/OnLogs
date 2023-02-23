@@ -52,4 +52,25 @@ func SendUpdate(containers []string) {
 	responseBody := bytes.NewBuffer(postBody)
 
 	http.Post(os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
+	AskForDelete()
+}
+
+func AskForDelete() {
+	postBody, _ := json.Marshal(map[string]interface{}{
+		"Hostname": util.GetHost(),
+		"Token":    os.Getenv("ONLOGS_TOKEN"),
+	})
+	responseBody := bytes.NewBuffer(postBody)
+
+	resp, _ := http.Post(os.Getenv("HOST")+"/api/v1/askForDelete", "application/json", responseBody)
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	if string(body) != "" {
+		var toDelete map[string][]string
+		json.Unmarshal(body, &toDelete)
+
+		for _, container := range toDelete["Services"] {
+			util.DeleteDockerLogs(util.GetHost(), container)
+		}
+	}
 }

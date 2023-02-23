@@ -196,6 +196,11 @@ func GetDockerContainerID(host string, container string) string {
 }
 
 func DeleteDockerLogs(host string, container string) error {
+	if host != GetHost() {
+		vars.ToDelete[host] = append(vars.ToDelete[host+"/"+container], container)
+		return nil
+	}
+
 	containerID := GetDockerContainerID(host, container)
 	files, err := os.ReadDir("/var/lib/docker/containers/" + containerID)
 	if err != nil || len(files) == 0 {
