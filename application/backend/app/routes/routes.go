@@ -593,6 +593,29 @@ func DeleteDockerLogs(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": util.DeleteDockerLogs(logItem.Host, logItem.Service)})
 }
 
+func AskForDelete(w http.ResponseWriter, req *http.Request) {
+	var logItem struct {
+		Hostname string
+		Token    string
+	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&logItem)
+
+	if !db.IsTokenExists(logItem.Token) {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	to_delete := []string{}
+	if len(vars.ToDelete[logItem.Hostname]) != 0 {
+		to_delete = vars.ToDelete[logItem.Hostname]
+		vars.ToDelete[logItem.Hostname] = []string{}
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"Services": to_delete})
+}
+
 func DeleteContainer(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
