@@ -84,3 +84,9 @@ export const isFeatching = writable(false);
 //status for serching logs by status
 
 export const chosenStatus = writable("");
+
+//last logTime for logsStream
+export const lastLogTime = writable("");
+
+// webSocket isMuted
+export const WSisMuted = writable(false);

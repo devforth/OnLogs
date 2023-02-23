@@ -41,6 +41,7 @@
   import Stats from "../../lib/Stats/Stats.svelte";
   import MainChartMenu from "../../lib/ChartMenu/MainChartMenu.svelte";
   import SettingsController from "./SettingsController.svelte";
+  import StreamInfo from "../../lib/StreamInfo/StreamInfo.svelte";
 
   let api = new fetchApi();
   let hostList = [];
@@ -266,6 +267,9 @@
     </div>
     <div class="subContainerThumb">
       <Container minHeightVh={0} noShadows={true}><Stats /></Container>
+    </div>
+    <div class="subContainerThumb">
+      <Container minHeightVh={0} noShadows={true}><StreamInfo /></Container>
     </div>
   </div>
 </div>

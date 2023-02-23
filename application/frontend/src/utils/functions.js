@@ -68,3 +68,21 @@ export const copyCustomText = function (text, cb) {
     console.log("Browser Not compatible");
   }
 };
+
+export function getTimeDifference(t) {
+  const now = Date.now();
+  const timestamp = Date.parse(t);
+  const difference = Math.abs(now - timestamp) / 1000; // difference in seconds
+
+  const hours = Math.floor((difference % 86400) / 3600);
+  const minutes = Math.floor((difference % 3600) / 60);
+
+  function showIfExisted(v, time) {
+    if (v || v === 0) {
+      return [v, time];
+    }
+    return "";
+  }
+
+  return [showIfExisted(hours, "h"), showIfExisted(minutes, "m")];
+}

@@ -1,0 +1,50 @@
+.log-Last {
+  font-size: 20px;
+  color: $active-color;
+  cursor: pointer;
+}
+
+.log-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .log-Last {
+    margin-right: 8px;
+    &.WSisMuted {
+      color: rgba(0, 0, 0, 0.151);
+    }
+  }
+
+  .log-time {
+    display: flex;
+    align-items: center;
+
+    span {
+      margin-left: 4px;
+    }
+  }
+
+  .log-time-ago {
+  }
+}
+.streamInfoTimeWrapper {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.streamInfoTime {
+  font-size: $main-font-m;
+  font-weight: 700;
+}
+
+.streamInfoTimeShortName {
+  vertical-align: bottom;
+  line-height: 1;
+  font-size: 0.8rem;
+}
+.log-heading {
+  font-size: $main-font-s;
+  font-weight: 200;
+}

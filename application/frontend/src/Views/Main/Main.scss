@@ -80,6 +80,7 @@
     width: 14vw;
     justify-content: start;
     max-width: 140px;
+    gap: 12px;
 
     overflow-y: overflow;
     overflow-x: hidden;
@@ -246,9 +247,6 @@ div {
       padding: 0px;
     }
   }
-}
-.logSizeInformation {
-  margin-bottom: $normal-padding;
 }
 
 .spaceBetween {

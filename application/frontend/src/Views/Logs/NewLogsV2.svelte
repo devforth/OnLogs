@@ -18,6 +18,7 @@
     lastChosenHost,
     lastChosenService,
     lastLogTimestamp,
+    lastLogTime,
     toast,
     toastIsVisible,
     toastTimeoutId,
@@ -26,6 +27,7 @@
     urlHash,
     isFeatching,
     chosenStatus,
+    WSisMuted,
   } from "../../Stores/stores";
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
   import {
@@ -96,6 +98,10 @@
     }
   }
 
+  function setLastLogTime(timeStamp) {
+    lastLogTime.set(timeStamp);
+  }
+
   function findLastVisibleLog() {
     let index = dateIntersects.indexOf(true);
     if (dateEls[index]) {
@@ -140,6 +146,7 @@
         })),
       ];
       if (initialService === $lastChosenService) {
+        setLastLogTime(data?.at(0)?.at(0));
         allLogs = [...data.reverse()];
         let allLogsCopy = [...allLogs];
 
@@ -303,7 +310,7 @@
     }
     let messageCount = 0;
     let startTime = Date.now();
-    let WSisStoped = false;
+    WSisMuted.set(false);
 
     webSocket = new WebSocket(
       `${api.wsUrl}getLogsStream?host=${$lastChosenHost}&id=${$lastChosenService}`
@@ -311,16 +318,17 @@
 
     webSocket.onmessage = (event) => {
       if (event.data !== "PING") {
-        if (!WSisStoped) {
-          const logfromWS = JSON.parse(event.data);
+        const logfromWS = JSON.parse(event.data);
+        setLastLogTime(logfromWS[0]);
 
+        if (!$WSisMuted) {
           messageCount++;
           if (messageCount % MESSAGE_COUNT_INTERVAL === 0) {
             const elapsedSeconds = (Date.now() - startTime) / 1000;
             const frequency = messageCount / elapsedSeconds;
 
             if (frequency > MESSAGE_FREQUENCY_THRESHOLD) {
-              WSisStoped = true;
+              WSisMuted.set(true);
               toast.set({
                 tittle: "Warning",
                 message: "Log display disabled due to high message volume",
@@ -657,6 +665,7 @@
   $: {
     isInterceptorVIsible(intersects[3], unfetchedLogs, mouseDownBlockFetch);
   }
+
   $: {
     if (allLogs) {
       highlightSearchText();
