@@ -63,6 +63,7 @@ volumes:
 ```sh
 docker run --restart always -e PASSWORD=<any password> -e PORT=<any port> \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    -v /var/lib/docker/containers:/var/lib/docker/containers \
     -v /etc/hostname:/etc/hostname \
     -v onlogs-volume:/leveldb \ 
     --label traefik.enable=true \

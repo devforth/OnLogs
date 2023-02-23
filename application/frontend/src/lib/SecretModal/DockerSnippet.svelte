@@ -10,6 +10,7 @@ docker run -d --restart always --name onlogs \
   -e ONLOGS_TOKEN={token} \
   -v /var/run/docker.sock:/var/run/docker.sock:ro \
   -v /etc/hostname:/etc/hostname \
+  -v /var/lib/docker/containers:/var/lib/docker/containers \
   -v onlogs-volume:/leveldb \
 devforth/onlogs
   </pre>
