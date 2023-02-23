@@ -211,6 +211,13 @@
     background-color: $active-color-dark;
   }
 
+  .status {
+    &.chosenStatus {
+      background-color: $active-transparent-color-dark;
+      border-radius: 6px;
+    }
+  }
+
   .number {
     color: #f99157;
   }
