@@ -155,5 +155,6 @@
 <svelte:window
   on:keydown={({ key }) => {
     key === "Escape" && closeMenu();
+    
   }}
 />

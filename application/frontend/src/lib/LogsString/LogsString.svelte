@@ -24,7 +24,7 @@
 >
   <td
     on:click={async () => {
-      if (!$chosenStatus) {
+      if ($chosenStatus !== status) {
         chosenStatus.set(status);
       } else {
         chosenStatus.set("");

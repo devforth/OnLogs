@@ -65,6 +65,7 @@ class fetchApi {
     containerName = "",
     search = "",
     limit = 30,
+    status = "",
 
     caseSens = false,
     startWith = "",
@@ -75,7 +76,7 @@ class fetchApi {
       "GET",
       `${
         this.url
-      }getLogs?host=${hostName}&id=${containerName}&search=${search}&limit=${limit}&startWith=${startWith}${
+      }getLogs?host=${hostName}&id=${containerName}&search=${search}&status=${status}&limit=${limit}&startWith=${startWith}${
         search ? `&caseSens=${caseSens}` : ""
       }`,
       null,
@@ -88,13 +89,14 @@ class fetchApi {
     search = "",
     limit = 30,
     offset = 0,
+    status = "",
     caseSens = false,
     startWith = "",
     hostName = "",
   }) {
     return await this.doFetch(
       "GET",
-      `${this.url}getPrevLogs?host=${hostName}&id=${containerName}&search=${search}&limit=${limit}&offset=${offset}&startWith=${startWith}&caseSens=${caseSens}`
+      `${this.url}getPrevLogs?host=${hostName}&id=${containerName}&search=${search}&status=${status}&limit=${limit}&offset=${offset}&startWith=${startWith}&caseSens=${caseSens}`
     );
   }
 
@@ -191,6 +193,13 @@ class fetchApi {
 
   async getUserSettings() {
     return await this.doFetch("GET", `${this.url}getUserSettings`);
+  }
+
+  async getLogsByTag({ host, containerName, limit, status, message }) {
+    return await this.doFetch(
+      "GET",
+      `${this.url}getUserSettings?host=${host}&id=${containerName}&limit=${limit}&status=${status}&message=${message}`
+    );
   }
 }
 

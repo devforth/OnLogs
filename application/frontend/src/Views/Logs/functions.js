@@ -5,9 +5,9 @@ const api = new FetchApi();
 export const timezoneOffsetSec = new Date().getTimezoneOffset() * 60;
 
 export const getLogLineStatus = (logLine = "") => {
-  const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
-  const statuses_warnings = ["WARN", "WARNING"];
-  const statuses_other = ["DEBUG", "INFO", "ONLOGS"];
+  const statuses_errors = ["ERROR", "ERR", "Error", "Err", "error"];
+  const statuses_warnings = ["WARN", "WARNING", "warning"];
+  const statuses_other = ["DEBUG", "INFO", "ONLOGS", "debug", "info", "onlogs"];
   const logLineItems = logLine.split(" ");
   var i, j;
 
@@ -90,6 +90,7 @@ export const transformLogStringForTimeBudget = (t, options) => {
 };
 
 export const getLogs = async function ({
+  status = "",
   containerName = "",
   search = "",
   limit = 0,
@@ -103,7 +104,7 @@ export const getLogs = async function ({
       containerName,
       search,
       limit,
-
+      status,
       caseSens,
       startWith,
       hostName,
@@ -118,6 +119,7 @@ export const getPrevLogs = async function ({
   containerName = "",
   search = "",
   limit = 0,
+  status,
 
   caseSens = false,
   hostName = "",
@@ -130,6 +132,7 @@ export const getPrevLogs = async function ({
     caseSens,
     startWith,
     hostName,
+    status,
   });
 
   return newLogs;
@@ -166,7 +169,6 @@ export const checkLastLogTimeStamp = (lastTimeStamp, newTimestamp) => {
 };
 
 export const forceToBottom = () => {
-  console.log("force bottom");
   const logsContainerEl = document.querySelector("#logs");
   if (logsContainerEl) {
     logsContainerEl.scrollTop = logsContainerEl.scrollHeight;

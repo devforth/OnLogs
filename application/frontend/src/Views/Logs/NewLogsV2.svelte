@@ -65,7 +65,7 @@
   let lastFetchActionIsFetch = true;
   let scrollFromButton = false;
   let stopLogsUnfetch = false;
-  let stopAllFetch = false;
+
   let mouseDownBlockFetch = false;
   let extremalScrollId = "";
   let interceptorsWait = false;
@@ -79,6 +79,10 @@
   let topFetchIsStarted = false;
   let pinedBadgeTimer = null;
   let pinedBadgeIsVisible = false;
+
+  function refreshStatus() {
+    chosenStatus.set("");
+  }
 
   async function highlightSearchText() {
     if (searchText) {
@@ -132,6 +136,7 @@
           limit: limit * 3,
           search: searchText,
           caseSens: !$store.caseInSensitive,
+          status: $chosenStatus,
         })),
       ];
       if (initialService === $lastChosenService) {
@@ -203,6 +208,7 @@
           limit: limit + limitDifference,
           startWith: startWith,
           hostName: $lastChosenHost,
+          status: $chosenStatus,
         })),
       ];
     } else {
@@ -212,6 +218,7 @@
           limit,
           startWith: startWith,
           hostName: $lastChosenHost,
+          status: $chosenStatus,
         })),
       ];
 
@@ -221,6 +228,7 @@
           limit: limit - downLogs.length,
           startWith: viewLogs?.at(0)[0],
           hostName: $lastChosenHost,
+          status: $chosenStatus,
         });
       }
     }
@@ -372,6 +380,7 @@
             containerName: $lastChosenService,
             search: searchText,
             limit,
+            status: $chosenStatus,
 
             caseSens: !$store.caseInSensitive,
             startWith: customStartWith
@@ -445,6 +454,7 @@
         containerName: $lastChosenService,
         search: searchText,
         limit,
+        status: chosenStatus,
 
         caseSens: !$store.caseInSensitive,
         startWith: customStartWith
@@ -479,6 +489,7 @@
   };
   const unfetchedLogs = async () => {
     if (!$isFeatching) {
+      console.log("scrollDirection", scrollDirection);
       if (scrollDirection === "down" && !scrollFromButton && !stopLogsUnfetch) {
         const initialService = $lastChosenService;
         isFeatching.set(true);
@@ -487,6 +498,7 @@
           containerName: $lastChosenService,
           search: searchText,
           limit,
+          status: $chosenStatus,
 
           caseSens: !$store.caseInSensitive,
           startWith: allLogs.at(-1) ? allLogs.at(-1)[0] : "",
@@ -525,6 +537,7 @@
         resetAllLogs();
         resetParams();
         resetSearchParams();
+        refreshStatus();
 
         isPending.set(true);
         closeWS();
@@ -542,6 +555,7 @@
 
       if (logsContEl) {
         logsContEl.addEventListener("scroll", function () {
+          console.log(scrollDirection);
           let st = window.pageYOffset || logsContEl.scrollTop;
           if (st > lastScrollTop) {
             scrollDirection = "down";
@@ -570,6 +584,19 @@
   $: {
     (async () => {
       if (searchText) {
+        resetParams();
+        resetAllLogs();
+        isPending.set(true);
+        await getFullLogsSet();
+      } else {
+        getFullLogsSet();
+      }
+    })();
+  }
+
+  $: {
+    (async () => {
+      if ($chosenStatus) {
         resetParams();
         resetAllLogs();
         isPending.set(true);
@@ -630,7 +657,6 @@
   };
 
   onMount(async () => {
-    console.log("mounted");
     checkIfScrollOnTop();
     initialScroll = 1;
 
@@ -638,7 +664,6 @@
       const logsContEl = document.querySelector("#logs");
       if (logsContEl) {
         limit = Math.round(logsContEl.offsetHeight / 200) * 10;
-        console.log("resized", limit);
       }
     });
   });
@@ -827,6 +852,7 @@
   on:keydown={(e) => {
     handleKeydown(e, "Escape", () => {
       chosenLogsString.set("");
+      chosenStatus.set("");
     });
   }}
 />

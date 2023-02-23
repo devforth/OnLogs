@@ -6,7 +6,6 @@
   const apiFetch = new fetchApi();
   async function saveSettings() {
     if (initialSettingsGetted) {
-      console.log($store);
       const data = await apiFetch.updateSettings($store);
     }
   }

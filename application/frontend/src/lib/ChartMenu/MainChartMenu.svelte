@@ -18,7 +18,6 @@
       unit: $lastStatisticPeriod.split(" ")[1],
       unitsAmount,
     });
-    console.log(data);
   }
   onMount(() => {
     getChartData(10);
