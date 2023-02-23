@@ -186,6 +186,7 @@
     await getFullLogsSet();
     isPending.set(false);
   }
+
   async function fetchIfHashIsInUrl(startWith) {
     const initialService = $lastChosenService;
     const viewLogs = [
@@ -205,8 +206,6 @@
       downLogs = [
         ...(await api.getPrevLogs({
           containerName: $lastChosenService,
-          limit: limit + limitDifference,
-          startWith: startWith,
           hostName: $lastChosenHost,
           status: $chosenStatus,
         })),
@@ -297,27 +296,66 @@
   }
 
   function getLogsFromWS() {
+    const MESSAGE_COUNT_INTERVAL = 50;
+    const MESSAGE_FREQUENCY_THRESHOLD = 5;
     if (webSocket) {
       closeWS();
     }
+    let messageCount = 0;
+    let startTime = Date.now();
+    let WSisStoped = false;
+
     webSocket = new WebSocket(
       `${api.wsUrl}getLogsStream?host=${$lastChosenHost}&id=${$lastChosenService}`
     );
 
     webSocket.onmessage = (event) => {
       if (event.data !== "PING") {
-        const logfromWS = JSON.parse(event.data);
+        if (!WSisStoped) {
+          const logfromWS = JSON.parse(event.data);
 
-        if (searchText === "") {
-          addLogFromWS(logfromWS);
-        } else {
-          if ($store.caseInSensitive) {
-            if (logfromWS[1].includes(searchText)) {
-              addLogFromWS(logfromWS);
+          messageCount++;
+          if (messageCount % MESSAGE_COUNT_INTERVAL === 0) {
+            const elapsedSeconds = (Date.now() - startTime) / 1000;
+            const frequency = messageCount / elapsedSeconds;
+
+            if (frequency > MESSAGE_FREQUENCY_THRESHOLD) {
+              WSisStoped = true;
+              toast.set({
+                tittle: "Warning",
+                message: "Log display disabled due to high message volume",
+                position: "",
+                status: "Warning",
+              });
+              toastIsVisible.set(true);
+              toastTimeoutId.set(
+                setTimeout(() => {
+                  toastIsVisible.set(false);
+                }, 8000)
+              );
             }
+          }
+
+          if (
+            $chosenStatus &&
+            $chosenStatus !== logfromWS[1].split(" ")[0]?.toLowerCase()
+          ) {
+            return;
           } else {
-            if (logfromWS[1].toLowerCase().includes(searchText.toLowerCase())) {
+            if (searchText === "") {
               addLogFromWS(logfromWS);
+            } else {
+              if ($store.caseInSensitive) {
+                if (logfromWS[1].includes(searchText)) {
+                  addLogFromWS(logfromWS);
+                }
+              } else {
+                if (
+                  logfromWS[1].toLowerCase().includes(searchText.toLowerCase())
+                ) {
+                  addLogFromWS(logfromWS);
+                }
+              }
             }
           }
         }
@@ -489,7 +527,6 @@
   };
   const unfetchedLogs = async () => {
     if (!$isFeatching) {
-      console.log("scrollDirection", scrollDirection);
       if (scrollDirection === "down" && !scrollFromButton && !stopLogsUnfetch) {
         const initialService = $lastChosenService;
         isFeatching.set(true);
@@ -555,7 +592,6 @@
 
       if (logsContEl) {
         logsContEl.addEventListener("scroll", function () {
-          console.log(scrollDirection);
           let st = window.pageYOffset || logsContEl.scrollTop;
           if (st > lastScrollTop) {
             scrollDirection = "down";
@@ -591,6 +627,7 @@
       } else {
         getFullLogsSet();
       }
+      addScrollLIstenersToLogs();
     })();
   }
 
@@ -604,6 +641,7 @@
       } else {
         getFullLogsSet();
       }
+      addScrollLIstenersToLogs();
     })();
   }
 
