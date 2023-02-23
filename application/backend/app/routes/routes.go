@@ -548,13 +548,18 @@ func EditHostname(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var data struct {
+		Host string
 		Name string
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&data)
 
 	if data.Name != "" {
-		os.WriteFile("/etc/hosntame", []byte(data.Name), 0644)
+		if data.Host != util.GetHost() {
+			// TODO ask for command
+		} else {
+			os.WriteFile("/etc/hosntame", []byte(data.Name), 0644)
+		}
 	}
 
 	w.Header().Add("Content-Type", "application/json")
