@@ -542,6 +542,25 @@ func GetUserSettings(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(userdb.GetUserSettings(username))
 }
 
+func EditHostname(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
+		return
+	}
+
+	var data struct {
+		Name string
+	}
+	decoder := json.NewDecoder(req.Body)
+	decoder.Decode(&data)
+
+	if data.Name != "" {
+		os.WriteFile("/etc/hosntame", []byte(data.Name), 0644)
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+}
+
 func EditUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
