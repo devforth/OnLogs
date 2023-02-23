@@ -32,7 +32,7 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	if strings.Contains(message_item[1], "ERROR") || strings.Contains(message_item[1], "ERR") || // const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
 		strings.Contains(message_item[1], "Error") || strings.Contains(message_item[1], "Err") {
 		vars.Counters_For_Containers_Last_30_Min[location]["error"]++
-		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("err"), nil)
+		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("error"), nil)
 
 	} else if strings.Contains(message_item[1], "WARN") || strings.Contains(message_item[1], "WARNING") { // const statuses_warnings = ["WARN", "WARNING"];
 		vars.Counters_For_Containers_Last_30_Min[location]["warn"]++
