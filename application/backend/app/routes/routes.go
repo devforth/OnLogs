@@ -379,7 +379,7 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 
 	if params.Get("status") != "" {
 		json.NewEncoder(w).Encode(containerdb.GetLogsByStatus(
-			params.Get("host"), params.Get("id"), params.Get("message"), params.Get("status"),
+			params.Get("host"), params.Get("id"), params.Get("search"), params.Get("status"),
 			limit, params.Get("startWith"), false, true, caseSensetive,
 		))
 	} else {
