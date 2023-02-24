@@ -32,6 +32,7 @@ export const toast = writable({
   message: "",
   position: "",
   status: "",
+  additionButton: {},
 });
 export const toastIsVisible = writable(false);
 export const toastTimeoutId = writable(null);
@@ -90,3 +91,4 @@ export const lastLogTime = writable("");
 
 // webSocket isMuted
 export const WSisMuted = writable(false);
+export const manuallyUnmuted = writable(false);

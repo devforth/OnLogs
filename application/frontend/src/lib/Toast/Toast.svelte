@@ -9,6 +9,7 @@
   import { handleKeydown } from "../../utils/functions.js";
   import { onDestroy, onMount } from "svelte";
   import { fly } from "svelte/transition";
+  const { tittle, message, status, additionButton } = $toast;
 
   onDestroy(() => {
     if ($toastTimeoutId) {
@@ -19,23 +20,37 @@
 
 <div
   transition:fly={{ y: -200, duration: 200 }}
-  class="toastContainer {$toast.status}"
+  class="toastContainer {status}"
 >
   <div class="toastIcoContainer"><i class="log log-{$toast.status}" /></div>
-  <h4>{$toast.tittle}</h4>
-  <p>{$toast.message}</p>
+  <h4>{tittle}</h4>
+  <p>{message}</p>
 
   <!-- <ProgressBar /> -->
+  <div class={additionButton?.isVisible ? "additionButtonContainer" : ""}>
+    <div class="toastButtonContainer additionalButton">
+      {#if additionButton?.isVisible}
+        <Button
+          id={`toast${additionButton.title}`}
+          title={additionButton.title}
+          minHeight={24}
+          CB={() => {
+            additionButton.CB();
+          }}
+        />
+      {/if}
+    </div>
 
-  <div class="toastButtonContainer">
-    <Button
-      id={"toastClose"}
-      title={"Close"}
-      minHeight={24}
-      CB={() => {
-        toastIsVisible.set(false);
-      }}
-    />
+    <div class="toastButtonContainer">
+      <Button
+        id={"toastClose"}
+        title={"Close"}
+        minHeight={24}
+        CB={() => {
+          toastIsVisible.set(false);
+        }}
+      />
+    </div>
   </div>
 </div>
 

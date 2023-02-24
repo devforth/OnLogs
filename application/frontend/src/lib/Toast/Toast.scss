@@ -1,6 +1,6 @@
 .toastContainer {
   width: 300px;
-  height: 120px;
+  height: 140px;
   position: absolute;
   top: 20px;
   left: 50%;
@@ -23,7 +23,11 @@
     position: absolute;
     bottom: 12px;
     right: 12px;
+    &.additionalButton {
+      left: 12px;
+    }
   }
+
   .log {
     font-size: $main-font-l;
     position: absolute;
@@ -53,5 +57,10 @@
     margin: 12px 0 12px 0;
     color: $text-dark-color;
     font-size: $main-font-l;
+  }
+
+  .additionButtonContainer {
+    display: flex;
+    justify-content: space-between;
   }
 }

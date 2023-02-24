@@ -28,6 +28,7 @@
     isFeatching,
     chosenStatus,
     WSisMuted,
+    manuallyUnmuted,
   } from "../../Stores/stores";
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
   import {
@@ -321,25 +322,35 @@
         const logfromWS = JSON.parse(event.data);
         setLastLogTime(logfromWS[0]);
 
-        if (!$WSisMuted) {
+        if (!$WSisMuted || $manuallyUnmuted) {
           messageCount++;
           if (messageCount % MESSAGE_COUNT_INTERVAL === 0) {
             const elapsedSeconds = (Date.now() - startTime) / 1000;
             const frequency = messageCount / elapsedSeconds;
 
-            if (frequency > MESSAGE_FREQUENCY_THRESHOLD) {
+            if (frequency > MESSAGE_FREQUENCY_THRESHOLD && !$manuallyUnmuted) {
               WSisMuted.set(true);
+
               toast.set({
                 tittle: "Warning",
-                message: "Log display disabled due to high message volume",
+                message:
+                  "Too many messages to display logs. Continuing may be dangerous.",
                 position: "",
                 status: "Warning",
+                additionButton: {
+                  isVisible: true,
+                  CB: () => {
+                    manuallyUnmuted.set(true);
+                    WSisMuted.set(false);
+                  },
+                  title: "Continue",
+                },
               });
               toastIsVisible.set(true);
               toastTimeoutId.set(
                 setTimeout(() => {
                   toastIsVisible.set(false);
-                }, 8000)
+                }, 10000)
               );
             }
           }

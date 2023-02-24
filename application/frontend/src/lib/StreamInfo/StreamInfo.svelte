@@ -1,7 +1,7 @@
 <script>
   import { onDestroy, onMount } from "svelte";
 
-  import { lastLogTime, WSisMuted } from "../../Stores/stores";
+  import { lastLogTime, WSisMuted, manuallyUnmuted } from "../../Stores/stores";
   import { getTimeDifference } from "../../utils/functions";
   let lastLogsCheckerInterval = null;
   let componentLastLogTime = [] || "";
@@ -32,6 +32,7 @@
     title="Live mode"
     on:click={() => {
       WSisMuted.set(!$WSisMuted);
+      manuallyUnmuted.set(!$manuallyUnmuted);
     }}
   />
 
