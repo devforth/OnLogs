@@ -30,8 +30,13 @@
     class="log log-Last {$WSisMuted ? 'WSisMuted' : ''}"
     title="Live mode"
     on:click={() => {
-      WSisMuted.set(!$WSisMuted);
-      manuallyUnmuted.set(!$manuallyUnmuted);
+      if ($WSisMuted) {
+        WSisMuted.set(false);
+        manuallyUnmuted.set(true);
+      } else {
+        WSisMuted.set(true);
+        manuallyUnmuted.set(false);
+      }
     }}
   />
 
