@@ -511,7 +511,7 @@
         containerName: $lastChosenService,
         search: searchText,
         limit,
-        status: chosenStatus,
+        status: $chosenStatus,
 
         caseSens: !$store.caseInSensitive,
         startWith: customStartWith
