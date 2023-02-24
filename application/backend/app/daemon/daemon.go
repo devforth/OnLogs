@@ -17,13 +17,13 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-func createLogMessage(db *leveldb.DB, message string) string {
+func createLogMessage(db *leveldb.DB, host string, container string, message string) string {
 	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), " +")[0], " ", "T", 1)
 	if len(datetime) < 29 {
 		datetime = datetime + strings.Repeat("0", 29-len(datetime))
 	}
 	if db != nil {
-		db.Put([]byte(datetime+"Z"), []byte(message), nil)
+		containerdb.PutLogMessage(db, host, container, []string{datetime + "Z", message})
 	}
 	return datetime + "Z " + message
 }
@@ -73,14 +73,15 @@ func CreateDaemonToHostStream(containerName string) {
 	reader := bufio.NewReader(connection)
 	readHeader(*reader)
 
-	agent.SendLogMessage(containerName, strings.SplitN(createLogMessage(nil, "ONLOGS: Container listening started!"), " ", 2))
+	host := util.GetHost()
+	agent.SendLogMessage(containerName, strings.SplitN(createLogMessage(nil, host, containerName, "ONLOGS: Container listening started!"), " ", 2))
 
 	lastSleep := time.Now().Unix()
 	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n') // TODO read bytes instead of strings
 		if get_string_error != nil {
 			closeActiveStream(containerName)
-			agent.SendLogMessage(containerName, strings.SplitN(createLogMessage(nil, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")"), " ", 2))
+			agent.SendLogMessage(containerName, strings.SplitN(createLogMessage(nil, host, containerName, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")"), " ", 2))
 			return
 		}
 
@@ -105,15 +106,15 @@ func CreateDaemonToDBStream(containerName string) {
 	readHeader(*reader)
 
 	current_db := vars.ActiveDBs[containerName]
-	createLogMessage(current_db, "ONLOGS: Container listening started!")
 	host := util.GetHost()
+	createLogMessage(current_db, host, containerName, "ONLOGS: Container listening started!")
 
 	lastSleep := time.Now().Unix()
 	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n')
 		if get_string_error != nil {
 			closeActiveStream(containerName)
-			createLogMessage(current_db, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")")
+			createLogMessage(current_db, host, containerName, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")")
 			return
 		}
 

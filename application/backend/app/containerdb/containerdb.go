@@ -46,6 +46,10 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 		vars.Counters_For_Containers_Last_30_Min[location]["info"]++
 		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("info"), nil)
 
+	} else if strings.Contains(message_item[1], "ONLOGS") {
+		vars.Counters_For_Containers_Last_30_Min[location]["META"]++
+		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("META"), nil)
+
 	} else {
 		vars.Counters_For_Containers_Last_30_Min[location]["other"]++
 		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("other"), nil)
@@ -224,5 +228,5 @@ func DeleteContainer(host string, container string, fullDelete bool) {
 		newStatDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/statistics", nil)
 		vars.Statuses_DBs[host+"/"+container] = newStatDB
 	}
-	vars.Counters_For_Containers_Last_30_Min[host+"/"+container] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "other": 0}
+	vars.Counters_For_Containers_Last_30_Min[host+"/"+container] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "META": 0, "other": 0}
 }
