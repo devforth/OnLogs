@@ -105,7 +105,6 @@ func CreateDaemonToDBStream(containerName string) {
 	readHeader(*reader)
 
 	current_db := vars.ActiveDBs[containerName]
-	// defer db.Close()
 	createLogMessage(current_db, "ONLOGS: Container listening started!")
 	host := util.GetHost()
 

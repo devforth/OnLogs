@@ -83,8 +83,6 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 		res_db = vars.Statuses_DBs[host+"/"+container]
 	} else if dbType == "statistics" {
 		res_db = vars.Stat_Containers_DBs[host+"/"+container]
-	} else {
-		panic("Wrong db type!")
 	}
 
 	var err error

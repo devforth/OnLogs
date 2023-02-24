@@ -13,6 +13,7 @@ var (
 	Stat_Containers_DBs                 = map[string]*leveldb.DB{}
 	Stat_Hosts_DBs                      = map[string]*leveldb.DB{}
 	Statuses_DBs                        = map[string]*leveldb.DB{}
+	BrokenLogs_DBs                      = map[string]*leveldb.DB{}
 	Active_Daemon_Streams               = []string{}
 	DockerContainers                    = []string{}
 	AgentsActiveContainers              = map[string][]string{}

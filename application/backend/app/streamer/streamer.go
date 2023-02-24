@@ -34,6 +34,7 @@ func createStreams(containers []string) {
 			vars.ActiveDBs[container] = newDB
 			vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)
 			if os.Getenv("AGENT") != "" {
+				vars.BrokenLogs_DBs[container] = util.GetDB(util.GetHost(), container, "/brokenlogs")
 				go daemon.CreateDaemonToHostStream(container)
 			} else {
 				go daemon.CreateDaemonToDBStream(container)
@@ -54,6 +55,7 @@ func StreamLogs() {
 		vars.DockerContainers = daemon.GetContainersList()
 		if os.Getenv("AGENT") != "" {
 			agent.SendUpdate(vars.DockerContainers)
+			agent.TryResend()
 		}
 	}
 }
