@@ -55,6 +55,7 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/getSecret", routes.GetSecret)
 	http.HandleFunc(pathPrefix+"/api/v1/getSizeByAll", routes.GetSizeByAll)
 	http.HandleFunc(pathPrefix+"/api/v1/getSizeByService", routes.GetSizeByService)
+	http.HandleFunc(pathPrefix+"/api/v1/getDockerSize", routes.GetDockerSize)
 	http.HandleFunc(pathPrefix+"/api/v1/getStats", routes.GetStats)
 	http.HandleFunc(pathPrefix+"/api/v1/getUserSettings", routes.GetUserSettings)
 	http.HandleFunc(pathPrefix+"/api/v1/getUsers", routes.GetUsers)

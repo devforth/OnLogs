@@ -314,6 +314,32 @@ func GetSizeByService(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
+func GetDockerSize(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	params := req.URL.Query()
+	if params.Get("service") == "" {
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	if params.Get("host") == "" {
+		panic("Host is not mentioned!")
+	}
+	w.Header().Add("Content-Type", "application/json")
+
+	containerID := util.GetDockerContainerID(params.Get("host"), params.Get("service"))
+	info, _ := os.Stat("/var/lib/docker/containers/" + containerID + "/" + containerID + "-json.log")
+
+	size := float64(info.Size()) / (1024.0 * 1024.0)
+	if size < 0.1 && size != 0.0 {
+		size = 0.1
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
+}
+
 func GetStats(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
