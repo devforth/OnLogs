@@ -25,7 +25,7 @@ export const getLogLineStatus = (logLine = "") => {
     for (j = 0; j < logLineItems.length; j++) {
       if (logLineItems[i].includes(statuses_other[j])) {
         return statuses_other[j].toLowerCase() === "onlogs"
-          ? "META"
+          ? "meta"
           : statuses_other[j].toLowerCase();
       }
     }
