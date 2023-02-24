@@ -23,7 +23,7 @@ func TestRunStatisticForContainer(t *testing.T) {
 }
 
 func TestGetStatisticsByService(t *testing.T) {
-	vars.Counters_For_Containers_Last_30_Min["test/test"] = map[string]uint64{"error": 1, "debug": 2, "info": 3, "warn": 4, "META": 0, "other": 5}
+	vars.Counters_For_Containers_Last_30_Min["test/test"] = map[string]uint64{"error": 1, "debug": 2, "info": 3, "warn": 4, "meta": 0, "other": 5}
 	os.RemoveAll("leveldb/hosts/test/containers/test/statistics")
 	statDB, _ := leveldb.OpenFile("leveldb/hosts/test/containers/test/statistics", nil)
 	to_put, _ := json.Marshal(vars.Counters_For_Containers_Last_30_Min["test/test"])
@@ -41,7 +41,7 @@ func TestGetStatisticsByService(t *testing.T) {
 
 func TestGetChartData(t *testing.T) {
 	cur_db, _ := leveldb.OpenFile("leveldb/hosts/test/statistics", nil)
-	vars.Counters_For_Containers_Last_30_Min["test/test"] = map[string]uint64{"error": 2, "debug": 1, "info": 3, "warn": 5, "META": 0, "other": 4}
+	vars.Counters_For_Containers_Last_30_Min["test/test"] = map[string]uint64{"error": 2, "debug": 1, "info": 3, "warn": 5, "meta": 0, "other": 4}
 	vars.Stat_Containers_DBs["test/test"] = cur_db
 	to_put, _ := json.Marshal(vars.Counters_For_Containers_Last_30_Min["test/test"])
 	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), ".")[0], " ", "T", 1) + "Z"
