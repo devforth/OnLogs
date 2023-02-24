@@ -12,7 +12,6 @@
   function checkLastLogs() {
     lastLogsCheckerInterval = setInterval(() => {
       componentLastLogTime = getTimeDifference($lastLogTime);
-      console.log(componentLastLogTime);
     }, LAST_LOG_INTWRVAL);
   }
 
