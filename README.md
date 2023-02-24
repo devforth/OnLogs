@@ -18,6 +18,7 @@
 
 - 💻 One host can be used to view logs from all other hosts in case if you are running Cluster
 - 🔗 Share log messages to collegues via link <img src="./.assets/2.gif"/>
+- 💽 Clear original docker logs to keep your storage size.
 - 📊 Error/Info/Debug Statistics
 - 🔎 Search through logs (configurable case sensetivity)
 - 👁 View parameters (parsing JSON, show local/UTC time for every logline)
@@ -25,7 +26,6 @@
 
 ### Roadmap
 
-- 💽 Clear original docker logs to avoid dublicates and doubling logs size on disk. Currently we are on MVP state.
 - 🗂 Grouping hosts
 - 🏷 Search & Filter by tags (log status, time)
 - 🔌Plugins and internal ability to notify about some event (e.g. notify when Error happens)
