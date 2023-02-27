@@ -112,12 +112,19 @@ func CheckCookie(w http.ResponseWriter, req *http.Request) {
 
 func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	var logItem struct {
+		Token     string
 		Host      string
 		Container string
 		LogLine   []string
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
+
+	if !db.IsTokenExists(logItem.Token) {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	if vars.Counters_For_Hosts_Last_30_Min[logItem.Host] == nil {
 		go statistics.RunStatisticForContainer(logItem.Host, logItem.Container)
 	}

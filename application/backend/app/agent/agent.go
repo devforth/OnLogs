@@ -30,9 +30,10 @@ func SendInitRequest(containers []string) {
 	}
 }
 
-func SendLogMessage(container string, message_item []string) bool {
+func SendLogMessage(token string, container string, message_item []string) bool {
 	postBody, _ := json.Marshal(map[string]interface{}{
 		"Host":      util.GetHost(),
+		"Token":     token,
 		"LogLine":   []string{message_item[0], message_item[1]},
 		"Container": container,
 	})
@@ -45,6 +46,7 @@ func SendLogMessage(container string, message_item []string) bool {
 }
 
 func TryResend() {
+	token := os.Getenv("ONLOGS_TOKRN")
 	containers, _ := os.ReadDir("leveldb/hosts/" + util.GetHost() + "/containers/")
 	for _, container := range containers {
 		tmpDB := vars.BrokenLogs_DBs[container.Name()]
@@ -60,13 +62,13 @@ func TryResend() {
 			continue
 		}
 
-		if !SendLogMessage(container.Name(), []string{string(iter.Key()), string(iter.Value())}) {
+		if !SendLogMessage(token, container.Name(), []string{string(iter.Key()), string(iter.Value())}) {
 			return
 		}
 		tmpDB.Delete(iter.Key(), nil)
 
 		for iter.Next() {
-			if !SendLogMessage(container.Name(), []string{string(iter.Key()), string(iter.Value())}) {
+			if !SendLogMessage(token, container.Name(), []string{string(iter.Key()), string(iter.Value())}) {
 				return
 			}
 			tmpDB.Delete(iter.Key(), nil)
