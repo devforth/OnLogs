@@ -65,6 +65,8 @@ func closeActiveStream(containerName string) {
 			newDaemonStreams = append(newDaemonStreams, stream)
 		}
 	}
+	vars.ActiveDBs[containerName].Close()
+	vars.ActiveDBs[containerName] = nil
 	vars.Active_Daemon_Streams = newDaemonStreams
 }
 
@@ -110,6 +112,7 @@ func CreateDaemonToDBStream(containerName string) {
 	createLogMessage(current_db, host, containerName, "ONLOGS: Container listening started!")
 
 	lastSleep := time.Now().Unix()
+	defer current_db.Close()
 	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n')
 		if get_string_error != nil {
