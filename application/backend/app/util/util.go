@@ -121,16 +121,12 @@ func GetDirSize(host string, container string) float64 {
 		return 0
 	}
 
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
 		if !info.IsDir() {
 			size += info.Size()
 		}
 		return err
 	})
-	if err != nil {
-		fmt.Println(err)
-	}
-
 	return float64(size) / (1024.0 * 1024.0)
 }
 
