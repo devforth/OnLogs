@@ -16,6 +16,7 @@ import (
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/golang-jwt/jwt"
 	"github.com/syndtr/goleveldb/leveldb"
+	"golang.org/x/sys/unix"
 )
 
 func replaceVarForAllFilesInDir(dirName string, dir_files []fs.DirEntry) {
@@ -120,16 +121,15 @@ func GetDirSize(host string, container string) float64 {
 		return 0
 	}
 
-	err := filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
-			size += info.Size()
+	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+		if info != nil {
+			if !info.IsDir() {
+				size += info.Size()
+			}
+			return err
 		}
-		return err
+		return nil
 	})
-	if err != nil {
-		fmt.Println(err)
-	}
-
 	return float64(size) / (1024.0 * 1024.0)
 }
 
@@ -213,3 +213,26 @@ func DeleteDockerLogs(host string, container string) error {
 
 	return nil
 }
+
+func GetStorageData() map[string]float64 {
+	var stat unix.Statfs_t
+	wd, _ := os.Getwd()
+	unix.Statfs(wd, &stat)
+
+	total_space_GB := float64(stat.Blocks*uint64(stat.Bsize)) / (1000 * 1000 * 1000)
+	free_space_GB := float64(stat.Bfree*uint64(stat.Bsize)) / (1000 * 1000 * 1000)
+	return map[string]float64{
+		"total_space_GB":     total_space_GB,
+		"free_space_GB":      free_space_GB,
+		"free_space_percent": (free_space_GB / total_space_GB) * 100,
+	}
+}
+
+// func RunSpaceMonitoring() {
+// 	for {
+// 		to_put, _ := json.Marshal(GetStorageData())
+// 		vars.StateDB.Put([]byte("Storage data"), to_put, nil)
+
+// 		time.Sleep(time.Second * 30)
+// 	}
+// }

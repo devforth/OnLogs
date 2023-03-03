@@ -112,12 +112,19 @@ func CheckCookie(w http.ResponseWriter, req *http.Request) {
 
 func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	var logItem struct {
+		Token     string
 		Host      string
 		Container string
 		LogLine   []string
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
+
+	if !db.IsTokenExists(logItem.Token) {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	if vars.Counters_For_Hosts_Last_30_Min[logItem.Host] == nil {
 		go statistics.RunStatisticForContainer(logItem.Host, logItem.Container)
 	}
@@ -361,6 +368,32 @@ func GetStats(w http.ResponseWriter, req *http.Request) {
 	}
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(statistics.GetStatisticsByService(data.Host, data.Service, data.Value))
+}
+
+func GetStorageData(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	var data struct {
+		Host string `json:"host"`
+	}
+
+	decoder := json.NewDecoder(req.Body)
+	err := decoder.Decode(&data)
+
+	w.Header().Add("Content-Type", "application/json")
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid data!"})
+		return
+	}
+
+	// TODO make for different hosts
+	if data.Host != util.GetHost() {
+		json.NewEncoder(w).Encode(map[string]string{"error": "For now working only for main host.\nAsked host: " + data.Host + "\nIt's ok to see this message, all works fine."})
+		return
+	}
+	json.NewEncoder(w).Encode(util.GetStorageData())
 }
 
 func GetPrevLogs(w http.ResponseWriter, req *http.Request) {

@@ -20,6 +20,7 @@ func main() {
 
 	go db.DeleteUnusedTokens()
 	go streamer.StreamLogs()
+	// go util.RunSpaceMonitoring()
 	util.ReplacePrefixVariableForFrontend()
 	util.CreateInitUser()
 
@@ -47,6 +48,7 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/editHostname", routes.EditHostname)
 	http.HandleFunc(pathPrefix+"/api/v1/editUser", routes.EditUser)
 	http.HandleFunc(pathPrefix+"/api/v1/getChartData", routes.GetChartData)
+	http.HandleFunc(pathPrefix+"/api/v1/getDockerSize", routes.GetDockerSize)
 	http.HandleFunc(pathPrefix+"/api/v1/getHosts", routes.GetHosts)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogWithPrev", routes.GetLogWithPrev)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogs", routes.GetLogs)
@@ -55,8 +57,8 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/getSecret", routes.GetSecret)
 	http.HandleFunc(pathPrefix+"/api/v1/getSizeByAll", routes.GetSizeByAll)
 	http.HandleFunc(pathPrefix+"/api/v1/getSizeByService", routes.GetSizeByService)
-	http.HandleFunc(pathPrefix+"/api/v1/getDockerSize", routes.GetDockerSize)
 	http.HandleFunc(pathPrefix+"/api/v1/getStats", routes.GetStats)
+	http.HandleFunc(pathPrefix+"/api/v1/getStorageData", routes.GetStorageData)
 	http.HandleFunc(pathPrefix+"/api/v1/getUserSettings", routes.GetUserSettings)
 	http.HandleFunc(pathPrefix+"/api/v1/getUsers", routes.GetUsers)
 	http.HandleFunc(pathPrefix+"/api/v1/login", routes.Login)
