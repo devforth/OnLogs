@@ -10,7 +10,7 @@ class fetchApi {
 
     this.wsUrl = document.location.host.includes("localhost:5173")
       ? "ws://localhost:2874/api/v1/"
-      : `wss://${document.location.host}/api/v1/`;
+      : `wss://${document.location.host}/${changeKey}/api/v1/`;
     this.authorized = true;
   }
   async doFetch(method, path, body = null, signal) {

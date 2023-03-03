@@ -171,8 +171,10 @@
       <li class="listElement">
         <div
           class="hostHeader clickable"
-          on:click={() => {
-            toggleSublistVisible(index);
+          on:click={({ target }) => {
+            if (target.id !== headerButton) {
+              toggleSublistVisible(index);
+            }
           }}
         >
           <div>
@@ -181,8 +183,14 @@
           <p class="hostName">
             {listEl.host}
           </p>
-          {#if headerButton}<div class="headerButton">
-              <i class="log log-{headerButton}" />
+          {#if headerButton}<div
+              class="headerButton "
+              id={headerButton}
+              on:click={() => {
+                console.log("clicable");
+              }}
+            >
+              <i class="log log-{headerButton}" id={headerButton} />
             </div>{/if}
         </div>
         <div
