@@ -41,7 +41,7 @@ func validateMessage(message string) (string, bool) {
 }
 
 func createConnection(containerName string) net.Conn {
-	connection, _ := net.Dial("unix", "/var/run/docker.sock")
+	connection, _ := net.Dial("unix", os.Getenv("DOCKER_SOCKET_PATH"))
 	fmt.Fprintf(
 		connection,
 		"GET /containers/"+containerName+"/logs?stdout=true&stderr=true&timestamps=true&follow=true&since="+strconv.FormatInt(time.Now().Add(-5*time.Second).Unix(), 10)+" HTTP/1.0\r\n\r\n",
@@ -146,7 +146,7 @@ func CreateDaemonToDBStream(containerName string) {
 		}
 
 		if time.Now().Unix()-lastSleep > 1 {
-			time.Sleep(5 * time.Millisecond)
+			time.Sleep(10 * time.Millisecond)
 			lastSleep = time.Now().Unix()
 		}
 	}
@@ -154,7 +154,10 @@ func CreateDaemonToDBStream(containerName string) {
 
 // make request to docker socket
 func makeSocketRequest(path string) []byte {
-	connection, _ := net.Dial("unix", "/var/run/docker.sock")
+	connection, err := net.Dial("unix", os.Getenv("DOCKER_SOCKET_PATH"))
+	if err != nil {
+		panic(err)
+	}
 	fmt.Fprintf(connection, "GET /"+path+" HTTP/1.0\r\n\r\n")
 
 	body, _ := ioutil.ReadAll(connection)

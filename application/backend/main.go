@@ -12,17 +12,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func main() {
-	godotenv.Load(".env")
-	if os.Getenv("AGENT") != "" {
-		streamer.StreamLogs()
+func init_config() {
+	if os.Getenv("PORT") == "" {
+		os.Setenv("PORT", "2874")
 	}
-
-	go db.DeleteUnusedTokens()
-	go streamer.StreamLogs()
-	// go util.RunSpaceMonitoring()
-	util.ReplacePrefixVariableForFrontend()
-	util.CreateInitUser()
 
 	if os.Getenv("JWT_SECRET") == "" {
 		token, err := os.ReadFile("leveldb/JWT_secret")
@@ -32,6 +25,25 @@ func main() {
 		}
 		os.Setenv("JWT_SECRET", string(token))
 	}
+
+	if os.Getenv("DOCKER_SOCKET_PATH") == "" {
+		os.Setenv("DOCKER_SOCKET_PATH", "/var/run/docker.sock")
+	}
+	fmt.Println("INFO: OnLogs configs done!")
+}
+
+func main() {
+	godotenv.Load(".env")
+	init_config()
+	if os.Getenv("AGENT") != "" {
+		streamer.StreamLogs()
+	}
+
+	go db.DeleteUnusedTokens()
+	go streamer.StreamLogs()
+	// go util.RunSpaceMonitoring()
+	util.ReplacePrefixVariableForFrontend()
+	util.CreateInitUser()
 
 	pathPrefix := os.Getenv("ONLOGS_PATH_PREFIX")
 	http.HandleFunc(pathPrefix+"/", routes.Frontend)
@@ -65,5 +77,6 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/logout", routes.Logout)
 	http.HandleFunc(pathPrefix+"/api/v1/updateUserSettings", routes.UpdateUserSettings)
 
+	fmt.Println("Listening on port:", string(os.Getenv("PORT"))+"...")
 	fmt.Println("ONLOGS: ", http.ListenAndServe(":"+string(os.Getenv("PORT")), nil))
 }
