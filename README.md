@@ -83,3 +83,4 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 | AGENT             | Toggles agent mode. If enabled, there will be no web interface available and all logs will be sent  and stored on HOST                                                      | `false` | -
 | HOST               | Url to OnLogs host from protocol to domain name. |                    | if `AGENT=true`
 | ONLOGS_TOKEN       | Token that will use agent to authorize and connect to HOST | Generates with OnLogs interface   | if `AGENT=true`
+| DOCKER_SOCKET_PATH | Path to docker.sock | /var/run/docker.sock   | may be needed if you have docker desktop
