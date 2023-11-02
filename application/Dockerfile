@@ -3,7 +3,7 @@ FROM node:16-alpine AS frontbuilder
 WORKDIR /code/
 ADD frontend/package-lock.json .
 ADD frontend/package.json .
-RUN npm install -g npm@latest && npm ci
+RUN npm install -g npm:16 && npm ci
 
 ADD frontend/. .
 
