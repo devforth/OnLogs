@@ -113,7 +113,6 @@ func CreateDaemonToDBStream(containerName string) {
 	host := util.GetHost()
 	createLogMessage(current_db, host, containerName, "ONLOGS: Container listening started!")
 
-	lastSleep := time.Now().Unix()
 	defer current_db.Close()
 	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n')
@@ -145,10 +144,7 @@ func CreateDaemonToDBStream(containerName string) {
 			c.WriteMessage(1, to_send)
 		}
 
-		if time.Now().Unix()-lastSleep > 1 {
-			time.Sleep(10 * time.Millisecond)
-			lastSleep = time.Now().Unix()
-		}
+		time.Sleep(70 * time.Microsecond)
 	}
 }
 
@@ -175,7 +171,10 @@ func GetContainersList() []string {
 	json.Unmarshal([]byte(body), &result)
 
 	var names []string
-	containersDB, _ := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
+	containersDB, err := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
+	if err != nil {
+		panic(err)
+	}
 	defer containersDB.Close()
 	for i := 0; i < len(result); i++ {
 		name := fmt.Sprintf("%v", result[i]["Names"].([]interface{})[0].(string))[1:]
