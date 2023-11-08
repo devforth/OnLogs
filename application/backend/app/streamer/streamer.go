@@ -46,6 +46,11 @@ func createStreams(containers []string) {
 }
 
 func StreamLogs() {
+	if vars.FavsDBErr != nil || vars.StateDBErr != nil || vars.UsersDBErr != nil {
+		fmt.Println("ERROR: unable to open leveldb", vars.FavsDBErr, vars.StateDBErr, vars.UsersDBErr)
+		return
+	}
+
 	vars.DockerContainers = daemon.GetContainersList()
 	if os.Getenv("AGENT") != "" {
 		agent.SendInitRequest(vars.DockerContainers)

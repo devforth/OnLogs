@@ -21,9 +21,9 @@ var (
 	Connections                         = map[string][]websocket.Conn{}
 	Counters_For_Hosts_Last_30_Min      = map[string]map[string]uint64{}
 	Counters_For_Containers_Last_30_Min = map[string]map[string]uint64{}
-	FavsDB, _                           = leveldb.OpenFile("leveldb/favourites", nil)
-	StateDB, _                          = leveldb.OpenFile("leveldb/state", nil)
-	UsersDB, _                          = leveldb.OpenFile("leveldb/users", nil) // should i ever close it?
+	FavsDB, FavsDBErr                   = leveldb.OpenFile("leveldb/favourites", nil)
+	StateDB, StateDBErr                 = leveldb.OpenFile("leveldb/state", nil)
+	UsersDB, UsersDBErr                 = leveldb.OpenFile("leveldb/users", nil) // should i ever close it?
 	Year                                = strconv.Itoa(time.Now().UTC().Year())
 )
 
