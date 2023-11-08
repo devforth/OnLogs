@@ -3,6 +3,7 @@
     lastChosenHost,
     lastChosenService,
     lastStatsPeriod,
+    chosenStatus
   } from "../../Stores/stores.js";
   import fetchApi from "../../utils/fetch";
   import { navigate } from "svelte-routing";
@@ -90,7 +91,14 @@
         return 1;
       }
     }) as [key, name]}
-      <li class="flex spaceBetween statsItem">
+      <li class="flex spaceBetween statsItem"
+        on:click={async () => {
+            if ($chosenStatus !== key) {
+            chosenStatus.set(key);
+            } else {
+            chosenStatus.set("");
+            }
+        }}>
         <p class={key}>{key.charAt(0).toUpperCase() + key.slice(1)}</p>
         <p>{name}</p>
       </li>
