@@ -611,10 +611,10 @@
 
       if (logsContEl) {
         logsContEl.addEventListener("scroll", function () {
-          let st = window.pageYOffset || logsContEl.scrollTop;
+          let st = window.scrollY || logsContEl.scrollTop;
           if (st > lastScrollTop) {
             scrollDirection = "down";
-          } else {
+          } else if (st != lastScrollTop) {
             scrollDirection = "up";
           }
           lastScrollTop = st <= 0 ? 0 : st; // For Mobile or negative scrolling
