@@ -90,9 +90,13 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 		path := "leveldb/hosts/" + host + "/containers/" + container + "/" + dbType
 		res_db, err = leveldb.OpenFile(path, nil)
 		if err != nil {
-			res_db, _ = leveldb.RecoverFile(path, nil)
+			res_db, err = leveldb.RecoverFile(path, nil)
 		}
 	}
+	if err != nil {
+		fmt.Println("ERROR: unable to open db for "+host+"/"+container+"/"+dbType, err)
+	}
+
 	return res_db
 }
 
