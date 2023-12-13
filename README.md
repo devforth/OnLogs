@@ -3,6 +3,11 @@
 
 ![Passing Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LbP22/7a0933f8cba0bddbcc95c8b850e32663/raw/onlogs_passing__heads_main.json) ![Coverage Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LbP22/7a0933f8cba0bddbcc95c8b850e32663/raw/onlogs_units_coverage__heads_main.json) ![License Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LbP22/7a0933f8cba0bddbcc95c8b850e32663/raw/license_MIT.json) 
 
+![image](https://github.com/devforth/OnLogs/assets/1838656/6742579c-a108-465f-9d97-0635a435c8a2)
+
+
+
+
 ### Benefits
 
 - 🔑 Secure and simple way to access logs without server/ssh accession
