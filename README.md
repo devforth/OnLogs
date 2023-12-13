@@ -1,4 +1,4 @@
-# OnLogs
+# OnLogs - Logs accsess for any docker containers
 <a href="https://devforth.io"><img src="./.assets/df_powered_by.svg" style="height:36px"/></a>
 
 ![Passing Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LbP22/7a0933f8cba0bddbcc95c8b850e32663/raw/onlogs_passing__heads_main.json) ![Coverage Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LbP22/7a0933f8cba0bddbcc95c8b850e32663/raw/onlogs_units_coverage__heads_main.json) ![License Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LbP22/7a0933f8cba0bddbcc95c8b850e32663/raw/license_MIT.json) 
@@ -10,33 +10,33 @@
 
 ### Benefits
 
-- 🔑 Secure and simple way to access logs without server/ssh accession
-- 🏗️ Built with Golang & Svelte.js to extract maximum performance and tiny bundle. Logs storage implemented on top of LevelDB
-- 🧸 Setup is easy as docker run command/compose snippet
+- 🔑 Simple and secure way to access logs of any Docker containers without server/SSH connection
+- 🏗️ Built with Golang & Svelte.js to extract maximum performance and keep the image and RAM footprint as small as possible. Logs storage implemented on top of lightweight LevelDB
+- 🧸 Installation is easy as docker runs command/compose snippet. HTTP port exposed and could be routed from Nginx/Traefik/Directly
 - 🖱 Get every service realtime logs stream with 1 click <img src="./.assets/1.gif"/>
-- 📱 Check logs from smartphone (insane, but we know it happens that you need it)
-- 🧾 Open-Source commercial friendly MIT license
+- 📱 Check logs from your smartphone (insane, but we know it happens that you need it)
+- 🧾 Open-source, commercial-friendly MIT license
 - 💾 Small size of Docker image (~ 13 MB)
 - 👥 Share access to logs with team members, revoke any time
 
 ### Features
 
-- 💻 One host can be used to view logs from all other hosts in case if you are running Cluster
-- 🔗 Share log messages to collegues via link <img src="./.assets/2.gif"/>
+- 💻 One host can be used to view logs from all other hosts in case you are running Cluster
+- 🔗 Share log messages to colleagues via link <img src="./.assets/2.gif"/>
 - 💽 Clear original docker logs to keep your storage size.
 - 📊 Error/Info/Debug Statistics
-- 🔎 Search through logs (configurable case sensetivity)
-- 👁 View parameters (parsing JSON, show local/UTC time for every logline)
+- 🔎 Search through logs (configurable case sensitivity)
+- 👁 View parameters (parsing JSON, showing local/UTC time for every logline)
 - 🔴 Realtime logs updating
 
 ### Roadmap
 
 - 🗂 Grouping hosts
-- 🏷 Search & Filter by tags (log status, time)
+- 🏷 Search and filter by tags (log status, time)
 - 🔌Plugins and internal ability to notify about some event (e.g. notify when Error happens)
 - 📊 Improved statistics
 
-## Hello world & ussage
+## Hello world & usage
 ### Docker Compose example with traefik
 ```sh
   onlogs:
