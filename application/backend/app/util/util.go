@@ -46,7 +46,12 @@ func Contains(a string, list []string) bool {
 }
 
 func CreateInitUser() {
-	vars.UsersDB.Put([]byte("admin"), []byte(os.Getenv("PASSWORD")), nil)
+	admin_username := os.Getenv("ADMIN_USERNAME")
+	if admin_username == "" {
+		admin_username = "admin"
+		os.Setenv("ADMIN_USERNAME", admin_username)
+	}
+	vars.UsersDB.Put([]byte(admin_username), []byte(os.Getenv("ADMIN_PASSWORD")), nil)
 }
 
 func ReplacePrefixVariableForFrontend() {

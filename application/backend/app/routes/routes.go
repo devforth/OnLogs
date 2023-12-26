@@ -40,7 +40,7 @@ func enableCors(w *http.ResponseWriter) {
 
 func verifyAdminUser(w *http.ResponseWriter, req *http.Request) bool {
 	username, err := util.GetUserFromJWT(*req)
-	if username != "admin" {
+	if username != os.Getenv("ADMIN_USERNAME") {
 		(*w).WriteHeader(http.StatusForbidden)
 		json.NewEncoder(*w).Encode(map[string]string{"error": "Only admin can perform this request"})
 		return false
@@ -736,7 +736,7 @@ func DeleteUser(w http.ResponseWriter, req *http.Request) {
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&loginData)
-	if loginData.Login == "admin" {
+	if loginData.Login == os.Getenv("ADMIN_USERNAME") {
 		w.Header().Add("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"error": "Can't delete admin"})
 		return
