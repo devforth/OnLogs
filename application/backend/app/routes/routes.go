@@ -634,6 +634,12 @@ func EditUser(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&loginData)
 
+	if loginData.Login == os.Getenv("ADMIN_USERNAME") {
+		w.Header().Add("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"error": "Can't edit admin. Use env variables to change admin username and password"})
+		return
+	}
+
 	if !userdb.IsUserExists(loginData.Login) {
 		json.NewEncoder(w).Encode(map[string]string{"error": "No such user"})
 		return
