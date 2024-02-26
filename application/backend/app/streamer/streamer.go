@@ -30,8 +30,7 @@ func createStreams(containers []string) {
 				}
 			}
 			if vars.Statuses_DBs[util.GetHost()+"/"+container] == nil {
-				statusesDB, _ := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containers/"+container+"/statuses", nil)
-				vars.Statuses_DBs[util.GetHost()+"/"+container] = statusesDB
+				vars.Statuses_DBs[util.GetHost()+"/"+container] = util.GetDB(util.GetHost(), container, "/statuses")
 			}
 			vars.ActiveDBs[container] = newDB
 			vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, container)

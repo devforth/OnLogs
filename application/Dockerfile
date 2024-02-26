@@ -12,8 +12,6 @@ RUN npm run build
 COPY . /code/
 
 FROM alpine
-RUN apk add bash curl
-# tmp
 
 COPY --from=frontbuilder /code/dist/ /backend/dist/
 
@@ -26,8 +24,6 @@ RUN go mod download  \
   && go build -o main .
 
 FROM alpine
-RUN apk add bash curl
-# tmp
 
 COPY --from=frontbuilder /code/dist/ /dist/
 COPY --from=backendbuilder /backend/main /backend/main

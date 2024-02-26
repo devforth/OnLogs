@@ -102,6 +102,14 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 		fmt.Println("ERROR: unable to open db for "+host+"/"+container+"/"+dbType, err)
 	}
 
+	if dbType == "logs" {
+		vars.ActiveDBs[container] = res_db
+	} else if dbType == "statuses" {
+		vars.Statuses_DBs[host+"/"+container] = res_db
+	} else if dbType == "statistics" {
+		vars.Stat_Containers_DBs[host+"/"+container] = res_db
+	}
+
 	return res_db
 }
 
@@ -185,9 +193,17 @@ func GetDockerContainerID(host string, container string) string {
 		return ""
 	}
 
-	idDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containersMeta", nil)
-	defer idDB.Close()
-	iter := idDB.NewIterator(nil, nil)
+	containersMetaDB := vars.ContainersMeta_DBs[host]
+	if containersMetaDB == nil {
+		containersMetaDB, err := leveldb.OpenFile("leveldb/hosts/"+host+"/containersMeta", nil)
+		if err != nil {
+			panic(err)
+		}
+		vars.ContainersMeta_DBs[host] = containersMetaDB
+	}
+	containersMetaDB = vars.ContainersMeta_DBs[host]
+
+	iter := containersMetaDB.NewIterator(nil, nil)
 	defer iter.Release()
 
 	iter.Last()

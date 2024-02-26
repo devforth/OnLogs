@@ -42,8 +42,8 @@ func RunStatisticForContainer(host string, container string) {
 	location := host + "/" + container
 	vars.Counters_For_Containers_Last_30_Min[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 	if vars.Stat_Containers_DBs[location] == nil {
-		current_db, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/statistics", nil)
-		defer current_db.Close()
+		current_db := util.GetDB(host, container, "statistics")
+		// defer current_db.Close()
 		vars.Stat_Containers_DBs[location] = current_db
 	}
 	defer delete(vars.Stat_Containers_DBs, location)

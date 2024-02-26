@@ -171,17 +171,23 @@ func GetContainersList() []string {
 	json.Unmarshal([]byte(body), &result)
 
 	var names []string
-	containersDB, err := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
-	if err != nil {
-		panic(err)
+
+	containersMetaDB := vars.ContainersMeta_DBs[util.GetHost()]
+	if containersMetaDB == nil {
+		containersMetaDB, err := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
+		if err != nil {
+			panic(err)
+		}
+		vars.ContainersMeta_DBs[util.GetHost()] = containersMetaDB
 	}
-	defer containersDB.Close()
+	containersMetaDB = vars.ContainersMeta_DBs[util.GetHost()]
+
 	for i := 0; i < len(result); i++ {
 		name := fmt.Sprintf("%v", result[i]["Names"].([]interface{})[0].(string))[1:]
 		id := result[i]["Id"].(string)
 
 		names = append(names, name)
-		containersDB.Put([]byte(name), []byte(id), nil)
+		containersMetaDB.Put([]byte(name), []byte(id), nil)
 	}
 
 	return names
