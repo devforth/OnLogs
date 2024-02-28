@@ -88,18 +88,37 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 		res_db = vars.Statuses_DBs[host+"/"+container]
 	} else if dbType == "statistics" {
 		res_db = vars.Stat_Containers_DBs[host+"/"+container]
+	} else if dbType == "brokenlogs" {
+		res_db = vars.BrokenLogs_DBs[container]
+	}
+
+	if res_db != nil {
+		return res_db
 	}
 
 	var err error
-	if res_db == nil {
-		path := "leveldb/hosts/" + host + "/containers/" + container + "/" + dbType
-		res_db, err = leveldb.OpenFile(path, nil)
-		if err != nil {
-			res_db, err = leveldb.RecoverFile(path, nil)
-		}
+	tries := 0
+	path := "leveldb/hosts/" + host + "/containers/" + container + "/" + dbType
+	res_db, err = leveldb.OpenFile(path, nil)
+	for (err != nil && res_db == nil) && tries < 10 {
+		res_db, err = leveldb.RecoverFile(path, nil)
+		fmt.Println(path, err)
+		time.Sleep(10 * time.Millisecond)
+		tries++
 	}
+
 	if err != nil {
-		fmt.Println("ERROR: unable to open db for "+host+"/"+container+"/"+dbType, err)
+		panic("ERROR: unable to open db for " + host + "/" + container + "/" + dbType + "\n" + err.Error())
+	}
+
+	if dbType == "logs" {
+		vars.ActiveDBs[container] = res_db
+	} else if dbType == "statuses" {
+		vars.Statuses_DBs[host+"/"+container] = res_db
+	} else if dbType == "statistics" {
+		vars.Stat_Containers_DBs[host+"/"+container] = res_db
+	} else if dbType == "brokenlogs" {
+		vars.BrokenLogs_DBs[container] = res_db
 	}
 
 	return res_db
@@ -185,9 +204,17 @@ func GetDockerContainerID(host string, container string) string {
 		return ""
 	}
 
-	idDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containersMeta", nil)
-	defer idDB.Close()
-	iter := idDB.NewIterator(nil, nil)
+	containersMetaDB := vars.ContainersMeta_DBs[host]
+	if containersMetaDB == nil {
+		containersMetaDB, err := leveldb.OpenFile("leveldb/hosts/"+host+"/containersMeta", nil)
+		if err != nil {
+			panic(err)
+		}
+		vars.ContainersMeta_DBs[host] = containersMetaDB
+	}
+	containersMetaDB = vars.ContainersMeta_DBs[host]
+
+	iter := containersMetaDB.NewIterator(nil, nil)
 	defer iter.Release()
 
 	iter.Last()

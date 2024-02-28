@@ -66,7 +66,9 @@ func closeActiveStream(containerName string) {
 			newDaemonStreams = append(newDaemonStreams, stream)
 		}
 	}
-	vars.ActiveDBs[containerName].Close()
+	if vars.ActiveDBs[containerName] != nil {
+		vars.ActiveDBs[containerName].Close()
+	}
 	vars.ActiveDBs[containerName] = nil
 	vars.Active_Daemon_Streams = newDaemonStreams
 }
@@ -109,8 +111,8 @@ func CreateDaemonToDBStream(containerName string) {
 	reader := bufio.NewReader(connection)
 	readHeader(*reader)
 
-	current_db := vars.ActiveDBs[containerName]
 	host := util.GetHost()
+	current_db := util.GetDB(host, containerName, "logs")
 	createLogMessage(current_db, host, containerName, "ONLOGS: Container listening started!")
 
 	defer current_db.Close()
@@ -171,17 +173,23 @@ func GetContainersList() []string {
 	json.Unmarshal([]byte(body), &result)
 
 	var names []string
-	containersDB, err := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
-	if err != nil {
-		panic(err)
+
+	containersMetaDB := vars.ContainersMeta_DBs[util.GetHost()]
+	if containersMetaDB == nil {
+		containersMetaDB, err := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
+		if err != nil {
+			panic(err)
+		}
+		vars.ContainersMeta_DBs[util.GetHost()] = containersMetaDB
 	}
-	defer containersDB.Close()
+	containersMetaDB = vars.ContainersMeta_DBs[util.GetHost()]
+
 	for i := 0; i < len(result); i++ {
 		name := fmt.Sprintf("%v", result[i]["Names"].([]interface{})[0].(string))[1:]
 		id := result[i]["Id"].(string)
 
 		names = append(names, name)
-		containersDB.Put([]byte(name), []byte(id), nil)
+		containersMetaDB.Put([]byte(name), []byte(id), nil)
 	}
 
 	return names
