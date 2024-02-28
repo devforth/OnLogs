@@ -7,10 +7,11 @@ import (
 
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
-func restartStats(host string, container string, current_db *leveldb.DB) {
+func restartStats(host string, container string) {
+	current_db := util.GetDB(host, container, "statistics")
+
 	var used_storage map[string]map[string]uint64
 	var location string
 	if container == "" {
@@ -41,15 +42,9 @@ func restartStats(host string, container string, current_db *leveldb.DB) {
 func RunStatisticForContainer(host string, container string) {
 	location := host + "/" + container
 	vars.Counters_For_Containers_Last_30_Min[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-	if vars.Stat_Containers_DBs[location] == nil {
-		current_db := util.GetDB(host, container, "statistics")
-		// defer current_db.Close()
-		vars.Stat_Containers_DBs[location] = current_db
-	}
-	defer delete(vars.Stat_Containers_DBs, location)
-	defer restartStats(host, container, vars.Stat_Containers_DBs[location])
+	defer restartStats(host, container)
 	for {
-		restartStats(host, container, vars.Stat_Containers_DBs[location])
+		restartStats(host, container)
 		time.Sleep(30 * time.Minute)
 	}
 }
@@ -72,9 +67,6 @@ func GetStatisticsByService(host string, service string, value int) map[string]u
 	searchTo := time.Now().Add(-(time.Hour * time.Duration(value/2))).UTC()
 	var tmp_stats map[string]uint64
 	current_db := util.GetDB(host, service, "statistics")
-	if vars.Stat_Containers_DBs[location] == nil {
-		defer current_db.Close()
-	}
 	iter := current_db.NewIterator(nil, nil)
 	defer iter.Release()
 	iter.Last()

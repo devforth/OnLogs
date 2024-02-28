@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
@@ -58,12 +59,15 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	}
 
 	err := db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
-	if err != nil {
+	tries := 0
+	for err != nil && tries < 10 {
 		db = util.GetDB(host, container, "logs")
 		err = db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
-		if err != nil {
-			panic(err)
-		}
+		time.Sleep(10 * time.Millisecond)
+		tries++
+	}
+	if err != nil {
+		panic(err)
 	}
 	return err
 }
@@ -71,9 +75,6 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 func GetLogsByStatus(host string, container string, message string, status string, limit int, startWith string, getPrev bool, include bool, caseSensetivity bool) [][]string {
 	logs_db := util.GetDB(host, container, "logs")
 	db := util.GetDB(host, container, "statuses")
-	if host != util.GetHost() || vars.ActiveDBs[container] == nil {
-		defer logs_db.Close()
-	}
 
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()
@@ -146,9 +147,6 @@ func GetLogsByStatus(host string, container string, message string, status strin
 
 func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) [][]string {
 	db := util.GetDB(host, container, "logs")
-	if host != util.GetHost() || vars.ActiveDBs[container] == nil {
-		defer db.Close()
-	}
 
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()

@@ -66,7 +66,9 @@ func closeActiveStream(containerName string) {
 			newDaemonStreams = append(newDaemonStreams, stream)
 		}
 	}
-	vars.ActiveDBs[containerName].Close()
+	if vars.ActiveDBs[containerName] != nil {
+		vars.ActiveDBs[containerName].Close()
+	}
 	vars.ActiveDBs[containerName] = nil
 	vars.Active_Daemon_Streams = newDaemonStreams
 }
@@ -109,8 +111,8 @@ func CreateDaemonToDBStream(containerName string) {
 	reader := bufio.NewReader(connection)
 	readHeader(*reader)
 
-	current_db := vars.ActiveDBs[containerName]
 	host := util.GetHost()
+	current_db := util.GetDB(host, containerName, "logs")
 	createLogMessage(current_db, host, containerName, "ONLOGS: Container listening started!")
 
 	defer current_db.Close()

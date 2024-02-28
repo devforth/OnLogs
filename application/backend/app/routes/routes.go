@@ -159,6 +159,7 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 	}
 
 	vars.AgentsActiveContainers[addReq.Hostname] = addReq.Services
+	fmt.Println("New host added: " + addReq.Hostname)
 	for _, container := range addReq.Services {
 		os.MkdirAll("leveldb/hosts/"+addReq.Hostname+"/containers/"+container, 0700)
 	}

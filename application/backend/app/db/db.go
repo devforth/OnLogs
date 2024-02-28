@@ -1,7 +1,6 @@
 package db
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/devforth/OnLogs/app/util"
@@ -22,7 +21,6 @@ func CreateOnLogsToken() string {
 			panic(err)
 		}
 	}
-	fmt.Println("created token " + token)
 	return token
 }
 
