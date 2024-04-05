@@ -41,7 +41,7 @@ func validateMessage(message string) (string, bool) {
 }
 
 func createConnection(containerName string) net.Conn {
-	connection, _ := net.Dial("unix", "/var/run/docker.sock")
+	connection, _ := net.Dial("unix", os.Getenv("DOCKER_SOCKET_PATH"))
 	fmt.Fprintf(
 		connection,
 		"GET /containers/"+containerName+"/logs?stdout=true&stderr=true&timestamps=true&follow=true&since="+strconv.FormatInt(time.Now().Add(-5*time.Second).Unix(), 10)+" HTTP/1.0\r\n\r\n",
@@ -66,7 +66,9 @@ func closeActiveStream(containerName string) {
 			newDaemonStreams = append(newDaemonStreams, stream)
 		}
 	}
-	vars.ActiveDBs[containerName].Close()
+	if vars.ActiveDBs[containerName] != nil {
+		vars.ActiveDBs[containerName].Close()
+	}
 	vars.ActiveDBs[containerName] = nil
 	vars.Active_Daemon_Streams = newDaemonStreams
 }
@@ -109,11 +111,10 @@ func CreateDaemonToDBStream(containerName string) {
 	reader := bufio.NewReader(connection)
 	readHeader(*reader)
 
-	current_db := vars.ActiveDBs[containerName]
 	host := util.GetHost()
+	current_db := util.GetDB(host, containerName, "logs")
 	createLogMessage(current_db, host, containerName, "ONLOGS: Container listening started!")
 
-	lastSleep := time.Now().Unix()
 	defer current_db.Close()
 	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n')
@@ -145,16 +146,16 @@ func CreateDaemonToDBStream(containerName string) {
 			c.WriteMessage(1, to_send)
 		}
 
-		if time.Now().Unix()-lastSleep > 1 {
-			time.Sleep(5 * time.Millisecond)
-			lastSleep = time.Now().Unix()
-		}
+		time.Sleep(70 * time.Microsecond)
 	}
 }
 
 // make request to docker socket
 func makeSocketRequest(path string) []byte {
-	connection, _ := net.Dial("unix", "/var/run/docker.sock")
+	connection, err := net.Dial("unix", os.Getenv("DOCKER_SOCKET_PATH"))
+	if err != nil {
+		panic(err)
+	}
 	fmt.Fprintf(connection, "GET /"+path+" HTTP/1.0\r\n\r\n")
 
 	body, _ := ioutil.ReadAll(connection)
@@ -172,14 +173,23 @@ func GetContainersList() []string {
 	json.Unmarshal([]byte(body), &result)
 
 	var names []string
-	containersDB, _ := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
-	defer containersDB.Close()
+
+	containersMetaDB := vars.ContainersMeta_DBs[util.GetHost()]
+	if containersMetaDB == nil {
+		containersMetaDB, err := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
+		if err != nil {
+			panic(err)
+		}
+		vars.ContainersMeta_DBs[util.GetHost()] = containersMetaDB
+	}
+	containersMetaDB = vars.ContainersMeta_DBs[util.GetHost()]
+
 	for i := 0; i < len(result); i++ {
 		name := fmt.Sprintf("%v", result[i]["Names"].([]interface{})[0].(string))[1:]
 		id := result[i]["Id"].(string)
 
 		names = append(names, name)
-		containersDB.Put([]byte(name), []byte(id), nil)
+		containersMetaDB.Put([]byte(name), []byte(id), nil)
 	}
 
 	return names

@@ -76,6 +76,7 @@ func TestGetHosts(t *testing.T) {
 		Name:  "onlogs-cookie",
 		Value: util.CreateJWT("testuser"),
 	})
+	os.Setenv("DOCKER_SOCKET_PATH", "/var/run/docker.sock")
 	userdb.CreateUser("testuser", "testuser")
 
 	rr1 := httptest.NewRecorder()

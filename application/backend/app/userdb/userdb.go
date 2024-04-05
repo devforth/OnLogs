@@ -3,6 +3,7 @@ package userdb
 import (
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 
 	"github.com/devforth/OnLogs/app/vars"
@@ -27,6 +28,9 @@ func GetUsers() []string {
 	users := []string{}
 	iter := vars.UsersDB.NewIterator(nil, nil)
 	for iter.Next() {
+		if string(iter.Key()) == os.Getenv("ADMIN_USERNAME") {
+			continue
+		}
 		users = append(users, string(iter.Key()))
 	}
 	defer iter.Release()

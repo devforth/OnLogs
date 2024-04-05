@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
@@ -28,6 +29,9 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 		panic("Host is not mentioned!")
 	}
 	location := host + "/" + container
+	if vars.Statuses_DBs[location] == nil {
+		vars.Statuses_DBs[location] = util.GetDB(host, container, "statuses")
+	}
 
 	if strings.Contains(message_item[1], "ERROR") || strings.Contains(message_item[1], "ERR") || // const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
 		strings.Contains(message_item[1], "Error") || strings.Contains(message_item[1], "Err") {
@@ -49,21 +53,28 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	} else if strings.Contains(message_item[1], "ONLOGS") {
 		vars.Counters_For_Containers_Last_30_Min[location]["meta"]++
 		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("meta"), nil)
-
 	} else {
 		vars.Counters_For_Containers_Last_30_Min[location]["other"]++
 		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("other"), nil)
 	}
 
-	return db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
+	err := db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
+	tries := 0
+	for err != nil && tries < 10 {
+		db = util.GetDB(host, container, "logs")
+		err = db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
+		time.Sleep(10 * time.Millisecond)
+		tries++
+	}
+	if err != nil {
+		panic(err)
+	}
+	return err
 }
 
 func GetLogsByStatus(host string, container string, message string, status string, limit int, startWith string, getPrev bool, include bool, caseSensetivity bool) [][]string {
 	logs_db := util.GetDB(host, container, "logs")
 	db := util.GetDB(host, container, "statuses")
-	if host != util.GetHost() || vars.ActiveDBs[container] == nil {
-		defer logs_db.Close()
-	}
 
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()
@@ -136,9 +147,6 @@ func GetLogsByStatus(host string, container string, message string, status strin
 
 func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) [][]string {
 	db := util.GetDB(host, container, "logs")
-	if host != util.GetHost() || vars.ActiveDBs[container] == nil {
-		defer db.Close()
-	}
 
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()
@@ -215,18 +223,15 @@ func DeleteContainer(host string, container string, fullDelete bool) {
 
 	if vars.ActiveDBs[container] != nil {
 		vars.ActiveDBs[container].Close()
-		newActiveDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/logs", nil)
-		vars.ActiveDBs[container] = newActiveDB
+		vars.ActiveDBs[container] = util.GetDB(host, container, "active")
 	}
 	if vars.Statuses_DBs[host+"/"+container] != nil {
 		vars.Statuses_DBs[host+"/"+container].Close()
-		newStatusesDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/statuses", nil)
-		vars.Statuses_DBs[host+"/"+container] = newStatusesDB
+		vars.Statuses_DBs[host+"/"+container] = util.GetDB(host, container, "statuses")
 	}
 	if vars.Stat_Containers_DBs[host+"/"+container] != nil {
 		vars.Stat_Containers_DBs[host+"/"+container].Close()
-		newStatDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/statistics", nil)
-		vars.Statuses_DBs[host+"/"+container] = newStatDB
+		vars.Statuses_DBs[host+"/"+container] = util.GetDB(host, container, "statistics")
 	}
 	vars.Counters_For_Containers_Last_30_Min[host+"/"+container] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 }

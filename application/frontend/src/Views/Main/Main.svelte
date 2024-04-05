@@ -264,7 +264,7 @@
     </div>
     <div class="logSizeInformation">
       <Container minHeightVh={0} noShadows={true}
-        ><LogsSize discribeText={"Space used by service"} /></Container
+        ><LogsSize discribeText={"Space used by onlogs"} /></Container
       >
     </div>
     <div class="subContainerThumb">

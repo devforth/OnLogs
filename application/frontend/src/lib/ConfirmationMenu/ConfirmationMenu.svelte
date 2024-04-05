@@ -14,7 +14,7 @@
   import Checkbox from "../CheckBox/Checkbox.svelte";
   import fetchApi from "../../utils/fetch.js";
 
-  let confirmationWord = "I understand that data will be lost";
+  let confirmationWord = "I understand that logs will be lost";
   let tipsIsVisible = false;
   let inputValue = "";
   let error = false;
@@ -79,10 +79,9 @@
     />
     {#if tipsIsVisible}
       <div class="tipsText container">
-        <span class="boldText">Delete Docker logs </span> - when the option is
-        <span class="boldText">disabled </span>
-        you can only delete duplicates of logs, that onLogs uses to present logs
-        to you. Logs will be available in docker containers, but not for onLogs.
+        <span class="boldText">Delete Docker logs </span> - when the option is set to 
+        <span class="boldText">"OFF" </span>
+        logs will be deleted only from onLogs. Logs will be available in docker containers, but not for onLogs.
         When
         <span class="boldText"> enabled </span>, each deletion of logs will
         clear logs from both onLogs and the
@@ -101,22 +100,25 @@
     </div>
   </div>
   <div class="attentionZone">
-    <p style="margin-bottom:12px;">
-      {`You want to delete logs. Host: ${
+    <p>
+      {`Host: ${
         $lastChosenHost ? $lastChosenHost : "host"
-      }  service:${
-        $lastChosenService ? $lastChosenService : "service"
-      }  from: `}
-
-      <span style="font-weight: bold;margin-top: 12px;"
-        >{$confirmationObj.message}</span
-      >
+      }`}
     </p>
-    <p>This data will be lost. This action cannot be undone.</p>
+    <p>
+        {`Service: ${
+          $lastChosenService ? $lastChosenService : "service"
+        }, from: `}
+  
+        <span style="font-weight: bold;margin-top: 12px;"
+          >{$confirmationObj.message}</span
+        >
+      </p>
+    <p style="margin-top: 12px">This data will be lost. This action cannot be undone.</p>
   </div>
 
   <div class="confirmationText">
-    Please type:" <span class="boldText {error && 'error'}"
+    Please type: "<span class="boldText {error && 'error'}"
       >{confirmationWord}"</span
     > to confirm.
   </div>

@@ -161,15 +161,15 @@
                     class="buttonSpan"
                     on:click={() => {
                       setChosenUserLogin(user);
-                      showUserDeleting();
-                    }}><Button title={"Remove"} minWidth={86} /></span
+                      showUserEditing();
+                    }}><Button title={"Edit"} minWidth={86} /></span
                   >
                   <span
                     class="buttonSpan"
                     on:click={() => {
                       setChosenUserLogin(user);
-                      showUserEditing();
-                    }}><Button title={"Edit"} minWidth={86} /></span
+                      showUserDeleting();
+                    }}><Button title={"Delete"} minWidth={86} /></span
                   ></span
                 ></td
               ></tr
@@ -179,15 +179,15 @@
       </table>
     </div>{/if}
   <Modal modalIsOpen={deleteModalIsOpen} storeProp={userDeleteOpen}
-    ><h3 style="text-align: center;">
+    ><h3 style="text-align: center; margin: 32px 0 0 0">
       Are you sure you want to delete this user?
     </h3>
-    <span class="buttonModalContainer"
+    <span class="buttonModalContainer" style="justify-content: space-between; margin-top: 20px; margin-bottom: 0"
       ><span
         class="buttonSpan"
         on:click={() => {
           removeUser(chosenUserLogin);
-        }}><Button title={"Remove"} minWidth={86} highlighted /></span
+        }}><Button title={"Delete"} minWidth={86} highlighted /></span
       >
       <span class="buttonSpan"
         ><Button
@@ -200,29 +200,33 @@
     >
   </Modal>
   <Modal modalIsOpen={editModalIsOpen} storeProp={editUserOpen}
-    ><h3 style="text-align: center;">Please type new password</h3>
-    <Input
-      placeholder={"Password"}
-      customClass={"editInput"}
-      thumbClass={"editInputContainer"}
-      bind:value={userPasswordValue}
-    />
-
-    <span class="buttonModalContainer"
-      ><span
-        class="buttonSpan"
-        on:click={() => {
-          editUser(chosenUserLogin, userPasswordValue);
-        }}><Button title={"Edit"} minWidth={86} highlighted /></span
-      >
-      <span class="buttonSpan"
-        ><Button
-          title={"Cancel"}
-          minWidth={86}
-          highlighted
-          CB={showUserEditing}
-        /></span
-      ></span
     >
+    <div style="width: auto;">
+        <h3 style="text-align: center;">Please type new password</h3>
+        <Input
+        placeholder={"Password"}
+        customClass={"editInput"}
+        thumbClass={"editInputContainer"}
+        bind:value={userPasswordValue}
+        width={300}
+        />
+
+        <span class="buttonModalContainer" style="justify-content: space-between; margin-top: 20px; margin-bottom: 0;"
+        ><span
+            class="buttonSpan"
+            on:click={() => {
+            editUser(chosenUserLogin, userPasswordValue);
+            }}><Button title={"Confirm"} minWidth={86} highlighted /></span
+        >
+        <span class="buttonSpan"
+            ><Button
+            title={"Cancel"}
+            minWidth={86}
+            highlighted
+            CB={showUserEditing}
+            /></span
+        ></span
+        >
+    </div>
   </Modal>
 </div>

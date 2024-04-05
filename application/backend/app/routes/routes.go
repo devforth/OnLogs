@@ -22,7 +22,6 @@ import (
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/gorilla/websocket"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func enableCors(w *http.ResponseWriter) {
@@ -40,7 +39,7 @@ func enableCors(w *http.ResponseWriter) {
 
 func verifyAdminUser(w *http.ResponseWriter, req *http.Request) bool {
 	username, err := util.GetUserFromJWT(*req)
-	if username != "admin" {
+	if username != os.Getenv("ADMIN_USERNAME") {
 		(*w).WriteHeader(http.StatusForbidden)
 		json.NewEncoder(*w).Encode(map[string]string{"error": "Only admin can perform this request"})
 		return false
@@ -128,16 +127,14 @@ func AddLogLine(w http.ResponseWriter, req *http.Request) {
 	if vars.Counters_For_Hosts_Last_30_Min[logItem.Host] == nil {
 		go statistics.RunStatisticForContainer(logItem.Host, logItem.Container)
 	}
-	location := logItem.Host + "/" + logItem.Container
-	if vars.Statuses_DBs[location] == nil {
-		vars.Statuses_DBs[location] = util.GetDB(logItem.Host, logItem.Container, "statuses")
+	err := containerdb.PutLogMessage(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine)
+	if err != nil {
+		defer w.WriteHeader(http.StatusInternalServerError)
+		panic(err)
 	}
-	current_db, _ := leveldb.OpenFile("leveldb/hosts/"+logItem.Host+"/containers/"+logItem.Container+"/logs", nil)
-	containerdb.PutLogMessage(current_db, logItem.Host, logItem.Container, logItem.LogLine)
-	defer current_db.Close()
 
 	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
-	for _, c := range vars.Connections[location] {
+	for _, c := range vars.Connections[logItem.Host+"/"+logItem.Container] {
 		c.WriteMessage(1, to_send)
 	}
 }
@@ -162,6 +159,7 @@ func AddHost(w http.ResponseWriter, req *http.Request) {
 	}
 
 	vars.AgentsActiveContainers[addReq.Hostname] = addReq.Services
+	// fmt.Println("New host added: " + addReq.Hostname)  need to create separate route for SendUpdate func
 	for _, container := range addReq.Services {
 		os.MkdirAll("leveldb/hosts/"+addReq.Hostname+"/containers/"+container, 0700)
 	}
@@ -634,6 +632,12 @@ func EditUser(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&loginData)
 
+	if loginData.Login == os.Getenv("ADMIN_USERNAME") {
+		w.Header().Add("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"error": "Can't edit admin. Use env variables to change admin username and password"})
+		return
+	}
+
 	if !userdb.IsUserExists(loginData.Login) {
 		json.NewEncoder(w).Encode(map[string]string{"error": "No such user"})
 		return
@@ -736,7 +740,7 @@ func DeleteUser(w http.ResponseWriter, req *http.Request) {
 	}
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&loginData)
-	if loginData.Login == "admin" {
+	if loginData.Login == os.Getenv("ADMIN_USERNAME") {
 		w.Header().Add("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"error": "Can't delete admin"})
 		return

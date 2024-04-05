@@ -46,7 +46,7 @@ func SendLogMessage(token string, container string, message_item []string) bool 
 }
 
 func TryResend() {
-	token := os.Getenv("ONLOGS_TOKRN")
+	token := os.Getenv("ONLOGS_TOKEN")
 	containers, _ := os.ReadDir("leveldb/hosts/" + util.GetHost() + "/containers/")
 	for _, container := range containers {
 		tmpDB := vars.BrokenLogs_DBs[container.Name()]

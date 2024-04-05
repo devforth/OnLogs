@@ -4,47 +4,46 @@ import (
 	"time"
 
 	"github.com/devforth/OnLogs/app/util"
+	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func CreateOnLogsToken() string {
-	tokensDB, _ := leveldb.OpenFile("leveldb/tokens", nil)
-	defer tokensDB.Close()
-
 	token := util.GenerateJWTSecret()
 	to_put := time.Now().UTC().Add(24 * time.Hour).String()
-	tokensDB.Put([]byte(token), []byte(to_put), nil)
+	err := vars.TokensDB.Put([]byte(token), []byte(to_put), nil)
+	if err != nil {
+		vars.TokensDB.Close()
+		vars.TokensDB, vars.TokensDBErr = leveldb.OpenFile("leveldb/tokens", nil)
+
+		err = vars.TokensDB.Put([]byte(token), []byte(to_put), nil)
+		if err != nil {
+			panic(err)
+		}
+	}
 	return token
 }
 
 func IsTokenExists(token string) bool {
-	tokensDB, _ := leveldb.OpenFile("leveldb/tokens", nil)
-	defer tokensDB.Close()
-
-	iter := tokensDB.NewIterator(nil, nil)
+	iter := vars.TokensDB.NewIterator(nil, nil)
 	defer iter.Release()
 	iter.First()
 	if string(iter.Key()) == token {
-		tokensDB.Put([]byte(token), []byte("was used"), nil)
+		vars.TokensDB.Put([]byte(token), []byte("was used"), nil)
 		return true
 	}
 	for iter.Next() {
 		if string(iter.Key()) == token {
-			tokensDB.Put([]byte(token), []byte("was used"), nil)
+			vars.TokensDB.Put([]byte(token), []byte("was used"), nil)
 			return true
 		}
 	}
-
 	return false
 }
 
 func DeleteUnusedTokens() {
 	for {
-		db, r := leveldb.OpenFile("leveldb/tokens", nil)
-		if r != nil {
-			panic(r)
-		}
-
+		db := vars.TokensDB
 		iter := db.NewIterator(nil, nil)
 		for iter.Next() {
 			wasUsed := string(iter.Value())

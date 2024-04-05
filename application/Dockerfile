@@ -3,7 +3,7 @@ FROM node:16-alpine AS frontbuilder
 WORKDIR /code/
 ADD frontend/package-lock.json .
 ADD frontend/package.json .
-RUN npm install -g npm@latest && npm ci
+RUN npm install -g npm:16 && npm ci
 
 ADD frontend/. .
 
@@ -12,8 +12,6 @@ RUN npm run build
 COPY . /code/
 
 FROM alpine
-RUN apk add bash curl
-# tmp
 
 COPY --from=frontbuilder /code/dist/ /backend/dist/
 
@@ -26,10 +24,6 @@ RUN go mod download  \
   && go build -o main .
 
 FROM alpine
-RUN apk add bash curl
-# tmp
-
-EXPOSE 2874
 
 COPY --from=frontbuilder /code/dist/ /dist/
 COPY --from=backendbuilder /backend/main /backend/main

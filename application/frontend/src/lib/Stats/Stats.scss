@@ -2,6 +2,10 @@
   padding: 0;
   margin: 0 0 6px 0;
   font-size: $main-font-s;
+  cursor: pointer;
+  & :hover {
+    transform: scale(1.02);
+  }
 }
 
 .statsTittle {
