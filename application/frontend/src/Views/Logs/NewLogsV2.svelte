@@ -347,11 +347,7 @@
                 },
               });
               toastIsVisible.set(true);
-              toastTimeoutId.set(
-                setTimeout(() => {
-                  toastIsVisible.set(false);
-                }, 10000)
-              );
+              
             }
           }
 
@@ -678,7 +674,7 @@
   }
 
   $: {
-    if (allLogs) {
+    if ([...allLogs]) {
       highlightSearchText();
     }
   }

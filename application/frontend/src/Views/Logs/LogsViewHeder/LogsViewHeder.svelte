@@ -1,10 +1,20 @@
 <script>
+  // @ts-nocheck
+
   export let searchText = "";
   import Button from "../../../lib/Button/Button.svelte";
   import DropDown from "../../../lib/DropDown/DropDown.svelte";
   import { clickOutside } from "../../../lib/OutsideClicker/OutsideClicker.js";
   let dropDownIsVisible = false;
   let isSearchVIsible = false;
+  let timer;
+  const debounce = (v) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      searchText = v;
+    }, 750);
+  };
+
   function dropDownToggle() {
     dropDownIsVisible = !dropDownIsVisible;
   }
@@ -65,6 +75,12 @@
     {#if !searchText}<div class="searchIcoContainer">
         <i class={"log log-Search"} />
       </div>{/if}
-    <input type="text" bind:value={searchText} placeholder="Search" />
+    <input
+      type="text"
+      on:input={(e) => {
+        searchText = e.target.value;
+      }}
+      placeholder="Search"
+    />
   </div>
 </div>

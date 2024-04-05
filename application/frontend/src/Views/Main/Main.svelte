@@ -42,6 +42,7 @@
   import MainChartMenu from "../../lib/ChartMenu/MainChartMenu.svelte";
   import SettingsController from "./SettingsController.svelte";
   import StreamInfo from "../../lib/StreamInfo/StreamInfo.svelte";
+  import { findSearchTextInLogs } from "../../Views/Logs/functions";
 
   let api = new fetchApi();
   let hostList = [];
@@ -55,6 +56,7 @@
   let withoutRightPanel = false;
 
   function handleClick({ target }) {
+    findSearchTextInLogs();
     if (!target.classList.contains("buttonToBottom")) {
       lastLogTimestamp.set(new Date().getTime());
     }
