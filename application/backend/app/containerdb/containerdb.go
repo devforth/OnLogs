@@ -9,6 +9,7 @@ import (
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
 func containStr(a string, b string, caseSens bool) bool {
@@ -72,152 +73,141 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	return err
 }
 
-func GetLogsByStatus(host string, container string, message string, status string, limit int, startWith string, getPrev bool, include bool, caseSensetivity bool) [][]string {
-	logs_db := util.GetDB(host, container, "logs")
-	db := util.GetDB(host, container, "statuses")
+func fitsForSearch(logLine string, message string, caseSensetivity bool) bool {
+	if !caseSensetivity {
+		logLine = strings.ToLower(logLine)
+		message = strings.ToLower(message)
+	}
 
-	iter := db.NewIterator(nil, nil)
-	defer iter.Release()
-	counter := 0
-	to_return := [][]string{}
+	return strings.Contains(logLine, message)
+}
 
+func increaseAndMove(counter *int, move_direction func() bool) {
+	*counter++
+	move_direction()
+}
+
+func getMoveDirection(getPrev bool, iter iterator.Iterator) func() bool {
+	if getPrev {
+		return func() bool { return iter.Prev() }
+	}
+	return func() bool { return iter.Next() }
+}
+
+func searchInit(iter iterator.Iterator, startWith string, getPrev bool, include bool, move_direction func() bool) bool {
 	iter.Last()
 	if startWith != "" {
 		if !iter.Seek([]byte(startWith)) {
-			return to_return
+			return false
 		}
-		if getPrev && !include {
-			iter.Next()
-		} else if !include {
-			iter.Prev()
+		if !include {
+			move_direction()
+			return true
 		}
 	}
+	return true
+}
 
-	for counter < limit {
-		if len(iter.Key()) == 0 {
-			if getPrev {
-				iter.Next()
-			} else {
-				iter.Prev()
-			}
-			counter++
+func getDateTimeFromKey(key string) string {
+	return strings.Split(key, " +")[0]
+}
+
+func GetLogsByStatus(host string, container string, message string, status string, limit int, startWith string, getPrev bool, include bool, caseSensetivity bool) [][]string {
+	logs_db := util.GetDB(host, container, "logs")
+	db := util.GetDB(host, container, "statuses")
+	iter := db.NewIterator(nil, nil)
+	defer iter.Release()
+	to_return := [][]string{}
+	move_direction := getMoveDirection(getPrev, iter)
+
+	if !searchInit(iter, startWith, getPrev, include, move_direction) {
+		return to_return
+	}
+
+	counter := 0
+	iteration := 0
+	last_item := []string{}
+	for counter < limit && iteration < 10000 {
+		iteration += 1
+		key := iter.Key()
+		if len(key) == 0 {
+			increaseAndMove(&counter, move_direction)
 			continue
 		}
 
-		if string(iter.Value()) != status {
-			if getPrev {
-				iter.Next()
-			} else {
-				iter.Prev()
-			}
+		value := string(iter.Value())
+		if value != status {
+			move_direction()
 			continue
 		}
 
-		res, _ := logs_db.Get(iter.Key(), nil)
+		last_item = []string{string(key), value}
+		res, _ := logs_db.Get(key, nil)
 		logLine := string(res)
 
-		logLineToCompare := logLine
-		messageToCompare := message
-		if !caseSensetivity {
-			logLineToCompare = strings.ToLower(logLine)
-			messageToCompare = strings.ToLower(message)
-		}
-
-		if !strings.Contains(logLineToCompare, messageToCompare) {
-			if getPrev {
-				iter.Next()
-			} else {
-				iter.Prev()
-			}
+		if !fitsForSearch(logLine, message, caseSensetivity) {
+			move_direction()
 			continue
 		}
 
-		datetime := strings.Split(string(iter.Key()), " +")[0]
-		to_return = append(to_return, []string{datetime, logLine})
-		if getPrev {
-			iter.Next()
-		} else {
-			iter.Prev()
-		}
-		counter++
+		to_return = append(to_return, []string{getDateTimeFromKey(string(key)), logLine})
+		increaseAndMove(&counter, move_direction)
+	}
+
+	if len(to_return) == 0 {
+		to_return = append(to_return, last_item)
 	}
 
 	return to_return
 }
 
 func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) [][]string {
-	db := util.GetDB(host, container, "logs")
-
-	iter := db.NewIterator(nil, nil)
+	logs_db := util.GetDB(host, container, "logs")
+	iter := logs_db.NewIterator(nil, nil)
 	defer iter.Release()
-	counter := 0
 	to_return := [][]string{}
+	move_direction := getMoveDirection(getPrev, iter)
 
-	iter.Last()
-	if startWith != "" {
-		if !iter.Seek([]byte(startWith)) {
-			return to_return
-		}
-		if getPrev && !include {
-			iter.Next()
-		} else if !include {
-			iter.Prev()
-		}
+	if !searchInit(iter, startWith, getPrev, include, move_direction) {
+		return to_return
 	}
 
-	for counter < limit {
-		if len(iter.Key()) == 0 {
-			if getPrev {
-				iter.Next()
-			} else {
-				iter.Prev()
-			}
-			counter++
+	counter := 0
+	iteration := 0
+	last_item := []string{}
+	for counter < limit && iteration < 10000 {
+		iteration += 1
+		key := string(iter.Key())
+		if len(key) == 0 {
+			increaseAndMove(&counter, move_direction)
+			continue
+		}
+		value := string(iter.Value())
+		last_item = []string{key, value}
+
+		if !fitsForSearch(value, message, caseSensetivity) {
+			increaseAndMove(&counter, move_direction)
 			continue
 		}
 
-		var logLine string
-		if !caseSensetivity {
-			logLine = strings.ToLower(string(iter.Value()))
-			message = strings.ToLower(message)
-		} else {
-			logLine = string(iter.Value())
-		}
-
-		if !strings.Contains(logLine, message) {
-			if getPrev {
-				iter.Next()
-			} else {
-				iter.Prev()
-			}
-			continue
-		}
-
-		datetime := strings.Split(string(iter.Key()), " +")[0]
-		to_return = append(
-			to_return,
-			[]string{
-				datetime, string(iter.Value()),
-			},
-		)
-		if getPrev {
-			iter.Next()
-		} else {
-			iter.Prev()
-		}
-		counter++
+		to_return = append(to_return, []string{getDateTimeFromKey(key), value})
+		increaseAndMove(&counter, move_direction)
+	}
+	if len(to_return) == 0 {
+		to_return = append(to_return, last_item)
 	}
 
 	return to_return
 }
 
 func DeleteContainer(host string, container string, fullDelete bool) {
+	path := "leveldb/hosts/" + host + "/containers/" + container
 	if fullDelete {
-		os.RemoveAll("leveldb/hosts/" + host + "/containers/" + container)
+		os.RemoveAll(path)
 	} else {
-		files, _ := os.ReadDir("leveldb/hosts/" + host + "/containers/" + container)
+		files, _ := os.ReadDir(path)
 		for _, file := range files {
-			os.RemoveAll("leveldb/hosts/" + host + "/containers/" + container + "/" + file.Name())
+			os.RemoveAll(path + "/" + file.Name())
 		}
 	}
 
