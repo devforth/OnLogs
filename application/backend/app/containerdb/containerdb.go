@@ -112,6 +112,7 @@ func getDateTimeFromKey(key string) string {
 	return strings.Split(key, " +")[0]
 }
 
+// TODO: should merge this function with GetLogs
 func GetLogsByStatus(host string, container string, message string, status string, limit int, startWith string, getPrev bool, include bool, caseSensetivity bool) [][]string {
 	logs_db := util.GetDB(host, container, "logs")
 	db := util.GetDB(host, container, "statuses")
