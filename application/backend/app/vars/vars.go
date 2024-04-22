@@ -2,6 +2,7 @@ package vars
 
 import (
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -26,6 +27,8 @@ var (
 
 	Counters_For_Hosts_Last_30_Min      = map[string]map[string]uint64{}
 	Counters_For_Containers_Last_30_Min = map[string]map[string]uint64{}
+
+	Mutex sync.Mutex
 
 	FavsDB, FavsDBErr     = leveldb.OpenFile("leveldb/favourites", nil)
 	StateDB, StateDBErr   = leveldb.OpenFile("leveldb/state", nil)
