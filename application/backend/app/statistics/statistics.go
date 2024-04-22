@@ -11,37 +11,27 @@ import (
 
 func restartStats(host string, container string) {
 	current_db := util.GetDB(host, container, "statistics")
-
-	var used_storage map[string]map[string]uint64
-	var location string
-	if container == "" {
-		location = host
-	} else {
-		used_storage = vars.Counters_For_Containers_Last_30_Min
-		location = host + "/" + container
+	location := host
+	if container != "" {
+		location += "/" + container
 	}
-	copy := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-	copy["error"] = used_storage[location]["error"]
-	copy["debug"] = used_storage[location]["debug"]
-	copy["info"] = used_storage[location]["info"]
-	copy["warn"] = used_storage[location]["warn"]
-	copy["meta"] = used_storage[location]["meta"]
-	copy["other"] = used_storage[location]["other"]
+
+	vars.Mutex.Lock()
+	copy := vars.Counters_For_Containers_Last_30_Min[location]
+
 	to_put, _ := json.Marshal(copy)
 	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), ".")[0], " ", "T", 1) + "Z"
 	current_db.Put([]byte(datetime), to_put, nil)
 
-	used_storage[location]["error"] = 0
-	used_storage[location]["debug"] = 0
-	used_storage[location]["info"] = 0
-	used_storage[location]["warn"] = 0
-	used_storage[location]["meta"] = 0
-	used_storage[location]["other"] = 0
+	vars.Counters_For_Containers_Last_30_Min[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Mutex.Unlock()
 }
 
 func RunStatisticForContainer(host string, container string) {
 	location := host + "/" + container
+	vars.Mutex.Lock()
 	vars.Counters_For_Containers_Last_30_Min[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Mutex.Unlock()
 	defer restartStats(host, container)
 	for {
 		restartStats(host, container)
@@ -52,13 +42,9 @@ func RunStatisticForContainer(host string, container string) {
 func GetStatisticsByService(host string, service string, value int) map[string]uint64 {
 	location := host + "/" + service
 
-	to_return := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-	to_return["debug"] += vars.Counters_For_Containers_Last_30_Min[location]["debug"]
-	to_return["error"] += vars.Counters_For_Containers_Last_30_Min[location]["error"]
-	to_return["info"] += vars.Counters_For_Containers_Last_30_Min[location]["info"]
-	to_return["warn"] += vars.Counters_For_Containers_Last_30_Min[location]["warn"]
-	to_return["meta"] += vars.Counters_For_Containers_Last_30_Min[location]["meta"]
-	to_return["other"] += vars.Counters_For_Containers_Last_30_Min[location]["other"]
+	vars.Mutex.Lock()
+	to_return := vars.Counters_For_Containers_Last_30_Min[location]
+	vars.Mutex.Unlock()
 
 	if value < 1 {
 		return to_return
@@ -143,13 +129,9 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 		hasPrev = iter.Prev()
 	}
 
-	to_return["now"] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-	to_return["now"]["error"] = vars.Counters_For_Containers_Last_30_Min[location]["error"]
-	to_return["now"]["debug"] = vars.Counters_For_Containers_Last_30_Min[location]["debug"]
-	to_return["now"]["info"] = vars.Counters_For_Containers_Last_30_Min[location]["info"]
-	to_return["now"]["warn"] = vars.Counters_For_Containers_Last_30_Min[location]["warn"]
-	to_return["now"]["meta"] = vars.Counters_For_Containers_Last_30_Min[location]["meta"]
-	to_return["now"]["other"] = vars.Counters_For_Containers_Last_30_Min[location]["other"]
+	vars.Mutex.Lock()
+	to_return["now"] = vars.Counters_For_Containers_Last_30_Min[location]
+	vars.Mutex.Unlock()
 
 	return to_return
 }

@@ -12,14 +12,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
-func containStr(a string, b string, caseSens bool) bool {
-	if caseSens {
-		return strings.Contains(a, b)
-	}
-
-	return strings.Contains(strings.ToLower(a), strings.ToLower(b))
-}
-
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
 	if len(message_item[0]) < 30 {
 		fmt.Println("WARNING: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
@@ -34,30 +26,21 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 		vars.Statuses_DBs[location] = util.GetDB(host, container, "statuses")
 	}
 
+	status_key := "other"
 	if strings.Contains(message_item[1], "ERROR") || strings.Contains(message_item[1], "ERR") || // const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
 		strings.Contains(message_item[1], "Error") || strings.Contains(message_item[1], "Err") {
-		vars.Counters_For_Containers_Last_30_Min[location]["error"]++
-		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("error"), nil)
-
+		status_key = "error"
 	} else if strings.Contains(message_item[1], "WARN") || strings.Contains(message_item[1], "WARNING") { // const statuses_warnings = ["WARN", "WARNING"];
-		vars.Counters_For_Containers_Last_30_Min[location]["warn"]++
-		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("warn"), nil)
-
+		status_key = "warn"
 	} else if strings.Contains(message_item[1], "DEBUG") { // const statuses_other = ["DEBUG", "INFO", "ONLOGS"];
-		vars.Counters_For_Containers_Last_30_Min[location]["debug"]++
-		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("debug"), nil)
-
+		status_key = "debug"
 	} else if strings.Contains(message_item[1], "INFO") {
-		vars.Counters_For_Containers_Last_30_Min[location]["info"]++
-		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("info"), nil)
-
+		status_key = "info"
 	} else if strings.Contains(message_item[1], "ONLOGS") {
-		vars.Counters_For_Containers_Last_30_Min[location]["meta"]++
-		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("meta"), nil)
-	} else {
-		vars.Counters_For_Containers_Last_30_Min[location]["other"]++
-		vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte("other"), nil)
+		status_key = "meta"
 	}
+	vars.Counters_For_Containers_Last_30_Min[location][status_key]++
+	vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte(status_key), nil)
 
 	err := db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
 	tries := 0
@@ -88,7 +71,7 @@ func increaseAndMove(counter *int, move_direction func() bool) {
 }
 
 func getMoveDirection(getPrev bool, iter iterator.Iterator) func() bool {
-	if getPrev {
+	if !getPrev {
 		return func() bool { return iter.Prev() }
 	}
 	return func() bool { return iter.Next() }
