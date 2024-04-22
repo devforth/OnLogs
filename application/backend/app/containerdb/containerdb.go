@@ -12,14 +12,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
-func containStr(a string, b string, caseSens bool) bool {
-	if caseSens {
-		return strings.Contains(a, b)
-	}
-
-	return strings.Contains(strings.ToLower(a), strings.ToLower(b))
-}
-
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
 	if len(message_item[0]) < 30 {
 		fmt.Println("WARNING: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
