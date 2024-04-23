@@ -170,7 +170,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		last_item = []string{key, value}
 
 		if !fitsForSearch(value, message, caseSensetivity) {
-			increaseAndMove(&counter, move_direction)
+			move_direction()
 			continue
 		}
 
