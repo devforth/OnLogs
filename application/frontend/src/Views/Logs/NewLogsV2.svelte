@@ -144,7 +144,7 @@
           search: searchText,
           caseSens: !$store.caseInSensitive,
           status: $chosenStatus,
-        })),
+        })).logs,
       ];
       if (initialService === $lastChosenService) {
         setLastLogTime(data?.at(0)?.at(0));
@@ -203,7 +203,7 @@
         hostName: $lastChosenHost,
         limit: limit * 2,
         startWith,
-      })),
+      })).logs,
     ].reverse();
     let downLogs = [];
     let upperLogs = [];
@@ -216,7 +216,7 @@
           containerName: $lastChosenService,
           hostName: $lastChosenHost,
           status: $chosenStatus,
-        })),
+        })).logs,
       ];
     } else {
       downLogs = [
@@ -226,7 +226,7 @@
           startWith: startWith,
           hostName: $lastChosenHost,
           status: $chosenStatus,
-        })),
+        })).logs,
       ];
 
       if (limit - downLogs.length) {
@@ -236,7 +236,7 @@
           startWith: viewLogs?.at(0)[0],
           hostName: $lastChosenHost,
           status: $chosenStatus,
-        });
+        }).logs;
       }
     }
     if (initialService === $lastChosenService) {
@@ -429,7 +429,7 @@
         isFeatching.set(true);
 
         try {
-          const data = await getLogs({
+          const data = (await getLogs({
             containerName: $lastChosenService,
             search: searchText,
             limit,
@@ -443,7 +443,7 @@
               : allLogs.at(0)?.at(0),
             hostName: $lastChosenHost,
             signal,
-          });
+          })).logs;
 
           lastFetchActionIsFetch = true;
 

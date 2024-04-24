@@ -110,7 +110,7 @@ export const getLogs = async function ({
       hostName,
       signal,
     })
-  ).reverse();
+  ).logs.reverse();
 
   return newLogs;
 };
@@ -135,7 +135,7 @@ export const getPrevLogs = async function ({
     status,
   });
 
-  return newLogs;
+  return newLogs.logs;
 };
 
 export const scrollToBottom = () => {
