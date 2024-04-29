@@ -95,28 +95,40 @@ func getDateTimeFromKey(key string) string {
 	return strings.Split(key, " +")[0]
 }
 
-// TODO: should merge this function with GetLogs
-func GetLogsByStatus(host string, container string, message string, status string, limit int, startWith string, getPrev bool, include bool, caseSensetivity bool) [][]string {
+// # TODO: should be merged with GetLogs function
+/*
+Get logs line by line with filtering by logline status.
+  - getPrev - if true, will get logs from latest to oldest.
+  - include - if true, will include logs with startWith key.
+
+returns json obj same to GetLogs function.
+*/
+func GetLogsByStatus(host string, container string, message string, status string, limit int, startWith string, getPrev bool, include bool, caseSensetivity bool) map[string]interface{} {
 	logs_db := util.GetDB(host, container, "logs")
 	db := util.GetDB(host, container, "statuses")
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()
-	to_return := [][]string{}
+	to_return := map[string]interface{}{}
+	to_return["logs"] = [][]string{}
 	move_direction := getMoveDirection(getPrev, iter)
 
 	if !searchInit(iter, startWith, getPrev, include, move_direction) {
+		to_return["is_end"] = true
 		return to_return
 	}
 
 	counter := 0
 	iteration := 0
-	last_item := []string{}
-	for counter < limit {
+	last_processed_key := []string{}
+	for counter < limit && iteration < 1000000 {
 		iteration += 1
 		key := iter.Key()
 		if len(key) == 0 {
+			to_return["is_end"] = true
 			increaseAndMove(&counter, move_direction)
 			continue
+		} else {
+			to_return["is_end"] = false
 		}
 
 		value := string(iter.Value())
@@ -125,7 +137,7 @@ func GetLogsByStatus(host string, container string, message string, status strin
 			continue
 		}
 
-		last_item = []string{string(key), value}
+		last_processed_key = []string{string(key), value}
 		res, _ := logs_db.Get(key, nil)
 		logLine := string(res)
 
@@ -134,53 +146,66 @@ func GetLogsByStatus(host string, container string, message string, status strin
 			continue
 		}
 
-		to_return = append(to_return, []string{getDateTimeFromKey(string(key)), logLine})
+		to_return["logs"] = append(to_return["logs"].([][]string), []string{getDateTimeFromKey(string(key)), logLine})
 		increaseAndMove(&counter, move_direction)
 	}
 
-	if len(to_return) == 0 {
-		to_return = append(to_return, last_item)
-	}
-
+	to_return["last_processed_key"] = last_processed_key
 	return to_return
 }
 
-func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) [][]string {
+/*
+Get logs line by line from container.
+  - getPrev - if true, will get logs from latest to oldest.
+  - include - if true, will include logs with startWith key.
+
+returns json obj like this:
+
+	{
+		"logs": [["2021-09-01T12:00:00", "logline"], ["2021-09-01T12:00:01", "logline"]],
+		"last_processed_key": "2021-09-01T12:00:01",
+		"is_end": false
+	}
+*/
+func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) map[string]interface{} {
 	logs_db := util.GetDB(host, container, "logs")
 	iter := logs_db.NewIterator(nil, nil)
 	defer iter.Release()
-	to_return := [][]string{}
+	to_return := map[string]interface{}{}
+	to_return["logs"] = [][]string{}
 	move_direction := getMoveDirection(getPrev, iter)
 
 	if !searchInit(iter, startWith, getPrev, include, move_direction) {
+		to_return["is_end"] = true
 		return to_return
 	}
 
 	counter := 0
 	iteration := 0
-	last_item := []string{}
-	for counter < limit {
+	last_processed_key := ""
+	for counter < limit && iteration < 1000000 {
 		iteration += 1
 		key := string(iter.Key())
 		if len(key) == 0 {
+			to_return["is_end"] = true
 			increaseAndMove(&counter, move_direction)
 			continue
+		} else {
+			to_return["is_end"] = false
 		}
+		last_processed_key = key
 		value := string(iter.Value())
-		last_item = []string{key, value}
 
 		if !fitsForSearch(value, message, caseSensetivity) {
 			move_direction()
 			continue
 		}
 
-		to_return = append(to_return, []string{getDateTimeFromKey(key), value})
+		to_return["logs"] = append(to_return["logs"].([][]string), []string{getDateTimeFromKey(key), value})
 		increaseAndMove(&counter, move_direction)
 	}
-	if len(to_return) == 0 {
-		to_return = append(to_return, last_item)
-	}
 
+	to_return["last_processed_key"] = last_processed_key
 	return to_return
 }
 

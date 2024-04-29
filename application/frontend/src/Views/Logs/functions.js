@@ -100,7 +100,7 @@ export const getLogs = async function ({
   signal,
 }) {
   const newLogs = (
-    await api.getLogs({
+    (await api.getLogs({
       containerName,
       search,
       limit,
@@ -110,7 +110,7 @@ export const getLogs = async function ({
       hostName,
       signal,
     })
-  ).reverse();
+  ));
 
   return newLogs;
 };

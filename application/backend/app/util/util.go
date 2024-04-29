@@ -100,7 +100,7 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 	tries := 0
 	path := "leveldb/hosts/" + host + "/containers/" + container + "/" + dbType
 	res_db, err = leveldb.OpenFile(path, nil)
-	for (err != nil && res_db == nil) && tries < 10 {
+	for (err != nil && res_db == nil) && tries < 10 { // TODO: should remove tries and resolve issue with db opening
 		res_db, err = leveldb.RecoverFile(path, nil)
 		fmt.Println(path, err)
 		time.Sleep(10 * time.Millisecond)
