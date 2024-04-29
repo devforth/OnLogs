@@ -120,7 +120,7 @@ func GetLogsByStatus(host string, container string, message string, status strin
 	counter := 0
 	iteration := 0
 	last_processed_key := []string{}
-	for counter < limit && iteration < 10000 {
+	for counter < limit && iteration < 1000000 {
 		iteration += 1
 		key := iter.Key()
 		if len(key) == 0 {
@@ -183,7 +183,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	counter := 0
 	iteration := 0
 	last_processed_key := ""
-	for counter < limit && iteration < 10000 {
+	for counter < limit && iteration < 1000000 {
 		iteration += 1
 		key := string(iter.Key())
 		if len(key) == 0 {
