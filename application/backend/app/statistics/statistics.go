@@ -99,7 +99,7 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 
 	location := host + "/" + service
 	to_return := map[string]map[string]uint64{}
-	iter := vars.Stat_Containers_DBs[location].NewIterator(nil, nil)
+	iter := util.GetDB(host, service, "statistics").NewIterator(nil, nil)
 	iter.Last()
 	defer iter.Release()
 	hasPrev := true
