@@ -81,6 +81,7 @@ export const urlHash = writable("");
 //cancel fetch (for bed connection)
 
 export const isFeatching = writable(false);
+export const isSearching = writable(false);
 
 //status for serching logs by status
 

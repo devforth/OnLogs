@@ -8,6 +8,7 @@
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
   import IntersectionObserver from "svelte-intersection-observer";
   import Spiner from "./Spiner.svelte";
+  import Loader from "./Loader.svelte";
   import LogStringHeader from "./LogStringHeader.svelte";
   import { fade } from "svelte/transition";
   import { handleKeydown, copyCustomText } from "../../utils/functions.js";
@@ -26,6 +27,7 @@
     isPending,
     urlHash,
     isFeatching,
+    isSearching,
     chosenStatus,
     WSisMuted,
     manuallyUnmuted,
@@ -140,6 +142,7 @@
       let last_key = "";
       let is_all_logs_processed = false;
       while (total_logs_amount < limit && !is_all_logs_processed) {
+        isSearching.set(true);
         let data = await api.getLogs({
             containerName: $lastChosenService,
             hostName: $lastChosenHost,
@@ -164,6 +167,7 @@
             previousLogs = allLogsCopy.splice(0, limit);
         }
       }
+      isSearching.set(false);
       isPending.set(false);
       autoscroll = true;
       pauseWS = false;
@@ -442,15 +446,16 @@
           let is_all_logs_processed = false;
           let last_key = customStartWith ? customStartWith : customStartWith === 0 ? "" : allLogs.at(0)?.at(0);
           while (limit < total_logs_amount && !is_all_logs_processed) {
-                const data = (await getLogs({
-                containerName: $lastChosenService,
-                search: searchText,
-                limit,
-                status: $chosenStatus,
-                caseSens: !$store.caseInSensitive,
-                startWith: last_key,
-                hostName: $lastChosenHost,
-                signal,
+            isSearching.set(true);
+            const data = (await getLogs({
+              containerName: $lastChosenService,
+              search: searchText,
+              limit,
+              status: $chosenStatus,
+              caseSens: !$store.caseInSensitive,
+              startWith: last_key,
+              hostName: $lastChosenHost,
+              signal,
             })).logs.reverse();
             total_logs = [...total_logs, ...data];
             total_logs_amount += data.length;
@@ -491,6 +496,7 @@
                 }
                 
             }
+          isSearching.set(false);
         } 
           lastFetchActionIsFetch = true;
           return total_logs;
@@ -523,6 +529,7 @@
       let last_key = customStartWith ? customStartWith : customStartWith === 0 ? "" : allLogs.at(0)?.at(0);
         
       while (limit > total_received_logs_count && !is_all_logs_processed) {
+        isSearching.set(true);
         const data = await getLogs({
           containerName: $lastChosenService,
           search: searchText,
@@ -538,6 +545,7 @@
         total_received_logs_count += data.logs.length;
         total_logs = [...total_logs, ...data.logs.reverse()];
       }
+      isSearching.set(false);
       isFeatching.set(false);
 
       if (initialService === $lastChosenService) {
@@ -567,6 +575,7 @@
         let total_received_logs_count = 0;
         let is_all_logs_processed = false;
         while (total_received_logs_count < limit && !is_all_logs_processed) {
+          isSearching.set(true);
           const data = await getPrevLogs({
             containerName: $lastChosenService,
             search: searchText,
@@ -581,6 +590,7 @@
           last_key = data.last_processed_key;
           total_logs = [...total_logs, ...data.logs];
         }
+        isSearching.set(false);
         isFeatching.set(false);
         if (initialService === $lastChosenService) {
             if (total_logs.length) {
@@ -772,6 +782,11 @@
   <div id="logs" class="logs" bind:this={div}>
     <div class="logsTableContainer">
       <table class="logsTable {$store.breakLines ? 'breakLines' : ''}">
+        {#if $isSearching}
+        <div style="left: 50%; top: 50%; padding-bottom: 10px;" class="flex">
+          <Loader />
+        </div>
+        {/if}
         <div id="startOfLogs" />
         <IntersectionObserver
           element={startOfLogs}
@@ -779,7 +794,6 @@
         >
           <div id="startOfLogs" bind:this={startOfLogs} />
         </IntersectionObserver>
-
         {#each allLogs as logItem, i}
           {#if transformLogStringForTimeBudget(logItem, $store.UTCtime) !== transformLogStringForTimeBudget(allLogs[i - 1], $store.UTCtime) && i - 1 >= 0}
             <div class="timeBudgeContainer">
