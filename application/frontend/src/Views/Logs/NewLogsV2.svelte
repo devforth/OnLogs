@@ -158,7 +158,7 @@
 
         if (initialService === $lastChosenService) {
             setLastLogTime(data.logs.reverse()?.at(0)?.at(0));
-            allLogs = [...allLogs, ...data.logs.reverse()];
+            allLogs = [...allLogs, ...data.logs];
             let allLogsCopy = [...allLogs];
 
             newLogs = allLogsCopy.splice(0, limit);
