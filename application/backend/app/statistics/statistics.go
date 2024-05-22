@@ -46,6 +46,10 @@ func GetStatisticsByService(host string, service string, value int) map[string]u
 	to_return := vars.Counters_For_Containers_Last_30_Min[location]
 	vars.Mutex.Unlock()
 
+	if to_return == nil {
+		to_return = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	}
+
 	if value < 1 {
 		return to_return
 	}
@@ -75,7 +79,6 @@ func GetStatisticsByService(host string, service string, value int) map[string]u
 		to_return["other"] += tmp_stats["other"]
 		hasPrev = iter.Prev()
 	}
-
 	return to_return
 }
 
