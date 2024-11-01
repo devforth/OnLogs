@@ -4,13 +4,16 @@ import { changeKey } from "../utils/changeKey.js";
 
 class fetchApi {
   constructor() {
-    this.url = document.location.host.includes("localhost:5173")
+    const isLocalhost = document.location.host.includes("localhost:5173");
+    const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+
+    this.url = isLocalhost
       ? "http://localhost:2874/api/v1/"
       : `${changeKey}/api/v1/`;
 
-    this.wsUrl = document.location.host.includes("localhost:5173")
+    this.wsUrl = isLocalhost
       ? "ws://localhost:2874/api/v1/"
-      : `wss://${document.location.host}${changeKey}/api/v1/`;
+      : `${protocol}${document.location.host}${changeKey}/api/v1/`;
     this.authorized = true;
   }
   async doFetch(method, path, body = null, signal) {
