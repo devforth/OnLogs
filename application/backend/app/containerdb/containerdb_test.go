@@ -65,7 +65,7 @@ func TestGetLogs(t *testing.T) {
 	db.Close()
 
 	var logs [][]string
-	logs = GetLogs(false, true, "Test", "TestGetLogsCont", "", 30, vars.Year+"-02-10T12:57:09.230421754Z", false)["logs"].([][]string)
+	logs = GetLogs(false, true, "Test", "TestGetLogsCont", "", 30, vars.Year+"-02-10T12:57:09.230421754Z", false, nil)["logs"].([][]string)
 	if len(logs) != 5 {
 		t.Error("5 logItems must be returned!")
 	}
@@ -73,7 +73,7 @@ func TestGetLogs(t *testing.T) {
 		t.Error("Invalid first logItem datetime: ", logs[0][0])
 	}
 
-	logs = GetLogs(true, false, "Test", "TestGetLogsCont", "", 30, vars.Year+"-02-10T12:51:09.230421754Z", false)["logs"].([][]string)
+	logs = GetLogs(true, false, "Test", "TestGetLogsCont", "", 30, vars.Year+"-02-10T12:51:09.230421754Z", false, nil)["logs"].([][]string)
 	if len(logs) != 4 {
 		t.Error("4 logItems must be returned!")
 	}
