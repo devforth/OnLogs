@@ -69,10 +69,10 @@ func TestGetLogs(t *testing.T) {
 	if len(logs) != 5 {
 		t.Error("5 logItems must be returned!")
 	}
-	if logs[0][0] != vars.Year+"-02-10T12:51:09.230421754Z" {
+	if logs[0][0] != vars.Year+"-02-10T12:57:09.230421754Z" {
 		t.Error("Invalid first logItem datetime: ", logs[0][0])
 	}
-	if logs[4][0] != vars.Year+"-02-10T12:57:09.230421754Z" {
+	if logs[4][0] != vars.Year+"-02-10T12:51:09.230421754Z" {
 		t.Error("Invalid last logItem datetime: ", logs[4][0])
 	}
 
@@ -80,10 +80,10 @@ func TestGetLogs(t *testing.T) {
 	if len(logs) != 4 {
 		t.Error("4 logItems must be returned!")
 	}
-	if logs[0][0] != vars.Year+"-02-10T12:57:09.230421754Z" {
+	if logs[0][0] != vars.Year+"-02-10T12:52:09.230421754Z" {
 		t.Error("Invalid first logItem datetime: ", logs[0][0])
 	}
-	if logs[3][0] != vars.Year+"-02-10T12:52:09.230421754Z" {
+	if logs[3][0] != vars.Year+"-02-10T12:57:09.230421754Z" {
 		t.Error("Invalid last logItem datetime: ", logs[3][0])
 	}
 }

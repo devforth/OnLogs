@@ -163,11 +163,6 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		last_processed_key = keyStr
 	}
 
-	logs_len := len(logs)
-	for i, j := 0, logs_len-1; i < j; i, j = i+1, j-1 {
-		logs[i], logs[j] = logs[j], logs[i]
-	}
-
 	to_return["logs"] = logs
 	to_return["last_processed_key"] = last_processed_key
 	return to_return
