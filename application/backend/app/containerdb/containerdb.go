@@ -170,7 +170,6 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 
 	to_return["logs"] = logs
 	to_return["last_processed_key"] = last_processed_key
-	to_return["total_count"] = len(logs)
 	return to_return
 }
 

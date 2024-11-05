@@ -157,7 +157,7 @@
         total_logs_amount += data.logs.length;
 
         if (initialService === $lastChosenService) {
-            setLastLogTime(data.logs[data.total_count-1][0]);
+            setLastLogTime(data.logs[total_logs_amount-1][0]);
             allLogs = [...allLogs, ...data.logs];
             let allLogsCopy = [...allLogs];
 
