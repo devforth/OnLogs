@@ -95,65 +95,6 @@ func getDateTimeFromKey(key string) string {
 	return strings.Split(key, " +")[0]
 }
 
-// # TODO: should be merged with GetLogs function
-/*
-Get logs line by line with filtering by logline status.
-  - getPrev - if true, will get logs from latest to oldest.
-  - include - if true, will include logs with startWith key.
-
-returns json obj same to GetLogs function.
-*/
-func GetLogsByStatus(host string, container string, message string, status string, limit int, startWith string, getPrev bool, include bool, caseSensetivity bool) map[string]interface{} {
-	logs_db := util.GetDB(host, container, "logs")
-	db := util.GetDB(host, container, "statuses")
-	iter := db.NewIterator(nil, nil)
-	defer iter.Release()
-	to_return := map[string]interface{}{}
-	to_return["logs"] = [][]string{}
-	move_direction := getMoveDirection(getPrev, iter)
-
-	if !searchInit(iter, startWith, getPrev, include, move_direction) {
-		to_return["is_end"] = true
-		return to_return
-	}
-
-	counter := 0
-	iteration := 0
-	last_processed_key := []string{}
-	for counter < limit && iteration < 1000000 {
-		iteration += 1
-		key := iter.Key()
-		if len(key) == 0 {
-			to_return["is_end"] = true
-			increaseAndMove(&counter, move_direction)
-			continue
-		} else {
-			to_return["is_end"] = false
-		}
-
-		value := string(iter.Value())
-		if value != status {
-			move_direction()
-			continue
-		}
-
-		last_processed_key = []string{string(key), value}
-		res, _ := logs_db.Get(key, nil)
-		logLine := string(res)
-
-		if !fitsForSearch(logLine, message, caseSensetivity) {
-			move_direction()
-			continue
-		}
-
-		to_return["logs"] = append(to_return["logs"].([][]string), []string{getDateTimeFromKey(string(key)), logLine})
-		increaseAndMove(&counter, move_direction)
-	}
-
-	to_return["last_processed_key"] = last_processed_key
-	return to_return
-}
-
 /*
 Get logs line by line from container.
   - getPrev - if true, will get logs from latest to oldest.
@@ -167,12 +108,19 @@ returns json obj like this:
 		"is_end": false
 	}
 */
-func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool) map[string]interface{} {
+func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool, status *string) map[string]interface{} {
 	logs_db := util.GetDB(host, container, "logs")
+	var statusDb *leveldb.DB
+	if status != nil {
+		statusDb = util.GetDB(host, container, "statuses")
+	}
 	iter := logs_db.NewIterator(nil, nil)
 	defer iter.Release()
-	to_return := map[string]interface{}{}
-	to_return["logs"] = [][]string{}
+
+	to_return := map[string]interface{}{
+		"logs": [][]string{},
+	}
+	logs := [][]string{}
 	move_direction := getMoveDirection(getPrev, iter)
 
 	if !searchInit(iter, startWith, getPrev, include, move_direction) {
@@ -185,7 +133,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	last_processed_key := ""
 	for counter < limit && iteration < 1000000 {
 		iteration += 1
-		key := string(iter.Key())
+		key := iter.Key()
 		if len(key) == 0 {
 			to_return["is_end"] = true
 			increaseAndMove(&counter, move_direction)
@@ -193,19 +141,36 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		} else {
 			to_return["is_end"] = false
 		}
-		last_processed_key = key
+
+		keyStr := string(key)
 		value := string(iter.Value())
+
+		if status != nil {
+			statusValue, err := statusDb.Get(key, nil)
+			if err != nil || string(statusValue) != *status {
+				move_direction()
+				continue
+			}
+		}
 
 		if !fitsForSearch(value, message, caseSensetivity) {
 			move_direction()
 			continue
 		}
 
-		to_return["logs"] = append(to_return["logs"].([][]string), []string{getDateTimeFromKey(key), value})
+		logs = append(logs, []string{getDateTimeFromKey(keyStr), value})
 		increaseAndMove(&counter, move_direction)
+		last_processed_key = keyStr
 	}
 
+	logs_len := len(logs)
+	for i, j := 0, logs_len-1; i < j; i, j = i+1, j-1 {
+		logs[i], logs[j] = logs[j], logs[i]
+	}
+
+	to_return["logs"] = logs
 	to_return["last_processed_key"] = last_processed_key
+	to_return["total_count"] = len(logs)
 	return to_return
 }
 

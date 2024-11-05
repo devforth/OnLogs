@@ -28,6 +28,3 @@ FROM alpine
 COPY --from=frontbuilder /code/dist/ /dist/
 COPY --from=backendbuilder /backend/main /backend/main
 CMD ["/backend/main"]
-
-# docker run -v /var/run/docker.sock:/var/run/docker.sock --rm -it $(docker build -f Dockerfile .)
-# docker build . -t devforth/onlogs && docker push devforth/onlogs

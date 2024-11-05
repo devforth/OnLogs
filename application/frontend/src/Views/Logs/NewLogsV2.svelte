@@ -157,7 +157,7 @@
         total_logs_amount += data.logs.length;
 
         if (initialService === $lastChosenService) {
-            setLastLogTime(data.logs.reverse()?.at(0)?.at(0));
+            setLastLogTime(data.logs[data.total_count-1][0]);
             allLogs = [...allLogs, ...data.logs];
             let allLogsCopy = [...allLogs];
 
@@ -252,7 +252,7 @@
       }
     }
     if (initialService === $lastChosenService) {
-      allLogs = [...upperLogs.reverse(), ...viewLogs, ...downLogs];
+      allLogs = [...upperLogs, ...viewLogs, ...downLogs];
 
       let allLogsCopy = [...allLogs];
 
@@ -456,7 +456,7 @@
               startWith: last_key,
               hostName: $lastChosenHost,
               signal,
-            })).logs.reverse();
+            })).logs;
             total_logs = [...total_logs, ...data];
             total_logs_amount += data.length;
             is_all_logs_processed = data.is_end;
@@ -543,7 +543,7 @@
         is_all_logs_processed = data.is_end;
         last_key = data.last_processed_key;
         total_received_logs_count += data.logs.length;
-        total_logs = [...total_logs, ...data.logs.reverse()];
+        total_logs = [...total_logs, ...data.logs];
       }
       isSearching.set(false);
       isFeatching.set(false);
