@@ -415,7 +415,7 @@ func GetPrevLogs(w http.ResponseWriter, req *http.Request) {
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	json.NewEncoder(w).Encode(containerdb.GetLogs(true, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive))
+	json.NewEncoder(w).Encode(containerdb.GetLogs(true, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive, nil))
 }
 
 func GetLogs(w http.ResponseWriter, req *http.Request) {
@@ -434,17 +434,16 @@ func GetLogs(w http.ResponseWriter, req *http.Request) {
 		panic("Host is not mentioned!")
 	}
 
-	if params.Get("status") != "" {
-		json.NewEncoder(w).Encode(containerdb.GetLogsByStatus(
-			params.Get("host"), params.Get("id"), params.Get("search"), params.Get("status"),
-			limit, params.Get("startWith"), false, true, caseSensetive,
-		))
-	} else {
-		json.NewEncoder(w).Encode(containerdb.GetLogs(
-			false, false, params.Get("host"), params.Get("id"), params.Get("search"),
-			limit, params.Get("startWith"), caseSensetive,
-		))
+	status := params.Get("status")
+	var statusPtr *string
+	if status != "" {
+		statusPtr = &status
 	}
+
+	json.NewEncoder(w).Encode(containerdb.GetLogs(
+		false, false, params.Get("host"), params.Get("id"), params.Get("search"),
+		limit, params.Get("startWith"), caseSensetive, statusPtr,
+	))
 }
 
 func GetLogWithPrev(w http.ResponseWriter, req *http.Request) {
@@ -458,7 +457,7 @@ func GetLogWithPrev(w http.ResponseWriter, req *http.Request) {
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	json.NewEncoder(w).Encode(containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false))
+	json.NewEncoder(w).Encode(containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false, nil))
 }
 
 // TODO return {"error": "Invalid host!"} when host is not exists

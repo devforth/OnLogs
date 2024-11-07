@@ -157,8 +157,8 @@
         total_logs_amount += data.logs.length;
 
         if (initialService === $lastChosenService) {
-            setLastLogTime(data.logs.reverse()?.at(0)?.at(0));
-            allLogs = [...allLogs, ...data.logs];
+            setLastLogTime(data.logs?.at(0)?.at(0));
+            allLogs = [...allLogs, ...data.logs.reverse()];
             let allLogsCopy = [...allLogs];
 
             newLogs = allLogsCopy.splice(0, limit);
