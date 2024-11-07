@@ -10,7 +10,7 @@ import (
 func TestPutLogMessage(t *testing.T) {
 	cont := "testCont"
 	host := "testHost"
-	vars.Counters_For_Containers_Last_30_Min[host+"/"+cont] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Container_Stat_Counter[host+"/"+cont] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 	db, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+cont+"/logs", nil)
 	statusDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+cont+"statuses", nil)
 	vars.Statuses_DBs[host+"/"+cont] = statusDB
@@ -52,7 +52,7 @@ func TestPutLogMessage(t *testing.T) {
 
 func TestGetLogs(t *testing.T) {
 	db, _ := leveldb.OpenFile("leveldb/hosts/Test/containers/TestGetLogsCont/logs", nil)
-	vars.Counters_For_Containers_Last_30_Min["Test/TestGetLogsCont"] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Container_Stat_Counter["Test/TestGetLogsCont"] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 	statusDB, _ := leveldb.OpenFile("leveldb/hosts/Test/containers/TestGetLogsCont/statuses", nil)
 	vars.Statuses_DBs["Test/TestGetLogsCont"] = statusDB
 	defer statusDB.Close()

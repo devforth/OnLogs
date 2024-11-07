@@ -14,7 +14,7 @@ import (
 func TestRunStatisticForContainer(t *testing.T) {
 	go RunStatisticForContainer("Test", "TestContainer")
 	time.Sleep(1 * time.Second)
-	if vars.Counters_For_Containers_Last_30_Min["Test/TestContainer"] == nil {
+	if vars.Container_Stat_Counter["Test/TestContainer"] == nil {
 		t.Error("No counter variable for container was created!")
 	}
 	if vars.Stat_Containers_DBs["Test/TestContainer"] == nil {
@@ -23,10 +23,10 @@ func TestRunStatisticForContainer(t *testing.T) {
 }
 
 func TestGetStatisticsByService(t *testing.T) {
-	vars.Counters_For_Containers_Last_30_Min["test/test"] = map[string]uint64{"error": 1, "debug": 2, "info": 3, "warn": 4, "meta": 0, "other": 5}
+	vars.Container_Stat_Counter["test/test"] = map[string]uint64{"error": 1, "debug": 2, "info": 3, "warn": 4, "meta": 0, "other": 5}
 	os.RemoveAll("leveldb/hosts/test/containers/test/statistics")
 	statDB, _ := leveldb.OpenFile("leveldb/hosts/test/containers/test/statistics", nil)
-	to_put, _ := json.Marshal(vars.Counters_For_Containers_Last_30_Min["test/test"])
+	to_put, _ := json.Marshal(vars.Container_Stat_Counter["test/test"])
 	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), ".")[0], " ", "T", 1) + "Z"
 	statDB.Put([]byte(datetime), to_put, nil)
 	statDB.Close()
@@ -41,9 +41,9 @@ func TestGetStatisticsByService(t *testing.T) {
 
 func TestGetChartData(t *testing.T) {
 	cur_db, _ := leveldb.OpenFile("leveldb/hosts/test/statistics", nil)
-	vars.Counters_For_Containers_Last_30_Min["test/test"] = map[string]uint64{"error": 2, "debug": 1, "info": 3, "warn": 5, "meta": 0, "other": 4}
+	vars.Container_Stat_Counter["test/test"] = map[string]uint64{"error": 2, "debug": 1, "info": 3, "warn": 5, "meta": 0, "other": 4}
 	vars.Stat_Containers_DBs["test/test"] = cur_db
-	to_put, _ := json.Marshal(vars.Counters_For_Containers_Last_30_Min["test/test"])
+	to_put, _ := json.Marshal(vars.Container_Stat_Counter["test/test"])
 	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), ".")[0], " ", "T", 1) + "Z"
 	cur_db.Put([]byte(datetime), to_put, nil)
 

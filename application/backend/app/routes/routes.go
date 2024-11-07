@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"net/http"
 	"os"
@@ -581,7 +580,7 @@ func UpdateUserSettings(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var settings map[string]interface{}
-	body, _ := ioutil.ReadAll(req.Body)
+	body, _ := io.ReadAll(req.Body)
 	json.Unmarshal(body, &settings)
 	username, _ := util.GetUserFromJWT(*req)
 	userdb.UpdateUserSettings(username, settings)

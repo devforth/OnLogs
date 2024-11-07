@@ -1,4 +1,5 @@
 <script>
+    import { onDestroy, onMount } from "svelte";
   import {
     lastChosenHost,
     lastChosenService,
@@ -6,15 +7,33 @@
     chosenStatus
   } from "../../Stores/stores.js";
   import fetchApi from "../../utils/fetch";
-  import { navigate } from "svelte-routing";
-  import { changeKey } from "../../utils/changeKey";
 
   let data = {};
   const api = new fetchApi();
+  let intervalId;
 
   function setPeriod(p) {
     lastStatsPeriod.set(p);
   }
+
+  async function updateData() {
+    if ($lastChosenHost && $lastChosenService) {
+      data = await api.getStats({
+        period: $lastStatsPeriod,
+        service: $lastChosenService,
+        host: $lastChosenHost,
+      });
+    }
+  }
+
+  onMount(() => {
+    updateData();
+    intervalId = setInterval(updateData, 1000);
+  });
+
+  onDestroy(() => {
+    clearInterval(intervalId);
+  });
 
   $: {
     (async () => {
@@ -41,8 +60,7 @@
         //   }
         // );
       }}
-      title="Counter updates every 30 min since OnLogs started. So, it may cause some asynchrony.
-"
+      title="Counter updates every 1 min since OnLogs started. So, it may cause some asynchrony."
     />
     <div class=" timeSpan flex spaceBetween">
       <div
