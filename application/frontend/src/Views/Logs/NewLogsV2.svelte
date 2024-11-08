@@ -675,7 +675,8 @@
         isPending.set(true);
         await getFullLogsSet();
       } else {
-        getFullLogsSet();
+        resetAllLogs();
+        await getFullLogsSet();
       }
       addScrollLIstenersToLogs();
     })();
@@ -689,7 +690,8 @@
         isPending.set(true);
         await getFullLogsSet();
       } else {
-        getFullLogsSet();
+        resetAllLogs()
+        await getFullLogsSet();
       }
       addScrollLIstenersToLogs();
     })();
