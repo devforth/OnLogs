@@ -3,7 +3,7 @@ package agent
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 
@@ -25,7 +25,7 @@ func SendInitRequest(containers []string) {
 	}
 
 	if resp.StatusCode != 200 {
-		b, _ := ioutil.ReadAll(resp.Body)
+		b, _ := io.ReadAll(resp.Body)
 		panic("ERROR: Response status from host is " + resp.Status + "\nResponse body: " + string(b))
 	}
 }
@@ -97,7 +97,7 @@ func AskForDelete() {
 
 	resp, _ := http.Post(os.Getenv("HOST")+"/api/v1/askForDelete", "application/json", responseBody)
 
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	if string(body) != "" {
 		var toDelete map[string][]string
 		json.Unmarshal(body, &toDelete)

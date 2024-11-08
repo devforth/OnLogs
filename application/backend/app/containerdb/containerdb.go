@@ -12,6 +12,22 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 )
 
+func GetLogStatusKey(message string) string {
+	if strings.Contains(message, "ERROR") || strings.Contains(message, "ERR") || // const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
+		strings.Contains(message, "Error") || strings.Contains(message, "Err") {
+		return "error"
+	} else if strings.Contains(message, "WARN") || strings.Contains(message, "WARNING") { // const statuses_warnings = ["WARN", "WARNING"];
+		return "warn"
+	} else if strings.Contains(message, "DEBUG") { // const statuses_other = ["DEBUG", "INFO", "ONLOGS"];
+		return "debug"
+	} else if strings.Contains(message, "INFO") {
+		return "info"
+	} else if strings.Contains(message, "ONLOGS") {
+		return "meta"
+	}
+	return "other"
+}
+
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
 	if len(message_item[0]) < 30 {
 		fmt.Println("WARNING: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
@@ -25,21 +41,10 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	if vars.Statuses_DBs[location] == nil {
 		vars.Statuses_DBs[location] = util.GetDB(host, container, "statuses")
 	}
-
-	status_key := "other"
-	if strings.Contains(message_item[1], "ERROR") || strings.Contains(message_item[1], "ERR") || // const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
-		strings.Contains(message_item[1], "Error") || strings.Contains(message_item[1], "Err") {
-		status_key = "error"
-	} else if strings.Contains(message_item[1], "WARN") || strings.Contains(message_item[1], "WARNING") { // const statuses_warnings = ["WARN", "WARNING"];
-		status_key = "warn"
-	} else if strings.Contains(message_item[1], "DEBUG") { // const statuses_other = ["DEBUG", "INFO", "ONLOGS"];
-		status_key = "debug"
-	} else if strings.Contains(message_item[1], "INFO") {
-		status_key = "info"
-	} else if strings.Contains(message_item[1], "ONLOGS") {
-		status_key = "meta"
-	}
-	vars.Counters_For_Containers_Last_30_Min[location][status_key]++
+	status_key := GetLogStatusKey(message_item[1])
+	vars.Mutex.Lock()
+	vars.Container_Stat_Counter[location][status_key]++
+	vars.Mutex.Unlock()
 	vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte(status_key), nil)
 
 	err := db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
@@ -77,15 +82,12 @@ func getMoveDirection(getPrev bool, iter iterator.Iterator) func() bool {
 	return func() bool { return iter.Next() }
 }
 
-func searchInit(iter iterator.Iterator, startWith string, getPrev bool, include bool, move_direction func() bool) bool {
+func searchInit(iter iterator.Iterator, startWith string) bool {
 	iter.Last()
+
 	if startWith != "" {
 		if !iter.Seek([]byte(startWith)) {
-			return false
-		}
-		if !include {
-			move_direction()
-			return true
+			return startWith > getDateTimeFromKey(string(iter.Key()))
 		}
 	}
 	return true
@@ -123,7 +125,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	logs := [][]string{}
 	move_direction := getMoveDirection(getPrev, iter)
 
-	if !searchInit(iter, startWith, getPrev, include, move_direction) {
+	if !searchInit(iter, startWith) {
 		to_return["is_end"] = true
 		return to_return
 	}
@@ -143,6 +145,11 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		}
 
 		keyStr := string(key)
+		timeStr := getDateTimeFromKey(keyStr)
+		if !include && timeStr == startWith {
+			move_direction()
+			continue
+		}
 		value := string(iter.Value())
 
 		if status != nil {
@@ -158,7 +165,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 			continue
 		}
 
-		logs = append(logs, []string{getDateTimeFromKey(keyStr), value})
+		logs = append(logs, []string{timeStr, value})
 		increaseAndMove(&counter, move_direction)
 		last_processed_key = keyStr
 	}
@@ -191,5 +198,8 @@ func DeleteContainer(host string, container string, fullDelete bool) {
 		vars.Stat_Containers_DBs[host+"/"+container].Close()
 		vars.Statuses_DBs[host+"/"+container] = util.GetDB(host, container, "statistics")
 	}
-	vars.Counters_For_Containers_Last_30_Min[host+"/"+container] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+
+	vars.Mutex.Lock()
+	vars.Container_Stat_Counter[host+"/"+container] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Mutex.Unlock()
 }

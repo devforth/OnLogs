@@ -5,8 +5,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func restartStats(host string, container string) {
@@ -16,26 +18,103 @@ func restartStats(host string, container string) {
 		location += "/" + container
 	}
 
+	current_datetime := time.Now().UTC().Format("2006-01-02T15:04:05.999999999Z")
+
+	last_stat_time := getLastStatTime(current_db)
+	if last_stat_time == "" {
+		last_stat_time = current_datetime
+		calc_stat := collectLogsBackward(host, container, last_stat_time)
+		saveStats(current_db, calc_stat, last_stat_time)
+	} else {
+		calc_stat, new_datetime := collectLogsForward(host, container, last_stat_time)
+		if last_stat_time == new_datetime {
+			new_datetime = current_datetime
+		}
+		saveStats(current_db, calc_stat, new_datetime)
+	}
+
+	resetInMemoryStats(location)
+}
+
+func getLastStatTime(db *leveldb.DB) string {
+	iter := db.NewIterator(nil, nil)
+	defer iter.Release()
+
+	if !iter.Last() {
+		return ""
+	}
+
+	return string(iter.Key())
+}
+
+func collectLogsBackward(host, container, until string) map[string]uint64 {
+	calc_stat := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+
+	for {
+		raw_logs := containerdb.GetLogs(false, true, host, container, "", 1000, until, true, nil)
+		logs, ok := raw_logs["logs"].([][]string)
+		if !ok || len(logs) == 0 {
+			break
+		}
+
+		for _, log := range logs {
+			status_key := containerdb.GetLogStatusKey(log[1])
+			calc_stat[status_key]++
+		}
+
+		if raw_logs["is_end"].(bool) {
+			break
+		}
+		until = raw_logs["last_processed_key"].(string)
+	}
+
+	return calc_stat
+}
+
+func collectLogsForward(host, container, since string) (map[string]uint64, string) {
+	calcStat := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+
+	for {
+		rawLogs := containerdb.GetLogs(true, false, host, container, "", 1000, since, true, nil)
+		logs, ok := rawLogs["logs"].([][]string)
+		if !ok || len(logs) == 0 {
+			break
+		}
+
+		for _, log := range logs {
+			statusKey := containerdb.GetLogStatusKey(log[1])
+			calcStat[statusKey]++
+		}
+
+		since = rawLogs["last_processed_key"].(string)
+
+		if rawLogs["is_end"].(bool) {
+			break
+		}
+	}
+	return calcStat, since
+}
+
+func saveStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
+	to_put, _ := json.Marshal(stats)
+	db.Put([]byte(timestamp), to_put, nil)
+}
+
+func resetInMemoryStats(location string) {
 	vars.Mutex.Lock()
-	copy := vars.Counters_For_Containers_Last_30_Min[location]
-
-	to_put, _ := json.Marshal(copy)
-	datetime := strings.Replace(strings.Split(time.Now().UTC().String(), ".")[0], " ", "T", 1) + "Z"
-	current_db.Put([]byte(datetime), to_put, nil)
-
-	vars.Counters_For_Containers_Last_30_Min[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Container_Stat_Counter[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 	vars.Mutex.Unlock()
 }
 
 func RunStatisticForContainer(host string, container string) {
 	location := host + "/" + container
 	vars.Mutex.Lock()
-	vars.Counters_For_Containers_Last_30_Min[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Container_Stat_Counter[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 	vars.Mutex.Unlock()
 	defer restartStats(host, container)
 	for {
 		restartStats(host, container)
-		time.Sleep(30 * time.Minute)
+		time.Sleep(vars.StatisticsSaveInterval)
 	}
 }
 
@@ -43,7 +122,7 @@ func GetStatisticsByService(host string, service string, value int) map[string]u
 	location := host + "/" + service
 
 	vars.Mutex.Lock()
-	to_return := vars.Counters_For_Containers_Last_30_Min[location]
+	to_return := vars.Container_Stat_Counter[location]
 	vars.Mutex.Unlock()
 
 	if to_return == nil {
@@ -61,25 +140,22 @@ func GetStatisticsByService(host string, service string, value int) map[string]u
 	defer iter.Release()
 	iter.Last()
 	hasPrev := true
+	result_map := map[string]uint64{"debug": to_return["debug"], "error": to_return["error"], "info": to_return["info"], "warn": to_return["warn"], "meta": to_return["meta"], "other": to_return["other"]}
 	for hasPrev {
-		tmp_time, err := time.Parse(time.RFC3339, string(iter.Key()))
-		if err != nil { // TODO no errors should be here, so this may be removed
-			current_db.Delete(iter.Key(), nil)
-		}
+		tmp_time, _ := time.Parse(time.RFC3339Nano, string(iter.Key()))
 		if searchTo.After(tmp_time) {
 			break
 		}
-
 		json.Unmarshal(iter.Value(), &tmp_stats)
-		to_return["debug"] += tmp_stats["debug"]
-		to_return["error"] += tmp_stats["error"]
-		to_return["info"] += tmp_stats["info"]
-		to_return["warn"] += tmp_stats["warn"]
-		to_return["meta"] += tmp_stats["meta"]
-		to_return["other"] += tmp_stats["other"]
+		result_map["debug"] += tmp_stats["debug"]
+		result_map["error"] += tmp_stats["error"]
+		result_map["info"] += tmp_stats["info"]
+		result_map["warn"] += tmp_stats["warn"]
+		result_map["meta"] += tmp_stats["meta"]
+		result_map["other"] += tmp_stats["other"]
 		hasPrev = iter.Prev()
 	}
-	return to_return
+	return result_map
 }
 
 func GetChartData(host string, service string, unit string, uAmount int) map[string]map[string]uint64 {
@@ -107,7 +183,7 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 	defer iter.Release()
 	hasPrev := true
 	for hasPrev {
-		tmp_time, _ := time.Parse(time.RFC3339, string(iter.Key()))
+		tmp_time, _ := time.Parse(time.RFC3339Nano, string(iter.Key()))
 		if searchTo.After(tmp_time) {
 			break
 		}
@@ -133,7 +209,7 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 	}
 
 	vars.Mutex.Lock()
-	to_return["now"] = vars.Counters_For_Containers_Last_30_Min[location]
+	to_return["now"] = vars.Container_Stat_Counter[location]
 	vars.Mutex.Unlock()
 
 	return to_return

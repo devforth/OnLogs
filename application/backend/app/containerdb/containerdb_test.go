@@ -10,7 +10,7 @@ import (
 func TestPutLogMessage(t *testing.T) {
 	cont := "testCont"
 	host := "testHost"
-	vars.Counters_For_Containers_Last_30_Min[host+"/"+cont] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Container_Stat_Counter[host+"/"+cont] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 	db, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+cont+"/logs", nil)
 	statusDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+cont+"statuses", nil)
 	vars.Statuses_DBs[host+"/"+cont] = statusDB
@@ -52,7 +52,7 @@ func TestPutLogMessage(t *testing.T) {
 
 func TestGetLogs(t *testing.T) {
 	db, _ := leveldb.OpenFile("leveldb/hosts/Test/containers/TestGetLogsCont/logs", nil)
-	vars.Counters_For_Containers_Last_30_Min["Test/TestGetLogsCont"] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Container_Stat_Counter["Test/TestGetLogsCont"] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 	statusDB, _ := leveldb.OpenFile("leveldb/hosts/Test/containers/TestGetLogsCont/statuses", nil)
 	vars.Statuses_DBs["Test/TestGetLogsCont"] = statusDB
 	defer statusDB.Close()
@@ -84,6 +84,17 @@ func TestGetLogs(t *testing.T) {
 		t.Error("Invalid first logItem datetime: ", logs[0][0])
 	}
 	if logs[3][0] != vars.Year+"-02-10T12:57:09.230421754Z" {
+		t.Error("Invalid last logItem datetime: ", logs[3][0])
+	}
+
+	logs = GetLogs(true, false, "Test", "TestGetLogsCont", "", 30, vars.Year+"-02-10T12:51:09.230421753Z", false, nil)["logs"].([][]string)
+	if len(logs) != 5 {
+		t.Error("4 logItems must be returned!")
+	}
+	if logs[0][0] != vars.Year+"-02-10T12:51:09.230421754Z" {
+		t.Error("Invalid first logItem datetime: ", logs[0][0])
+	}
+	if logs[4][0] != vars.Year+"-02-10T12:57:09.230421754Z" {
 		t.Error("Invalid last logItem datetime: ", logs[3][0])
 	}
 }

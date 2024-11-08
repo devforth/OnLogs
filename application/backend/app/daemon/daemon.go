@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"os"
 	"strconv"
@@ -158,7 +158,7 @@ func makeSocketRequest(path string) []byte {
 	}
 	fmt.Fprintf(connection, "GET /"+path+" HTTP/1.0\r\n\r\n")
 
-	body, _ := ioutil.ReadAll(connection)
+	body, _ := io.ReadAll(connection)
 
 	connection.Close()
 	return body
