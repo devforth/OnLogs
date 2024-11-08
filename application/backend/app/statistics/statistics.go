@@ -26,8 +26,11 @@ func restartStats(host string, container string) {
 		calc_stat := collectLogsBackward(host, container, last_stat_time)
 		saveStats(current_db, calc_stat, last_stat_time)
 	} else {
-		calc_stat, current_datetime := collectLogsForward(host, container, last_stat_time)
-		saveStats(current_db, calc_stat, current_datetime)
+		calc_stat, new_datetime := collectLogsForward(host, container, last_stat_time)
+		if last_stat_time == new_datetime {
+			new_datetime = current_datetime
+		}
+		saveStats(current_db, calc_stat, new_datetime)
 	}
 
 	resetInMemoryStats(location)
@@ -110,8 +113,8 @@ func RunStatisticForContainer(host string, container string) {
 	vars.Mutex.Unlock()
 	defer restartStats(host, container)
 	for {
-		time.Sleep(vars.StatisticsSaveInterval)
 		restartStats(host, container)
+		time.Sleep(vars.StatisticsSaveInterval)
 	}
 }
 
