@@ -81,47 +81,74 @@ func CreateJWT(login string) string {
 }
 
 func GetDB(host string, container string, dbType string) *leveldb.DB {
-	var res_db *leveldb.DB
-	if dbType == "logs" {
-		res_db = vars.ActiveDBs[container]
-	} else if dbType == "statuses" {
-		res_db = vars.Statuses_DBs[host+"/"+container]
-	} else if dbType == "statistics" {
-		res_db = vars.Stat_Containers_DBs[host+"/"+container]
-	} else if dbType == "brokenlogs" {
-		res_db = vars.BrokenLogs_DBs[container]
+	vars.DBMutex.RLock()
+	db := getExistingDB(host, container, dbType)
+	vars.DBMutex.RUnlock()
+	if db != nil {
+		return db
 	}
 
-	if res_db != nil {
-		return res_db
+	vars.DBMutex.Lock()
+	defer vars.DBMutex.Unlock()
+
+	db = getExistingDB(host, container, dbType)
+	if db != nil {
+		return db
 	}
 
-	var err error
-	tries := 0
-	path := "leveldb/hosts/" + host + "/containers/" + container + "/" + dbType
-	res_db, err = leveldb.OpenFile(path, nil)
-	for (err != nil && res_db == nil) && tries < 10 { // TODO: should remove tries and resolve issue with db opening
-		res_db, err = leveldb.RecoverFile(path, nil)
-		fmt.Println(path, err)
-		time.Sleep(10 * time.Millisecond)
-		tries++
+	path := fmt.Sprintf("leveldb/hosts/%s/containers/%s/%s", host, container, dbType)
+	db, err := leveldb.OpenFile(path, nil)
+
+	if err != nil {
+		for tries := 0; tries < 10; tries++ {
+			db, err = leveldb.RecoverFile(path, nil)
+			if err == nil {
+				break
+			}
+			fmt.Printf("Attempt %d to recover DB %s failed: %v\n", tries+1, path, err)
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 
 	if err != nil {
-		panic("ERROR: unable to open db for " + host + "/" + container + "/" + dbType + "\n" + err.Error())
+		panic(fmt.Sprintf("ERROR: unable to open db for %s/%s/%s\n%v",
+			host, container, dbType, err))
 	}
 
-	if dbType == "logs" {
-		vars.ActiveDBs[container] = res_db
-	} else if dbType == "statuses" {
-		vars.Statuses_DBs[host+"/"+container] = res_db
-	} else if dbType == "statistics" {
-		vars.Stat_Containers_DBs[host+"/"+container] = res_db
-	} else if dbType == "brokenlogs" {
-		vars.BrokenLogs_DBs[container] = res_db
+	switch dbType {
+	case "logs":
+		vars.ActiveDBs[container] = db
+	case "statistics":
+		vars.Stat_Containers_DBs[host+"/"+container] = db
+	case "hosts_statistics":
+		vars.Stat_Hosts_DBs[host] = db
+	case "statuses":
+		vars.Statuses_DBs[host+"/"+container] = db
+	case "brokenlogs":
+		vars.BrokenLogs_DBs[container] = db
+	case "containersmeta":
+		vars.ContainersMeta_DBs[host+"/"+container] = db
 	}
 
-	return res_db
+	return db
+}
+
+func getExistingDB(host, container, dbType string) *leveldb.DB {
+	switch dbType {
+	case "logs":
+		return vars.ActiveDBs[container]
+	case "statistics":
+		return vars.Stat_Containers_DBs[host+"/"+container]
+	case "hosts_statistics":
+		return vars.Stat_Hosts_DBs[host]
+	case "statuses":
+		return vars.Statuses_DBs[host+"/"+container]
+	case "brokenlogs":
+		return vars.BrokenLogs_DBs[container]
+	case "containersmeta":
+		return vars.ContainersMeta_DBs[host+"/"+container]
+	}
+	return nil
 }
 
 func GetHost() string {

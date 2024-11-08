@@ -82,16 +82,12 @@ func getMoveDirection(getPrev bool, iter iterator.Iterator) func() bool {
 	return func() bool { return iter.Next() }
 }
 
-func searchInit(iter iterator.Iterator, startWith string, include bool, move_direction func() bool) bool {
+func searchInit(iter iterator.Iterator, startWith string) bool {
 	iter.Last()
 
 	if startWith != "" {
 		if !iter.Seek([]byte(startWith)) {
 			return startWith > getDateTimeFromKey(string(iter.Key()))
-		}
-		if !include {
-			move_direction()
-			return true
 		}
 	}
 	return true
@@ -129,7 +125,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	logs := [][]string{}
 	move_direction := getMoveDirection(getPrev, iter)
 
-	if !searchInit(iter, startWith, include, move_direction) {
+	if !searchInit(iter, startWith) {
 		to_return["is_end"] = true
 		return to_return
 	}
@@ -149,6 +145,11 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		}
 
 		keyStr := string(key)
+		timeStr := getDateTimeFromKey(keyStr)
+		if !include && timeStr == startWith {
+			move_direction()
+			continue
+		}
 		value := string(iter.Value())
 
 		if status != nil {
@@ -164,7 +165,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 			continue
 		}
 
-		logs = append(logs, []string{getDateTimeFromKey(keyStr), value})
+		logs = append(logs, []string{timeStr, value})
 		increaseAndMove(&counter, move_direction)
 		last_processed_key = keyStr
 	}

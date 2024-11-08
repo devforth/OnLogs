@@ -28,7 +28,8 @@ var (
 	Counters_For_Hosts_Last_30_Min = map[string]map[string]uint64{}
 	Container_Stat_Counter         = map[string]map[string]uint64{}
 
-	Mutex sync.Mutex
+	Mutex   sync.Mutex
+	DBMutex sync.RWMutex
 
 	FavsDB, FavsDBErr     = leveldb.OpenFile("leveldb/favourites", nil)
 	StateDB, StateDBErr   = leveldb.OpenFile("leveldb/state", nil)

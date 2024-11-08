@@ -26,7 +26,7 @@ func restartStats(host string, container string) {
 		calc_stat := collectLogsBackward(host, container, last_stat_time)
 		saveStats(current_db, calc_stat, last_stat_time)
 	} else {
-		calc_stat := collectLogsForward(host, container, last_stat_time, current_datetime)
+		calc_stat, current_datetime := collectLogsForward(host, container, last_stat_time)
 		saveStats(current_db, calc_stat, current_datetime)
 	}
 
@@ -48,9 +48,9 @@ func collectLogsBackward(host, container, until string) map[string]uint64 {
 	calc_stat := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 
 	for {
-		raw_logs := containerdb.GetLogs(false, false, host, container, "", 1000, until, true, nil)
-		logs := raw_logs["logs"].([][]string)
-		if len(logs) == 0 {
+		raw_logs := containerdb.GetLogs(false, true, host, container, "", 1000, until, true, nil)
+		logs, ok := raw_logs["logs"].([][]string)
+		if !ok || len(logs) == 0 {
 			break
 		}
 
@@ -68,41 +68,28 @@ func collectLogsBackward(host, container, until string) map[string]uint64 {
 	return calc_stat
 }
 
-func collectLogsForward(host, container, since, until string) map[string]uint64 {
-	calc_stat := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+func collectLogsForward(host, container, since string) (map[string]uint64, string) {
+	calcStat := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 
-	raw_logs := containerdb.GetLogs(true, true, host, container, "", 1000, since, true, nil)
-	if len(raw_logs["logs"].([][]string)) > 0 {
-		logs := raw_logs["logs"].([][]string)
-		for _, log := range logs {
-			if log[0] >= until {
-				return calc_stat
-			}
-			status_key := containerdb.GetLogStatusKey(log[1])
-			calc_stat[status_key]++
+	for {
+		rawLogs := containerdb.GetLogs(true, false, host, container, "", 1000, since, true, nil)
+		logs, ok := rawLogs["logs"].([][]string)
+		if !ok || len(logs) == 0 {
+			break
 		}
-		since = raw_logs["last_processed_key"].(string)
 
-		for !raw_logs["is_end"].(bool) {
-			raw_logs = containerdb.GetLogs(true, false, host, container, "", 1000, since, true, nil)
-			logs = raw_logs["logs"].([][]string)
-			if len(logs) == 0 {
-				break
-			}
+		for _, log := range logs {
+			statusKey := containerdb.GetLogStatusKey(log[1])
+			calcStat[statusKey]++
+		}
 
-			for _, log := range logs {
-				if log[0] >= until {
-					return calc_stat
-				}
-				status_key := containerdb.GetLogStatusKey(log[1])
-				calc_stat[status_key]++
-			}
+		since = rawLogs["last_processed_key"].(string)
 
-			since = raw_logs["last_processed_key"].(string)
+		if rawLogs["is_end"].(bool) {
+			break
 		}
 	}
-
-	return calc_stat
+	return calcStat, since
 }
 
 func saveStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
