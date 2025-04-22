@@ -1,15 +1,19 @@
 package containerdb
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
+	leveldbUtil "github.com/syndtr/goleveldb/leveldb/util"
 )
 
 func GetLogStatusKey(message string) string {
@@ -28,6 +32,146 @@ func GetLogStatusKey(message string) string {
 	return "other"
 }
 
+func checkAndManageLogSize(host string, container string) error {
+	maxSize, err := util.ParseHumanReadableSize(os.Getenv("MAX_LOGS_SIZE"))
+	if err != nil {
+		return fmt.Errorf("failed to parse MAX_LOGS_SIZE: %v", err)
+	}
+
+	hosts, err := os.ReadDir("leveldb/hosts/")
+	if err != nil {
+		return fmt.Errorf("failed to read hosts directory: %v", err)
+	}
+
+	type logEntryMeta struct {
+		host      string
+		container string
+		key       []byte
+		size      int64
+	}
+
+	var allLogs []logEntryMeta
+	var totalLogBytes int64
+	var totalSize int64
+	var sizeBuffer int64
+	for _, h := range hosts {
+		hostName := h.Name()
+		containers, _ := os.ReadDir("leveldb/hosts/" + hostName + "/containers")
+		for _, c := range containers {
+			containerName := c.Name()
+			logsDB := util.GetDB(hostName, containerName, "logs")
+			if logsDB == nil {
+				continue
+			}
+			size := util.GetDirSize(h.Name(), c.Name())
+			containerSizeBytes := int64(size * 1024 * 1024)
+			iter := logsDB.NewIterator(nil, nil)
+			for iter.Next() {
+				key := iter.Key()
+				val := iter.Value()
+				size := int64(len(key) + len(val))
+				totalLogBytes += size
+				allLogs = append(allLogs, logEntryMeta{
+					host:      hostName,
+					container: containerName,
+					key:       append([]byte{}, key...),
+					size:      size,
+				})
+
+			}
+			sizeBuffer += containerSizeBytes
+			iter.Release()
+		}
+	}
+	totalSize = sizeBuffer
+	fmt.Printf("Max size: %d, dir size: %d\n", maxSize, int64(totalSize))
+
+	if maxSize > int64(totalSize) {
+		return nil
+	}
+
+	fmt.Printf("Total logical log size: %d bytes\n", totalLogBytes)
+
+	if len(allLogs) == 0 {
+		fmt.Println("No logs found.")
+		return nil
+	}
+
+	bytesToDelete := int64(float64(totalLogBytes) * 0.20)
+	deletedBytes := int64(0)
+
+	sort.Slice(allLogs, func(i, j int) bool {
+		return bytes.Compare(allLogs[i].key, allLogs[j].key) < 0
+	})
+
+	batches := make(map[string]*leveldb.Batch)
+	statusesDBs := make(map[string]*leveldb.DB)
+
+	for _, entry := range allLogs {
+		if deletedBytes >= bytesToDelete {
+			break
+		}
+		location := entry.host + "/" + entry.container
+		if batches[location] == nil {
+			batches[location] = new(leveldb.Batch)
+		}
+		batches[location].Delete(entry.key)
+		deletedBytes += entry.size
+
+		if statusesDBs[location] == nil {
+			statusesDBs[location] = util.GetDB(entry.host, entry.container, "statuses")
+		}
+		if statusesDBs[location] != nil {
+			statusesDBs[location].Delete(entry.key, nil)
+		}
+	}
+
+	for location, batch := range batches {
+		parts := strings.Split(location, "/")
+		host, container := parts[0], parts[1]
+		db := util.GetDB(host, container, "logs")
+		if db == nil {
+			continue
+		}
+
+		err := db.Write(batch, nil)
+		if err != nil {
+			fmt.Printf("Failed to delete batch in %s/%s: %v\n", host, container, err)
+		} else {
+			fmt.Printf("Deleted %d logs from %s/%s\n", batch.Len(), host, container)
+		}
+		db.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
+		if statusesDBs[location] != nil {
+			statusesDBs[location].CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
+		}
+	}
+
+	fmt.Printf("Deleted total: %d bytes (target: %d = 30%%)\n", deletedBytes, bytesToDelete)
+	return nil
+}
+
+var (
+	logCleanupMu sync.Mutex
+	nextCleanup  time.Time
+)
+
+func MaybeScheduleCleanup(host string, container string) {
+	logCleanupMu.Lock()
+	defer logCleanupMu.Unlock()
+
+	if time.Now().Before(nextCleanup) {
+		return
+	}
+	nextCleanup = time.Now().Add(1 * time.Minute)
+	go func() {
+		time.Sleep(1 * time.Minute)
+		err := checkAndManageLogSize(host, container)
+		if err != nil {
+			fmt.Printf("Log cleanup failed: %v\n", err)
+		}
+	}()
+}
+
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
 	if len(message_item[0]) < 30 {
 		fmt.Println("WARNING: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
@@ -35,8 +179,10 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	}
 
 	if host == "" {
-		panic("Host is not mentioned!")
+		return fmt.Errorf("host is not mentioned")
 	}
+	MaybeScheduleCleanup(host, container)
+
 	location := host + "/" + container
 	if vars.Statuses_DBs[location] == nil {
 		vars.Statuses_DBs[location] = util.GetDB(host, container, "statuses")
@@ -56,9 +202,9 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 		tries++
 	}
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("failed to write log after %d tries: %v", tries, err)
 	}
-	return err
+	return nil
 }
 
 func fitsForSearch(logLine string, message string, caseSensetivity bool) bool {

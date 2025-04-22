@@ -29,6 +29,11 @@ func init_config() {
 	if os.Getenv("DOCKER_SOCKET_PATH") == "" {
 		os.Setenv("DOCKER_SOCKET_PATH", "/var/run/docker.sock")
 	}
+
+	if os.Getenv("MAX_LOGS_SIZE") == "" {
+		os.Setenv("MAX_LOGS_SIZE", "5GB")
+	}
+
 	fmt.Println("INFO: OnLogs configs done!")
 }
 
