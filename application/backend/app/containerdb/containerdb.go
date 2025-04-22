@@ -97,7 +97,7 @@ func checkAndManageLogSize(host string, container string) error {
 		return nil
 	}
 
-	bytesToDelete := int64(float64(totalLogBytes) * 0.20)
+	bytesToDelete := int64(float64(totalLogBytes) * 0.10)
 	deletedBytes := int64(0)
 
 	sort.Slice(allLogs, func(i, j int) bool {
@@ -146,7 +146,7 @@ func checkAndManageLogSize(host string, container string) error {
 		}
 	}
 
-	fmt.Printf("Deleted total: %d bytes (target: %d = 30%%)\n", deletedBytes, bytesToDelete)
+	fmt.Printf("Deleted total: %d bytes (target: %d = 10%%)\n", deletedBytes, bytesToDelete)
 	return nil
 }
 
