@@ -179,8 +179,9 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	}
 
 	if host == "" {
-		return fmt.Errorf("host is not mentioned")
+		panic("Host is not mentioned!")
 	}
+
 	MaybeScheduleCleanup(host, container)
 
 	location := host + "/" + container
@@ -202,9 +203,9 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 		tries++
 	}
 	if err != nil {
-		return fmt.Errorf("failed to write log after %d tries: %v", tries, err)
+		panic(err)
 	}
-	return nil
+	return err
 }
 
 func fitsForSearch(logLine string, message string, caseSensetivity bool) bool {
