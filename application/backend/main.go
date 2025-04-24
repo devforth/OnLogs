@@ -31,7 +31,7 @@ func init_config() {
 	}
 
 	if os.Getenv("MAX_LOGS_SIZE") == "" {
-		os.Setenv("MAX_LOGS_SIZE", "5GB")
+		os.Setenv("MAX_LOGS_SIZE", "10GB")
 	}
 
 	fmt.Println("INFO: OnLogs configs done!")
