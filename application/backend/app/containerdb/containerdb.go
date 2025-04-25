@@ -1,10 +1,8 @@
 package containerdb
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -17,12 +15,11 @@ import (
 )
 
 func GetLogStatusKey(message string) string {
-	if strings.Contains(message, "ERROR") || strings.Contains(message, "ERR") || // const statuses_errors = ["ERROR", "ERR", "Error", "Err"];
-		strings.Contains(message, "Error") || strings.Contains(message, "Err") {
+	if strings.Contains(message, "ERROR") || strings.Contains(message, "ERR") {
 		return "error"
-	} else if strings.Contains(message, "WARN") || strings.Contains(message, "WARNING") { // const statuses_warnings = ["WARN", "WARNING"];
+	} else if strings.Contains(message, "WARN") || strings.Contains(message, "WARNING") {
 		return "warn"
-	} else if strings.Contains(message, "DEBUG") { // const statuses_other = ["DEBUG", "INFO", "ONLOGS"];
+	} else if strings.Contains(message, "DEBUG") {
 		return "debug"
 	} else if strings.Contains(message, "INFO") {
 		return "info"
@@ -38,134 +35,204 @@ func checkAndManageLogSize(host string, container string) error {
 		return fmt.Errorf("failed to parse MAX_LOGS_SIZE: %v", err)
 	}
 
-	hosts, err := os.ReadDir("leveldb/hosts/")
-	if err != nil {
-		return fmt.Errorf("failed to read hosts directory: %v", err)
-	}
-
-	type logEntryMeta struct {
-		host      string
-		container string
-		key       []byte
-		size      int64
-	}
-
-	var allLogs []logEntryMeta
-	var totalLogBytes int64
-	var totalSize int64
-	var sizeBuffer int64
-	for _, h := range hosts {
-		hostName := h.Name()
-		containers, _ := os.ReadDir("leveldb/hosts/" + hostName + "/containers")
-		for _, c := range containers {
-			containerName := c.Name()
-			logsDB := util.GetDB(hostName, containerName, "logs")
-			if logsDB == nil {
-				continue
-			}
-			size := util.GetDirSize(h.Name(), c.Name())
-			containerSizeBytes := int64(size * 1024 * 1024)
-			iter := logsDB.NewIterator(nil, nil)
-			for iter.Next() {
-				key := iter.Key()
-				val := iter.Value()
-				size := int64(len(key) + len(val))
-				totalLogBytes += size
-				allLogs = append(allLogs, logEntryMeta{
-					host:      hostName,
-					container: containerName,
-					key:       append([]byte{}, key...),
-					size:      size,
-				})
-
-			}
-			sizeBuffer += containerSizeBytes
-			iter.Release()
+	for {
+		hosts, err := os.ReadDir("leveldb/hosts/")
+		if err != nil {
+			return fmt.Errorf("failed to read hosts directory: %v", err)
 		}
-	}
-	totalSize = sizeBuffer
-	fmt.Printf("Max size: %d, dir size: %d\n", maxSize, int64(totalSize))
 
-	if maxSize > int64(totalSize) {
-		return nil
-	}
+		var totalSize int64
+		for _, h := range hosts {
+			hostName := h.Name()
+			containers, _ := os.ReadDir("leveldb/hosts/" + hostName + "/containers")
+			for _, c := range containers {
+				containerName := c.Name()
+				size := util.GetDirSize(hostName, containerName)
+				totalSize += int64(size * 1024 * 1024)
+			}
+		}
 
-	fmt.Printf("Total logical log size: %d bytes\n", totalLogBytes)
-
-	if len(allLogs) == 0 {
-		fmt.Println("No logs found.")
-		return nil
-	}
-
-	bytesToDelete := int64(float64(totalLogBytes) * 0.10)
-	deletedBytes := int64(0)
-
-	sort.Slice(allLogs, func(i, j int) bool {
-		return bytes.Compare(allLogs[i].key, allLogs[j].key) < 0
-	})
-
-	batches := make(map[string]*leveldb.Batch)
-	statusesDBs := make(map[string]*leveldb.DB)
-
-	for _, entry := range allLogs {
-		if deletedBytes >= bytesToDelete {
+		fmt.Printf("Max size: %d, current dir size: %d\n", maxSize, totalSize)
+		if totalSize <= maxSize {
 			break
 		}
-		location := entry.host + "/" + entry.container
-		if batches[location] == nil {
-			batches[location] = new(leveldb.Batch)
-		}
-		batches[location].Delete(entry.key)
-		deletedBytes += entry.size
 
-		if statusesDBs[location] == nil {
-			statusesDBs[location] = util.GetDB(entry.host, entry.container, "statuses")
-		}
-		if statusesDBs[location] != nil {
-			statusesDBs[location].Delete(entry.key, nil)
-		}
-	}
+		var cutoffKeys [][]byte
+		for _, h := range hosts {
+			hostName := h.Name()
+			containers, _ := os.ReadDir("leveldb/hosts/" + hostName + "/containers")
+			for _, c := range containers {
+				containerName := c.Name()
+				logsDB := util.GetDB(hostName, containerName, "logs")
+				if logsDB == nil {
+					continue
+				}
 
-	for location, batch := range batches {
-		parts := strings.Split(location, "/")
-		host, container := parts[0], parts[1]
-		db := util.GetDB(host, container, "logs")
-		if db == nil {
-			continue
+				cutoffKeysForContainer, err := getCutoffKeysForContainer(logsDB, 200)
+				if err != nil || len(cutoffKeysForContainer) == 0 {
+					continue
+				}
+				cutoffKeys = append(cutoffKeys, cutoffKeysForContainer)
+			}
 		}
 
-		err := db.Write(batch, nil)
+		if len(cutoffKeys) == 0 {
+			fmt.Println("Nothing to delete, cutoff keys not found.")
+			break
+		}
+
+		oldestCutoffKey := findOldestCutoffKey(cutoffKeys)
+		oldestTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(oldestCutoffKey)))
 		if err != nil {
-			fmt.Printf("Failed to delete batch in %s/%s: %v\n", host, container, err)
-		} else {
-			fmt.Printf("Deleted %d logs from %s/%s\n", batch.Len(), host, container)
+			fmt.Println("Error parsing oldest time:", err)
+			break
 		}
-		db.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
-		if statusesDBs[location] != nil {
-			statusesDBs[location].CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
+		fmt.Println("Oldest time for deletion cutoff:", oldestTime)
+
+		for _, h := range hosts {
+			hostName := h.Name()
+			containers, _ := os.ReadDir("leveldb/hosts/" + hostName + "/containers")
+			for _, c := range containers {
+				containerName := c.Name()
+				logsDB := util.GetDB(hostName, containerName, "logs")
+				if logsDB == nil {
+					continue
+				}
+
+				batch := new(leveldb.Batch)
+				deletedCount := 0
+				iter := logsDB.NewIterator(nil, nil)
+
+				count := 0
+				for ok := iter.First(); ok && count < 200; ok = iter.Next() {
+					count++
+					keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(iter.Key())))
+					if err != nil {
+						fmt.Println("Error parsing key time:", err)
+						continue
+					}
+					if keyTime.Before(oldestTime) || keyTime.Equal(oldestTime) {
+						batch.Delete(iter.Key())
+						deletedCount++
+					}
+				}
+				iter.Release()
+
+				if deletedCount > 0 {
+					err = logsDB.Write(batch, nil)
+					if err != nil {
+						fmt.Printf("Failed to delete batch in %s/%s: %v\n", hostName, containerName, err)
+					} else {
+						fmt.Printf("Deleted %d logs from %s/%s\n", deletedCount, hostName, containerName)
+					}
+					logsDB.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
+				}
+
+				statusesDB := util.GetDB(hostName, containerName, "statuses")
+				if statusesDB != nil {
+					batch := new(leveldb.Batch)
+					deletedCountStatuses := 0
+					iter := statusesDB.NewIterator(nil, nil)
+
+					for ok := iter.First(); ok; ok = iter.Next() {
+						keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(iter.Key())))
+						if err != nil {
+							fmt.Println("Error parsing key time:", err)
+							continue
+						}
+						if keyTime.Before(oldestTime) || keyTime.Equal(oldestTime) {
+							batch.Delete(iter.Key())
+							deletedCountStatuses++
+						}
+					}
+					iter.Release()
+
+					if deletedCountStatuses > 0 {
+						err := statusesDB.Write(batch, nil)
+						if err != nil {
+							fmt.Printf("Failed to delete batch in statusesDB for %s/%s: %v\n", hostName, containerName, err)
+						}
+						statusesDB.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
+					}
+				}
+			}
 		}
+
+		time.Sleep(100 * time.Millisecond)
 	}
 
-	fmt.Printf("Deleted total: %d bytes (target: %d = 10%%)\n", deletedBytes, bytesToDelete)
 	return nil
 }
 
+func getCutoffKeysForContainer(db *leveldb.DB, limit int) ([]byte, error) {
+	iter := db.NewIterator(nil, nil)
+	defer iter.Release()
+
+	var cutoffKeys [][]byte
+	for ok := iter.First(); ok && len(cutoffKeys) < limit; ok = iter.Next() {
+		key := append([]byte{}, iter.Key()...)
+		cutoffKeys = append(cutoffKeys, key)
+	}
+
+	if len(cutoffKeys) < limit {
+		return nil, fmt.Errorf("insufficient records to form cutoff keys")
+	}
+
+	return cutoffKeys[len(cutoffKeys)-1], nil
+}
+
+func findOldestCutoffKey(cutoffKeys [][]byte) []byte {
+	var oldestKey []byte
+	var oldestTime time.Time
+	first := true
+
+	for _, key := range cutoffKeys {
+		keyStr := string(key)
+		keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(keyStr))
+		if err != nil {
+			fmt.Println("Error parsing key time:", err)
+			continue
+		}
+
+		if first || keyTime.Before(oldestTime) {
+			oldestKey = key
+			oldestTime = keyTime
+			first = false
+			fmt.Println("New oldest key:", keyTime)
+		}
+	}
+	return oldestKey
+}
+
 var (
-	logCleanupMu sync.Mutex
-	nextCleanup  time.Time
+	logCleanupMu     sync.Mutex
+	nextCleanup      time.Time
+	isCleanupRunning bool
 )
 
 func MaybeScheduleCleanup(host string, container string) {
 	logCleanupMu.Lock()
+
 	defer logCleanupMu.Unlock()
 
+	if isCleanupRunning {
+		return
+	}
 	if time.Now().Before(nextCleanup) {
 		return
 	}
-	nextCleanup = time.Now().Add(1 * time.Minute)
+
+	isCleanupRunning = true
+
 	go func() {
-		time.Sleep(1 * time.Minute)
 		err := checkAndManageLogSize(host, container)
+
+		logCleanupMu.Lock()
+		defer logCleanupMu.Unlock()
+
+		isCleanupRunning = false
+		nextCleanup = time.Now().Add(1 * time.Minute)
+
 		if err != nil {
 			fmt.Printf("Log cleanup failed: %v\n", err)
 		}
