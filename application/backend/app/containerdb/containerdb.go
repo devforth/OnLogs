@@ -198,7 +198,6 @@ func findOldestCutoffKey(cutoffKeys [][]byte) []byte {
 			oldestKey = key
 			oldestTime = keyTime
 			first = false
-			fmt.Println("New oldest key:", keyTime)
 		}
 	}
 	return oldestKey
