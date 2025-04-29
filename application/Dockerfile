@@ -21,10 +21,10 @@ ADD backend/. /backend/
 WORKDIR /backend/
 
 RUN go mod download  \
-  && go build -o main .
+  && go build -o onlogs .
 
 FROM alpine
 
 COPY --from=frontbuilder /code/dist/ /dist/
-COPY --from=backendbuilder /backend/main /backend/main
-CMD ["/backend/main"]
+COPY --from=backendbuilder /backend/onlogs /backend/onlogs
+CMD ["/backend/onlogs"]

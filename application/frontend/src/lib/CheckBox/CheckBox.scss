@@ -7,7 +7,7 @@
   align-items: center;
   padding: 5px;
   box-sizing: border-box;
-  justify-content: end;
+  justify-content: start;
   cursor: pointer;
   position: relative;
 }
@@ -16,15 +16,13 @@
   .checkboxRoll {
     background-color: $active-color;
     position: absolute;
-    // left: 0;
-    transform: translateX(-85%);
+    transform: translateX(85%);
     transition: all 100ms;
   }
 }
 
 .inactive {
   .checkboxRoll {
-    right: 0;
     transform: translateX(0);
     transition: all 200ms;
   }

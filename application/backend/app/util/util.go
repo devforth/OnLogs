@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -298,3 +299,33 @@ func GetStorageData() map[string]float64 {
 // 		time.Sleep(time.Second * 30)
 // 	}
 // }
+
+var units = []struct {
+	Suffix     string
+	Multiplier int64
+}{
+	{"TB", 1024 * 1024 * 1024 * 1024},
+	{"T", 1024 * 1024 * 1024 * 1024},
+	{"GB", 1024 * 1024 * 1024},
+	{"G", 1024 * 1024 * 1024},
+	{"MB", 1024 * 1024},
+	{"M", 1024 * 1024},
+	{"KB", 1024},
+	{"K", 1024},
+	{"B", 1},
+}
+
+func ParseHumanReadableSize(sizeStr string) (int64, error) {
+	sizeStr = strings.TrimSpace(strings.ToUpper(sizeStr))
+	for _, unit := range units {
+		if strings.HasSuffix(sizeStr, unit.Suffix) {
+			numStr := strings.TrimSuffix(sizeStr, unit.Suffix)
+			num, err := strconv.ParseFloat(numStr, 64)
+			if err != nil {
+				return 0, fmt.Errorf("invalid number in size: %s", numStr)
+			}
+			return int64(num * float64(unit.Multiplier)), nil
+		}
+	}
+	return 0, fmt.Errorf("unknown size unit in: %s", sizeStr)
+}
