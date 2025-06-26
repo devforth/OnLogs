@@ -586,6 +586,7 @@
             startWith: last_key,
             hostName: $lastChosenHost,
           });
+          total_received_logs_count += data.logs.length;
           is_all_logs_processed = data.is_end;
           last_key = data.last_processed_key;
           total_logs = [...total_logs, ...data.logs];
