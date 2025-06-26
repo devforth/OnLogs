@@ -571,7 +571,7 @@ func GetUsers(w http.ResponseWriter, req *http.Request) {
 
 	users := userdb.GetUsers()
 	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string][]string{"users": users})
+	json.NewEncoder(w).Encode(map[string]interface{}{"users": users, "error": nil})
 }
 
 func UpdateUserSettings(w http.ResponseWriter, req *http.Request) {

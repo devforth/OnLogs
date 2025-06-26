@@ -155,23 +155,25 @@
         <tbody>
           {#each usersList as user, i}
             <tr
-              ><td><span>{user}</span></td><td><span /></td><td
-                ><span class="buttonSpanContainer"
+              ><td><span>{user.username}</span></td><td><span /></td><td>
+                {#if user.editable}
+                <span class="buttonSpanContainer"
                   ><span
                     class="buttonSpan"
                     on:click={() => {
-                      setChosenUserLogin(user);
+                      setChosenUserLogin(user.username);
                       showUserEditing();
                     }}><Button title={"Edit"} minWidth={86} /></span
                   >
                   <span
                     class="buttonSpan"
                     on:click={() => {
-                      setChosenUserLogin(user);
+                      setChosenUserLogin(user.username);
                       showUserDeleting();
                     }}><Button title={"Delete"} minWidth={86} /></span
-                  ></span
-                ></td
+                  ></span>
+                {/if}
+                </td
               ></tr
             >
           {/each}
