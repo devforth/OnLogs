@@ -27,6 +27,7 @@ frontend/.gitignore
 
 backend/.gitignore
 backend/dist
+backend/logs_generator
 leveldb
 *_test.go
 
