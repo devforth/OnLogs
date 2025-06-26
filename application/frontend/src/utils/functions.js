@@ -22,23 +22,22 @@ export const emulateData = (amount) => {
 };
 
 export const tryToParseLogString = (str) => {
-  const beginningOfJson = str.indexOf("{");
-  const endingOfJson = str.lastIndexOf("}");
+  const beginningOfJson = str.search(/[{[]/);
+  const endingOfJson = str.search(/[\]}](?![\s\S]*[\]}])/);
 
   let html = "";
   let startText = "";
   let endText = "";
 
-  if (beginningOfJson !== -1 && endingOfJson !== -1) {
-    if (endingOfJson > beginningOfJson) {
-      const jsonPart = str.slice(beginningOfJson, endingOfJson);
-      startText = str.slice(0, beginningOfJson);
-      endText = str.slice(endingOfJson + 1, -1);
-      try {
-        let normilizedStr = JSON.parse(jsonPart + "}");
-        html = json2html(normilizedStr, 2);
-      } catch (e) {}
-    }
+  if (beginningOfJson !== -1 && endingOfJson !== -1 && endingOfJson > beginningOfJson) {
+    const jsonPart = str.slice(beginningOfJson, endingOfJson + 1);
+    startText = str.slice(0, beginningOfJson);
+    endText = str.slice(endingOfJson + 1);
+
+    try {
+      const parsed = JSON.parse(jsonPart);
+      html = json2html(parsed, 2);
+    } catch (e) { }
   }
 
   if (html) {
