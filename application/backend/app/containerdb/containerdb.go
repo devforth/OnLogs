@@ -251,14 +251,14 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	MaybeScheduleCleanup(host, container)
 
 	location := host + "/" + container
+	status_key := GetLogStatusKey(message_item[1])
+	vars.Mutex.Lock()
 	if vars.Statuses_DBs[location] == nil {
 		vars.Statuses_DBs[location] = util.GetDB(host, container, "statuses")
 	}
-	status_key := GetLogStatusKey(message_item[1])
-	vars.Mutex.Lock()
 	vars.Container_Stat_Counter[location][status_key]++
-	vars.Mutex.Unlock()
 	vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte(status_key), nil)
+	vars.Mutex.Unlock()
 
 	err := db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
 	tries := 0

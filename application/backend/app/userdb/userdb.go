@@ -74,5 +74,7 @@ func UpdateUserSettings(username string, settings map[string]interface{}) {
 	settingsDB, _ := leveldb.OpenFile("leveldb/usersSettings", nil)
 	defer settingsDB.Close()
 	to_put, _ := json.Marshal(settings)
+	vars.Mutex.Lock()
 	settingsDB.Put([]byte(username), to_put, nil)
+	vars.Mutex.Unlock()
 }
