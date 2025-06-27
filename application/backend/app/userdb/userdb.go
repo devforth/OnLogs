@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/devforth/OnLogs/app/vars"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func IsUserExists(login string) bool {
@@ -70,19 +69,17 @@ func CheckUserPassword(login string, gotPassword string) bool {
 }
 
 func GetUserSettings(username string) map[string]interface{} {
-	settingsDB, _ := leveldb.OpenFile("leveldb/usersSettings", nil)
-	defer settingsDB.Close()
 	var to_return map[string]interface{}
-	result, _ := settingsDB.Get([]byte(username), nil)
+	vars.Mutex.Lock()
+	result, _ := vars.SettingsDB.Get([]byte(username), nil)
+	vars.Mutex.Unlock()
 	json.Unmarshal(result, &to_return)
 	return to_return
 }
 
 func UpdateUserSettings(username string, settings map[string]interface{}) {
-	settingsDB, _ := leveldb.OpenFile("leveldb/usersSettings", nil)
-	defer settingsDB.Close()
 	to_put, _ := json.Marshal(settings)
 	vars.Mutex.Lock()
-	settingsDB.Put([]byte(username), to_put, nil)
+	vars.SettingsDB.Put([]byte(username), to_put, nil)
 	vars.Mutex.Unlock()
 }

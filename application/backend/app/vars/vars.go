@@ -31,10 +31,11 @@ var (
 	Mutex   sync.Mutex
 	DBMutex sync.RWMutex
 
-	FavsDB, FavsDBErr     = leveldb.OpenFile("leveldb/favourites", nil)
-	StateDB, StateDBErr   = leveldb.OpenFile("leveldb/state", nil)
-	UsersDB, UsersDBErr   = leveldb.OpenFile("leveldb/users", nil)
-	TokensDB, TokensDBErr = leveldb.OpenFile("leveldb/tokens", nil)
+	FavsDB, FavsDBErr         = leveldb.OpenFile("leveldb/favourites", nil)
+	StateDB, StateDBErr       = leveldb.OpenFile("leveldb/state", nil)
+	UsersDB, UsersDBErr       = leveldb.OpenFile("leveldb/users", nil)
+	TokensDB, TokensDBErr     = leveldb.OpenFile("leveldb/tokens", nil)
+	SettingsDB, SettingsDBErr = leveldb.OpenFile("leveldb/usersSettings", nil)
 
 	Year = strconv.Itoa(time.Now().UTC().Year())
 )
