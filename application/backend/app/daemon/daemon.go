@@ -86,8 +86,8 @@ func CreateDaemonToHostStream(containerName string) {
 	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n') // TODO read bytes instead of strings
 		if get_string_error != nil {
-			agent.SendLogMessage(token, containerName, strings.SplitN(createLogMessage(nil, host, containerName, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")"), " ", 2))
 			closeActiveStream(containerName)
+			agent.SendLogMessage(token, containerName, strings.SplitN(createLogMessage(nil, host, containerName, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")"), " ", 2))
 			return
 		}
 
