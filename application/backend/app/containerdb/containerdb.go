@@ -52,7 +52,7 @@ func checkAndManageLogSize(host string, container string) error {
 			}
 		}
 
-		fmt.Printf("Max size: %d, current dir size: %d\n", maxSize, totalSize)
+		// fmt.Printf("Max size: %d, current dir size: %d\n", maxSize, totalSize)
 		if totalSize <= maxSize {
 			break
 		}
