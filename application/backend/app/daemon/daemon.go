@@ -194,3 +194,17 @@ func GetContainersList() []string {
 
 	return names
 }
+
+func GetContainerImageNameByContainerID(containerID string) string {
+	body := string(makeSocketRequest("containers/" + containerID + "/json"))
+	body = strings.Split(body, "\r\n\r\n")[1]
+	var result map[string]any
+	json.Unmarshal([]byte(body), &result)
+
+	if result["Config"] == nil {
+		return ""
+	}
+
+	imageName := fmt.Sprintf("%v", result["Config"].(map[string]any)["Image"])
+	return imageName
+}

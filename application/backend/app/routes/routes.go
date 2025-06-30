@@ -713,9 +713,14 @@ func DeleteContainer(w http.ResponseWriter, req *http.Request) {
 	decoder := json.NewDecoder(req.Body)
 	decoder.Decode(&logItem)
 
-	if (logItem.Host == "" || logItem.Host == util.GetHost()) && strings.Contains(logItem.Service, "onlogs") {
-		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Can't delete myself!"})
+	if logItem.Host == "" || logItem.Host == util.GetHost() {
+		dockerContainerID := util.GetDockerContainerID(logItem.Host, logItem.Service)
+		dockerImage := daemon.GetContainerImageNameByContainerID(dockerContainerID)
+		if strings.Contains(dockerImage, "devforth/onlogs") {
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]interface{}{"error": "Can't delete logs of OnLogs container!"})
+			return
+		}
 	}
 
 	go containerdb.DeleteContainer(logItem.Host, logItem.Service, true)
