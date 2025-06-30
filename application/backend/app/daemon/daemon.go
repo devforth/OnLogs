@@ -116,10 +116,10 @@ func CreateDaemonToDBStream(containerName string) {
 	createLogMessage(current_db, host, containerName, "ONLOGS: Container listening started!")
 
 	defer current_db.Close()
+	defer closeActiveStream(containerName)
 	for { // reading body
 		logLine, get_string_error := reader.ReadString('\n')
 		if get_string_error != nil {
-			closeActiveStream(containerName)
 			createLogMessage(current_db, host, containerName, "ONLOGS: Container listening stopped! ("+get_string_error.Error()+")")
 			return
 		}
