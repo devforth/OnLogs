@@ -1,5 +1,7 @@
 import FetchApi from "../../utils/fetch";
 import { stripAnsi } from "../../utils/ansi";
+import { findSearchTextInLogs } from "../../utils/highlight";
+export { findSearchTextInLogs };
 
 const api = new FetchApi();
 
@@ -193,82 +195,6 @@ export const scrollToSpecificLog = (selector, position) => {
           }
     );
   }
-};
-
-export const findSearchTextInLogs = (sel, searchText, caseSens) => {
-  const nodes = document.querySelectorAll(sel);
-  if (!searchText) {
-    return;
-  }
-
-  const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const regex = caseSens
-    ? new RegExp(escapeRegExp(searchText), "g")
-    : new RegExp(escapeRegExp(searchText), "gi");
-
-  const unwrapHighlights = (root) => {
-    root.querySelectorAll(".searchedText").forEach((el) => {
-      const parent = el.parentNode;
-      if (!parent) {
-        return;
-      }
-      parent.replaceChild(document.createTextNode(el.textContent || ""), el);
-      parent.normalize();
-    });
-  };
-
-  const highlightTextNode = (textNode) => {
-    const text = textNode.nodeValue || "";
-    let match;
-    let lastIndex = 0;
-    regex.lastIndex = 0;
-    const fragment = document.createDocumentFragment();
-    let hasMatch = false;
-
-    while ((match = regex.exec(text)) !== null) {
-      hasMatch = true;
-      const start = match.index;
-      const end = start + match[0].length;
-
-      if (start > lastIndex) {
-        fragment.appendChild(document.createTextNode(text.slice(lastIndex, start)));
-      }
-      const span = document.createElement("span");
-      span.className = "searchedText";
-      span.textContent = text.slice(start, end);
-      fragment.appendChild(span);
-      lastIndex = end;
-
-      if (match[0].length === 0) {
-        break;
-      }
-    }
-
-    if (!hasMatch) {
-      return;
-    }
-
-    if (lastIndex < text.length) {
-      fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
-    }
-
-    textNode.parentNode.replaceChild(fragment, textNode);
-  };
-
-  const walkTextNodes = (root) => {
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const textNodes = [];
-    let current;
-    while ((current = walker.nextNode())) {
-      textNodes.push(current);
-    }
-    textNodes.forEach((textNode) => highlightTextNode(textNode));
-  };
-
-  nodes.forEach((node) => {
-    unwrapHighlights(node);
-    walkTextNodes(node);
-  });
 };
 
 export function debounce(callback, delay) {
