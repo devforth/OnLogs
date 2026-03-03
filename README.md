@@ -95,3 +95,29 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 By default the app will connect using the raw unix socket. But this can be overriden via the ENV variable `DOCKER_HOST`. That way you can specify fully qualified URL to the socket or URL of an docker socket proxy.
 
 In `compose-socket-proxy.yml` you can see a sample compose file for starting the socket proxy. To use it in the app set `DOCKER_HOST=http://localhost:2375` in the ENV.
+
+## Local Docker testing
+
+Use the local test compose to run `onlogs + socket-proxy + logprinter` together:
+
+```sh
+cd application
+docker compose -f compose-local-test.yml up --build
+```
+
+Open `http://localhost:2874` and login with:
+
+- Username: `admin`
+- Password: `admin`
+
+Stop containers:
+
+```sh
+docker compose -f compose-local-test.yml down
+```
+
+Stop and remove volumes too (clean state):
+
+```sh
+docker compose -f compose-local-test.yml down -v
+```
