@@ -1,28 +1,30 @@
 import FetchApi from "../../utils/fetch";
+import { stripAnsi } from "../../utils/ansi";
 
 const api = new FetchApi();
 
 export const timezoneOffsetSec = new Date().getTimezoneOffset() * 60;
 
 export const getLogLineStatus = (logLine = "") => {
+  const normalizedLogLine = stripAnsi(logLine);
   const statuses_errors = ["ERROR", "ERR", "Error", "Err", "error"];
   const statuses_warnings = ["WARN", "WARNING", "warning"];
   const statuses_other = ["DEBUG", "INFO", "ONLOGS", "debug", "info", "onlogs"];
-  const logLineItems = logLine.split(" ");
+  const logLineItems = normalizedLogLine.split(" ");
   var i, j;
 
   for (i = 0; i < logLineItems.length; i++) {
-    for (j = 0; j < logLineItems.length; j++) {
+    for (j = 0; j < statuses_errors.length; j++) {
       if (logLineItems[i].includes(statuses_errors[j])) {
         return "error";
       }
     }
-    for (j = 0; j < logLineItems.length; j++) {
+    for (j = 0; j < statuses_warnings.length; j++) {
       if (logLineItems[i].includes(statuses_warnings[j])) {
         return "warn";
       }
     }
-    for (j = 0; j < logLineItems.length; j++) {
+    for (j = 0; j < statuses_other.length; j++) {
       if (logLineItems[i].includes(statuses_other[j])) {
         return statuses_other[j].toLowerCase() === "onlogs"
           ? "meta"
@@ -195,14 +197,77 @@ export const scrollToSpecificLog = (selector, position) => {
 
 export const findSearchTextInLogs = (sel, searchText, caseSens) => {
   const nodes = document.querySelectorAll(sel);
+  if (!searchText) {
+    return;
+  }
 
-  let regex = caseSens
-    ? new RegExp(searchText, "g")
-    : new RegExp(searchText, "gi");
-  nodes.forEach((n) => {
-    n.innerHTML = n.innerHTML.replace(regex, function (match, n) {
-      return `<span class="searchedText">${match}</span>`;
+  const escapeRegExp = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const regex = caseSens
+    ? new RegExp(escapeRegExp(searchText), "g")
+    : new RegExp(escapeRegExp(searchText), "gi");
+
+  const unwrapHighlights = (root) => {
+    root.querySelectorAll(".searchedText").forEach((el) => {
+      const parent = el.parentNode;
+      if (!parent) {
+        return;
+      }
+      parent.replaceChild(document.createTextNode(el.textContent || ""), el);
+      parent.normalize();
     });
+  };
+
+  const highlightTextNode = (textNode) => {
+    const text = textNode.nodeValue || "";
+    let match;
+    let lastIndex = 0;
+    regex.lastIndex = 0;
+    const fragment = document.createDocumentFragment();
+    let hasMatch = false;
+
+    while ((match = regex.exec(text)) !== null) {
+      hasMatch = true;
+      const start = match.index;
+      const end = start + match[0].length;
+
+      if (start > lastIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, start)));
+      }
+      const span = document.createElement("span");
+      span.className = "searchedText";
+      span.textContent = text.slice(start, end);
+      fragment.appendChild(span);
+      lastIndex = end;
+
+      if (match[0].length === 0) {
+        break;
+      }
+    }
+
+    if (!hasMatch) {
+      return;
+    }
+
+    if (lastIndex < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+
+    textNode.parentNode.replaceChild(fragment, textNode);
+  };
+
+  const walkTextNodes = (root) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    let current;
+    while ((current = walker.nextNode())) {
+      textNodes.push(current);
+    }
+    textNodes.forEach((textNode) => highlightTextNode(textNode));
+  };
+
+  nodes.forEach((node) => {
+    unwrapHighlights(node);
+    walkTextNodes(node);
   });
 };
 

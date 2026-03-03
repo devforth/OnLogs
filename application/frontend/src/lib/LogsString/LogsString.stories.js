@@ -35,3 +35,11 @@ Default.args = {
   message:"starting PostgreSQL 14.0 (Debian 14.0-1.pgdg110+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 10.2.1-6) 10.2.1 20210110, 64-bit"
 
 };
+
+export const AnsiColored = Template.bind({});
+AnsiColored.args = {
+  status: "error",
+  time: " 16 Jul 07:19:30.683",
+  message:
+    "\u001b[31mERROR\u001b[0m cannot reach database, retry in \u001b[33m5s\u001b[0m",
+};

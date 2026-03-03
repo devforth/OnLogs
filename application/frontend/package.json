@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build --base=/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION ",
     "test": "vite build --base=/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION && node startDebug.js ",
+    "test:ansi": "node src/utils/ansi.test.mjs",
     "preview": "vite preview",
     "sb": "start-storybook -p 6006",
     "build-storybook": "build-storybook",
@@ -31,6 +32,7 @@
   },
   "dependencies": {
     "@vusion/webfonts-generator": "^0.8.0",
+    "ansi-to-html": "^0.7.2",
     "chart.js": "^4.2.0",
     "json-to-html": "^0.1.2",
     "svelte-chartjs": "^3.1.2",

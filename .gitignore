@@ -5,3 +5,5 @@ skills-lock.json
 .codex/
 .agents/
 .ai-factory/
+
+**/__pycache__/

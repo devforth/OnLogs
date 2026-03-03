@@ -1,5 +1,6 @@
 <script>
   import { tryToParseLogString } from "../../utils/functions";
+  import { toAnsiHtml } from "../../utils/ansi";
   import { chosenStatus } from "../../Stores/stores";
   import fetchApi from "../../utils/fetch";
   export let status = "";
@@ -14,6 +15,7 @@
 
   let activeStatus = "";
   $: parsedStr = tryToParseLogString(message);
+  $: messageHtml = toAnsiHtml(message);
 </script>
 
 <tr
@@ -52,12 +54,12 @@
   </td>
   <td class="message">
     {#if !parsedStr}<p>
-        {@html message}
-      </p>{:else if $store.transformJson}<p>{parsedStr.startText}</p>
+        {@html messageHtml}
+      </p>{:else if $store.transformJson}<p>{@html toAnsiHtml(parsedStr.startText)}</p>
       <pre>{@html parsedStr.html}</pre>
-      <p>{parsedStr.endText}</p>
+      <p>{@html toAnsiHtml(parsedStr.endText)}</p>
     {:else}<p>
-        {@html message}
+        {@html messageHtml}
       </p>{/if}
   </td>
 </tr>
