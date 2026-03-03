@@ -90,6 +90,22 @@ async function run() {
     assert.equal(matches[0].textContent, "WARNING\nDETAIL");
   });
 
+  // Realistic rendered ANSI HTML with nested tags and mixed whitespace.
+  runCase("mixed whitespace across ansi segments", () => {
+    setupDom(`
+      <p class="message"><span style="color:#A50">WARNING<b> AzL4Y8oR KsTdiwHodbZ0i \tmOK2Wz aF6UXv5KjPaqfO rk4ND9eAdluoci YyBTR 1Yz7A09 uSOcF6OUYB VUBGZGjWuJ \t<span style="color:#0A0">bTNSP</span></b></span> \tn4WFZFy92 nV2IJ4SA0RPZ JjNiiH1N yOEN Cfy 3DJO5uv wL2einh eF4yPL \t1gISzRyK1JR \tajoJ m4uY6Jpk2WA HXZGfuae6pG \tvy7RFkJZL0Az \t<span style="color:#A0A">sLvq</span></p>
+    `);
+
+    findSearchTextInLogs(".message", "WARNING Az", true);
+    assert.equal(document.querySelectorAll(".searchedText").length, 1);
+
+    findSearchTextInLogs(".message", "KsTdiwHodbZ0i m", true);
+    assert.equal(document.querySelectorAll(".searchedText").length, 1);
+
+    findSearchTextInLogs(".message", "AzL4Y8oR KsTdiwHodbZ0i m", true);
+    assert.equal(document.querySelectorAll(".searchedText").length, 1);
+  });
+
   // Performance-oriented scenario: many rendered log rows.
   runCase("high-volume highlighting remains responsive", () => {
     const rowsCount = 800;

@@ -1,9 +1,10 @@
 const highlightStateByNode = new WeakMap();
 
 export const findSearchTextInLogs = (sel, searchText, caseSens) => {
-  if (!sel || !searchText) {
-    return;
-  }
+  const normalizedSearchText =
+    typeof searchText === "string" ? searchText.trim() : "";
+
+  if (!sel || !normalizedSearchText) return;
 
   const nodes = document.querySelectorAll(sel);
   if (!nodes.length) {
@@ -11,10 +12,14 @@ export const findSearchTextInLogs = (sel, searchText, caseSens) => {
   }
 
   const escapeRegExp = (str = "") => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const buildSearchPattern = (str = "") => {
+    // Make whitespace robust against ANSI-driven node boundaries (\n, \t, multi-space).
+    return escapeRegExp(str).replace(/\s+/g, "\\s+");
+  };
   const regex = caseSens
-    ? new RegExp(escapeRegExp(searchText), "g")
-    : new RegExp(escapeRegExp(searchText), "gi");
-  const queryKey = `${caseSens ? "1" : "0"}:${searchText}`;
+    ? new RegExp(buildSearchPattern(normalizedSearchText), "g")
+    : new RegExp(buildSearchPattern(normalizedSearchText), "gi");
+  const queryKey = `${caseSens ? "1" : "0"}:${normalizedSearchText}`;
 
   const unwrapHighlights = (root, hadHighlights) => {
     if (!hadHighlights) {
