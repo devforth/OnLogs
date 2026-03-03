@@ -161,7 +161,8 @@ func (h *DaemonService) CreateDaemonToDBStream(ctx context.Context, containerNam
 func (h *DaemonService) GetContainersList(ctx context.Context) []string {
 	result, err := h.DockerClient.GetContainerNames(ctx)
 	if err != nil {
-		panic(err)
+		fmt.Println("ERROR: failed to get containers list from docker daemon:", err)
+		return vars.DockerContainers
 	}
 
 	var names []string

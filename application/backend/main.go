@@ -45,8 +45,16 @@ func main() {
 	godotenv.Load(".env")
 	init_config()
 
-	cli, _ := client.NewClientWithOpts(client.FromEnv)
+	cli, err := client.NewClientWithOpts(
+		client.FromEnv,
+		client.WithAPIVersionNegotiation(),
+	)
+	if err != nil {
+		fmt.Println("ERROR: unable to initialize Docker client:", err)
+		return
+	}
 	defer cli.Close()
+	fmt.Println("INFO: Docker client initialized with API version negotiation")
 
 	dockerService := &docker.DockerService{
 		Client: cli,

@@ -1,4 +1,4 @@
-name: OnLogs
+name: on-logs
 services:
     docker-socket-proxy:
         container_name: docker-proxy
@@ -12,4 +12,4 @@ services:
             - PUT=0
             - GET=1
             - CONTAINERS=1
-        image: tecnativa/docker-socket-proxy
+        image: tecnativa/docker-socket-proxy:0.3.0
