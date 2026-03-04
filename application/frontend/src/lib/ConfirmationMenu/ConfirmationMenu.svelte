@@ -21,7 +21,7 @@
   function changeMessage(triger) {
     confirmationObj.set({
       ...$confirmationObj,
-      message: `  
+      message: `
       ${triger ? "Docker" : "OnLogs"}. `,
     });
   }
@@ -79,7 +79,7 @@
     />
     {#if tipsIsVisible}
       <div class="tipsText container">
-        <span class="boldText">Delete Docker logs </span> - when the option is set to 
+        <span class="boldText">Delete Docker logs </span> - when the option is set to
         <span class="boldText">"OFF" </span>
         logs will be deleted only from onLogs. Logs will be available in docker containers, but not for onLogs.
         When
@@ -109,40 +109,22 @@
         {`Service: ${
           $lastChosenService ? $lastChosenService : "service"
         }, from: `}
-  
+
         <span style="font-weight: bold;margin-top: 12px;"
           >{$confirmationObj.message}</span
         >
       </p>
     <p style="margin-top: 12px">This data will be lost. This action cannot be undone.</p>
   </div>
-
-  <div class="confirmationText">
-    Please type: "<span class="boldText {error && 'error'}"
-      >{confirmationWord}"</span
-    > to confirm.
-  </div>
-  <div style="color:white">
-    <Input
-      placeholder={"Confirm string"}
-      customClass={"editInput"}
-      width={300}
-      bind:value={inputValue}
-    />
-  </div>
   <div class="buttonsBox">
     <Button
-      disabled={confirmationWord !== inputValue ? true : false}
       title={"Delete"}
       highlighted={true}
       CB={() => {
-        if (confirmationWord === inputValue) {
-          deletelogs();
-        } else {
-          error = true;
-        }
+        deletelogs();
       }}
-    /><Button
+    />
+    <Button
       title={"Cancel"}
       CB={() => {
         confirmationObj.update((pv) => {
@@ -157,6 +139,6 @@
 <svelte:window
   on:keydown={({ key }) => {
     key === "Escape" && closeMenu();
-    
+
   }}
 />
