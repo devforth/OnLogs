@@ -43,6 +43,10 @@ func enableCors(w *http.ResponseWriter) {
 }
 
 func verifyAdminUser(w *http.ResponseWriter, req *http.Request) bool {
+	if os.Getenv("DISABLE_AUTH") == "true" {
+		return true
+	}
+
 	username, err := util.GetUserFromJWT(*req)
 	if username != os.Getenv("ADMIN_USERNAME") {
 		(*w).WriteHeader(http.StatusForbidden)
@@ -59,6 +63,10 @@ func verifyAdminUser(w *http.ResponseWriter, req *http.Request) bool {
 }
 
 func verifyUser(w *http.ResponseWriter, req *http.Request) bool {
+	if os.Getenv("DISABLE_AUTH") == "true" {
+		return true
+	}
+
 	_, err := util.GetUserFromJWT(*req)
 	if err != nil {
 		(*w).WriteHeader(http.StatusUnauthorized)
@@ -91,19 +99,30 @@ func (h *RouteController)Frontend(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		dir = http.Dir("dist")
 		file, err = dir.Open("index.html")
+		fileName = "index.html"
 	}
 	if err != nil {
 		return
 	}
 	defer file.Close()
 
+	stat, _ := file.Stat()
+	content, _ := io.ReadAll(file)
+
+	if fileName == "index.html" {
+		var disableAuth []byte
+		if os.Getenv("DISABLE_AUTH") == "true" {
+			disableAuth = []byte("true")
+		} else {
+			disableAuth = []byte("false")
+		}
+
+		content = bytes.Replace(content, []byte("$DISABLE_AUTH$"), disableAuth, 1)
+	}
+
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(fileName)))
-
-	stat, _ := file.Stat()
-	content := make([]byte, stat.Size())
-	io.ReadFull(file, content)
-	http.ServeContent(w, req, requestedPath, stat.ModTime(), bytes.NewReader(content))
+	http.ServeContent(w, req, fileName, stat.ModTime(), bytes.NewReader(content))
 }
 
 func (h *RouteController)CheckCookie(w http.ResponseWriter, req *http.Request) {

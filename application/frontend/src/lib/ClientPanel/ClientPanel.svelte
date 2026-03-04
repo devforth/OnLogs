@@ -14,6 +14,8 @@
   let localTheme = "";
   let api = new fetchApi();
 
+  const showUserMenu = window.DISABLE_AUTH ?? true;
+
   //store management
   function toggleUserMenu() {
     userMenuOpen.update((v) => !v);
@@ -69,6 +71,7 @@
           ($activeMenuOption === 'view' && 'active')}"
       />
     </li>
+    {#if showUserMenu}
     <li
       on:click={toggleUserMenu}
       class={$activeMenuOption === "users" && "active"}
@@ -78,6 +81,7 @@
         class="higlightedOverlay {$activeMenuOption === 'users' && 'active'}"
       />
     </li>
+    {/if}
 
     <!-- <li class={$activeMenuOption === "wheel" && "active"}>
       <i class="log log-Wheel" />

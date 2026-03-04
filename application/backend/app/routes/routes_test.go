@@ -16,8 +16,8 @@ import (
 	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
-	"github.com/joho/godotenv"
 	"github.com/docker/docker/client"
+	"github.com/joho/godotenv"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -33,11 +33,11 @@ func initTestConfig() *RouteController {
 		DockerClient: dockerService,
 	}
 
-    // Initialize the "Controller" with its dependencies
-    routerCtrl := &RouteController{
-        DockerService: dockerService,
+	// Initialize the "Controller" with its dependencies
+	routerCtrl := &RouteController{
+		DockerService: dockerService,
 		DaemonService: daemonService,
-    }
+	}
 	return routerCtrl
 }
 
@@ -93,7 +93,7 @@ func TestCheckCookie(t *testing.T) {
 func TestGetHosts(t *testing.T) {
 	err := godotenv.Load("../../.env")
 	if err != nil {
-		os.Setenv("DOCKER_HOST", "tcp://localhost:2375")
+		os.Setenv("DOCKER_HOST", "unix:///var/run/docker.sock")
 	}
 	ctrl := initTestConfig()
 

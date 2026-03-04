@@ -2,6 +2,6 @@ PASSWORD=fsadfsadfad
 ENV_NAME = local
 PORT=2874
 ONLOGS_PATH_PREFIX=''
-
+DISABLE_AUTH=false
 # HOST=onlogs.coposter.me
 # AGENT=true
