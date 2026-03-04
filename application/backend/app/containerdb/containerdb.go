@@ -3,6 +3,7 @@ package containerdb
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -207,6 +208,7 @@ var (
 	logCleanupMu     sync.Mutex
 	nextCleanup      time.Time
 	isCleanupRunning bool
+	ansiEscapeRegex  = regexp.MustCompile(`[\x1B\x9B][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><])`)
 )
 
 func MaybeScheduleCleanup(host string, container string) {
@@ -275,6 +277,11 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 }
 
 func fitsForSearch(logLine string, message string, caseSensetivity bool) bool {
+	logLine = ansiEscapeRegex.ReplaceAllString(logLine, "")
+	message = ansiEscapeRegex.ReplaceAllString(message, "")
+	logLine = strings.Join(strings.Fields(logLine), " ")
+	message = strings.Join(strings.Fields(message), " ")
+
 	if !caseSensetivity {
 		logLine = strings.ToLower(logLine)
 		message = strings.ToLower(message)

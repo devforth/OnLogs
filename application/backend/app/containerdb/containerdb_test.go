@@ -98,3 +98,19 @@ func TestGetLogs(t *testing.T) {
 		t.Error("Invalid last logItem datetime: ", logs[3][0])
 	}
 }
+
+func TestFitsForSearchWithANSI(t *testing.T) {
+	logLine := "\x1b[37mWARNING\x1b[2m AzL4Y8oR KsTdiwHodbZ0i \tmOK2Wz \x1b[0m"
+
+	if !fitsForSearch(logLine, "WARNING Az", true) {
+		t.Error("Expected query to match when ANSI escape codes are present")
+	}
+
+	if !fitsForSearch(logLine, "KsTdiwHodbZ0i m", true) {
+		t.Error("Expected query to match across tab-separated boundary")
+	}
+
+	if fitsForSearch(logLine, "NOT_PRESENT", true) {
+		t.Error("Expected non-existing query not to match")
+	}
+}

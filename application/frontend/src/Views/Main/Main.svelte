@@ -56,7 +56,6 @@
   let withoutRightPanel = false;
 
   function handleClick({ target }) {
-    findSearchTextInLogs();
     if (!target.classList.contains("buttonToBottom")) {
       lastLogTimestamp.set(new Date().getTime());
     }

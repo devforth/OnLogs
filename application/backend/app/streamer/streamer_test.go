@@ -10,7 +10,7 @@ import (
 )
 
 func initTestConfig() *StreamController {
-	cli, _ := client.NewClientWithOpts(client.FromEnv)
+	cli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	defer cli.Close()
 
 	dockerService := &docker.DockerService{

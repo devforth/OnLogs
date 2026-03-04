@@ -1,28 +1,32 @@
 import FetchApi from "../../utils/fetch";
+import { stripAnsi } from "../../utils/ansi";
+import { findSearchTextInLogs } from "../../utils/highlight";
+export { findSearchTextInLogs };
 
 const api = new FetchApi();
 
 export const timezoneOffsetSec = new Date().getTimezoneOffset() * 60;
 
 export const getLogLineStatus = (logLine = "") => {
+  const normalizedLogLine = stripAnsi(logLine);
   const statuses_errors = ["ERROR", "ERR", "Error", "Err", "error"];
   const statuses_warnings = ["WARN", "WARNING", "warning"];
   const statuses_other = ["DEBUG", "INFO", "ONLOGS", "debug", "info", "onlogs"];
-  const logLineItems = logLine.split(" ");
+  const logLineItems = normalizedLogLine.split(" ");
   var i, j;
 
   for (i = 0; i < logLineItems.length; i++) {
-    for (j = 0; j < logLineItems.length; j++) {
+    for (j = 0; j < statuses_errors.length; j++) {
       if (logLineItems[i].includes(statuses_errors[j])) {
         return "error";
       }
     }
-    for (j = 0; j < logLineItems.length; j++) {
+    for (j = 0; j < statuses_warnings.length; j++) {
       if (logLineItems[i].includes(statuses_warnings[j])) {
         return "warn";
       }
     }
-    for (j = 0; j < logLineItems.length; j++) {
+    for (j = 0; j < statuses_other.length; j++) {
       if (logLineItems[i].includes(statuses_other[j])) {
         return statuses_other[j].toLowerCase() === "onlogs"
           ? "meta"
@@ -191,19 +195,6 @@ export const scrollToSpecificLog = (selector, position) => {
           }
     );
   }
-};
-
-export const findSearchTextInLogs = (sel, searchText, caseSens) => {
-  const nodes = document.querySelectorAll(sel);
-
-  let regex = caseSens
-    ? new RegExp(searchText, "g")
-    : new RegExp(searchText, "gi");
-  nodes.forEach((n) => {
-    n.innerHTML = n.innerHTML.replace(regex, function (match, n) {
-      return `<span class="searchedText">${match}</span>`;
-    });
-  });
 };
 
 export function debounce(callback, delay) {

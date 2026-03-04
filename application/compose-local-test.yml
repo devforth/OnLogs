@@ -1,0 +1,49 @@
+name: onlogs-local-test
+
+services:
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    container_name: docker-proxy
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - POST=0
+      - DELETE=0
+      - PUT=0
+      - GET=1
+      - CONTAINERS=1
+
+  onlogs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: onlogs:local
+    container_name: onlogs-local
+    restart: unless-stopped
+    depends_on:
+      - docker-socket-proxy
+    ports:
+      - "2874:2874"
+    environment:
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin
+      - ENV_NAME=local
+      - PORT=2874
+      - DOCKER_HOST=http://docker-socket-proxy:2375
+      - DOCKER_API_VERSION=1.46
+      - MAX_LOGS_SIZE=10GB
+    volumes:
+      - onlogs-leveldb:/leveldb
+      - /etc/hostname:/etc/hostname:ro
+
+  logprinter:
+    build:
+      context: ./logs_generator
+      dockerfile: Dockerfile
+    image: logprinter:local
+    container_name: logprinter
+    restart: unless-stopped
+
+volumes:
+  onlogs-leveldb:
