@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/devforth/OnLogs/app/util"
@@ -209,7 +211,12 @@ var (
 	nextCleanup      time.Time
 	isCleanupRunning bool
 	ansiEscapeRegex  = regexp.MustCompile(`[\x1B\x9B][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><])`)
+	logKeyCounter    atomic.Uint64
 )
+
+func buildLogKey(timestamp string) string {
+	return timestamp + " +" + strconv.FormatInt(time.Now().UnixNano(), 10) + "-" + strconv.FormatUint(logKeyCounter.Add(1), 10)
+}
 
 func MaybeScheduleCleanup(host string, container string) {
 	logCleanupMu.Lock()
@@ -254,19 +261,20 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 
 	location := host + "/" + container
 	status_key := GetLogStatusKey(message_item[1])
+	logKey := buildLogKey(message_item[0])
 	vars.Mutex.Lock()
 	if vars.Statuses_DBs[location] == nil {
 		vars.Statuses_DBs[location] = util.GetDB(host, container, "statuses")
 	}
 	vars.Container_Stat_Counter[location][status_key]++
-	vars.Statuses_DBs[location].Put([]byte(message_item[0]), []byte(status_key), nil)
+	vars.Statuses_DBs[location].Put([]byte(logKey), []byte(status_key), nil)
 	vars.Mutex.Unlock()
 
-	err := db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
+	err := db.Put([]byte(logKey), []byte(message_item[1]), nil)
 	tries := 0
 	for err != nil && tries < 10 {
 		db = util.GetDB(host, container, "logs")
-		err = db.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
+		err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
 		time.Sleep(10 * time.Millisecond)
 		tries++
 	}
@@ -366,7 +374,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 
 		keyStr := string(key)
 		timeStr := getDateTimeFromKey(keyStr)
-		if !include && timeStr == startWith {
+		if !include && (keyStr == startWith || timeStr == startWith) {
 			move_direction()
 			continue
 		}

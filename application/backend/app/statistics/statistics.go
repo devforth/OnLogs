@@ -1,6 +1,7 @@
 package statistics
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"time"
@@ -106,16 +107,29 @@ func resetInMemoryStats(location string) {
 	vars.Mutex.Unlock()
 }
 
-func RunStatisticForContainer(host string, container string) {
+func RunStatisticForContainerWithContext(ctx context.Context, host string, container string) {
 	location := host + "/" + container
 	vars.Mutex.Lock()
 	vars.Container_Stat_Counter[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 	vars.Mutex.Unlock()
 	defer restartStats(host, container)
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		restartStats(host, container)
-		time.Sleep(vars.StatisticsSaveInterval)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(vars.StatisticsSaveInterval):
+		}
 	}
+}
+
+func RunStatisticForContainer(host string, container string) {
+	RunStatisticForContainerWithContext(context.Background(), host, container)
 }
 
 func GetStatisticsByService(host string, service string, value int) map[string]uint64 {

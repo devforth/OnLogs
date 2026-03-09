@@ -1,6 +1,8 @@
 package containerdb
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"github.com/devforth/OnLogs/app/vars"
@@ -10,9 +12,10 @@ import (
 func TestPutLogMessage(t *testing.T) {
 	cont := "testCont"
 	host := "testHost"
+	_ = os.RemoveAll("leveldb/hosts/" + host + "/containers/" + cont)
 	vars.Container_Stat_Counter[host+"/"+cont] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 	db, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+cont+"/logs", nil)
-	statusDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+cont+"statuses", nil)
+	statusDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+cont+"/statuses", nil)
 	vars.Statuses_DBs[host+"/"+cont] = statusDB
 	defer statusDB.Close()
 	defer db.Close()
@@ -29,7 +32,15 @@ func TestPutLogMessage(t *testing.T) {
 		vars.Year + "-02-10T12:59:59.230421754Z",
 	}
 	for _, key := range keys {
-		has, _ := db.Has([]byte(key), nil)
+		iter := db.NewIterator(nil, nil)
+		has := false
+		for iter.Next() {
+			if strings.HasPrefix(string(iter.Key()), key+" +") {
+				has = true
+				break
+			}
+		}
+		iter.Release()
 		if !has {
 			t.Error("Key is not in db: " + key)
 		}
@@ -51,6 +62,7 @@ func TestPutLogMessage(t *testing.T) {
 }
 
 func TestGetLogs(t *testing.T) {
+	_ = os.RemoveAll("leveldb/hosts/Test/containers/TestGetLogsCont")
 	db, _ := leveldb.OpenFile("leveldb/hosts/Test/containers/TestGetLogsCont/logs", nil)
 	vars.Container_Stat_Counter["Test/TestGetLogsCont"] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 	statusDB, _ := leveldb.OpenFile("leveldb/hosts/Test/containers/TestGetLogsCont/statuses", nil)
@@ -112,5 +124,39 @@ func TestFitsForSearchWithANSI(t *testing.T) {
 
 	if fitsForSearch(logLine, "NOT_PRESENT", true) {
 		t.Error("Expected non-existing query not to match")
+	}
+}
+
+func TestPutLogMessageSameTimestampAcrossRestart(t *testing.T) {
+	host := "RestartHost"
+	container := "RestartContainer"
+	location := host + "/" + container
+	_ = os.RemoveAll("leveldb/hosts/" + host + "/containers/" + container)
+	vars.Container_Stat_Counter[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+
+	db, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/logs", nil)
+	statusDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/statuses", nil)
+	vars.Statuses_DBs[location] = statusDB
+
+	ts := vars.Year + "-02-10T12:57:09.230421754Z"
+	_ = PutLogMessage(db, host, container, []string{ts, "first"})
+	_ = PutLogMessage(db, host, container, []string{ts, "second"})
+	logKeyCounter.Store(0)
+	_ = PutLogMessage(db, host, container, []string{ts, "third"})
+	db.Close()
+	statusDB.Close()
+
+	checkDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/logs", nil)
+	defer checkDB.Close()
+	iter := checkDB.NewIterator(nil, nil)
+	defer iter.Release()
+	count := 0
+	for iter.Next() {
+		if strings.HasPrefix(string(iter.Key()), ts+" +") {
+			count++
+		}
+	}
+	if count != 3 {
+		t.Fatalf("expected 3 persisted keys with identical timestamp, got %d", count)
 	}
 }

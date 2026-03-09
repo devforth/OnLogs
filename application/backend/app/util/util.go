@@ -128,6 +128,8 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 		vars.BrokenLogs_DBs[container] = db
 	case "containersmeta":
 		vars.ContainersMeta_DBs[host+"/"+container] = db
+	case "streamstate":
+		vars.StreamState_DBs[host+"/"+container] = db
 	}
 
 	return db
@@ -147,6 +149,8 @@ func getExistingDB(host, container, dbType string) *leveldb.DB {
 		return vars.BrokenLogs_DBs[container]
 	case "containersmeta":
 		return vars.ContainersMeta_DBs[host+"/"+container]
+	case "streamstate":
+		return vars.StreamState_DBs[host+"/"+container]
 	}
 	return nil
 }

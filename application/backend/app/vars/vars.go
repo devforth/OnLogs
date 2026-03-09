@@ -16,6 +16,7 @@ var (
 	Statuses_DBs        = map[string]*leveldb.DB{}
 	BrokenLogs_DBs      = map[string]*leveldb.DB{}
 	ContainersMeta_DBs  = map[string]*leveldb.DB{}
+	StreamState_DBs     = map[string]*leveldb.DB{}
 
 	Active_Daemon_Streams = []string{}
 

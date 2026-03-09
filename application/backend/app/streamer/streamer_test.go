@@ -2,33 +2,41 @@ package streamer
 
 import (
 	"context"
+	"fmt"
 	"testing"
-
-	"github.com/devforth/OnLogs/app/daemon"
-	"github.com/devforth/OnLogs/app/docker"
-	"github.com/docker/docker/client"
 )
 
-func initTestConfig() *StreamController {
-	cli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	defer cli.Close()
+func TestRegisterStatisticsWorkerNoDuplicates(t *testing.T) {
+	ctrl := &StreamController{}
+	location := getStatsWorkerKey("host", "container")
 
-	dockerService := &docker.DockerService{
-		Client: cli,
+	first := ctrl.registerStatisticsWorker(location, func() {})
+	second := ctrl.registerStatisticsWorker(location, func() {})
+
+	if !first {
+		t.Fatal("first registration must succeed")
 	}
-
-	daemonService := &daemon.DaemonService{
-		DockerClient: dockerService,
+	if second {
+		t.Fatal("duplicate registration must be rejected")
 	}
-
-    // Initialize the "Controller" with its dependencies
-    routerCtrl := &StreamController{
-		DaemonService: daemonService,
-    }
-	return routerCtrl
+	if ctrl.statisticsWorkersCount() != 1 {
+		t.Fatalf("expected exactly one worker, got %d", ctrl.statisticsWorkersCount())
+	}
 }
 
-func Test_createStreams(t *testing.T) {
-	ctrl := initTestConfig()
-	ctrl.DaemonService.CreateDaemonToDBStream(context.TODO(), "logprinter")
+func TestStatisticsWorkersLongChurnDoesNotLeak(t *testing.T) {
+	ctrl := &StreamController{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	host := "churn-host"
+	for i := 0; i < 300; i++ {
+		container := fmt.Sprintf("ephemeral-%d", i)
+		ctrl.ensureStatisticsWorker(ctx, host, container)
+		ctrl.stopStatisticsWorker(host, container)
+	}
+
+	if ctrl.statisticsWorkersCount() != 0 {
+		t.Fatalf("expected zero workers after churn, got %d", ctrl.statisticsWorkersCount())
+	}
 }
