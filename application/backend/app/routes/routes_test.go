@@ -104,6 +104,7 @@ func TestGetHosts(t *testing.T) {
 	os.MkdirAll("leveldb/hosts/Test2/containers/containerTest1", 0700)
 	os.MkdirAll("leveldb/hosts/Test2/containers/containerTest2", 0700)
 	os.MkdirAll("leveldb/hosts/Test2/containers/containerTest3", 0700)
+	os.MkdirAll("leveldb/hosts/"+util.GetHost()+"/containers", 0700)
 	req1, _ := http.NewRequest("GET", "/frontend", nil)
 	req1.AddCookie(&http.Cookie{
 		Name:  "onlogs-cookie",
