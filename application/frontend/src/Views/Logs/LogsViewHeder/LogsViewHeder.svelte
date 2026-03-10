@@ -2,11 +2,14 @@
   // @ts-nocheck
 
   export let searchText = "";
+  export let searchResetVersion = 0;
   import Button from "../../../lib/Button/Button.svelte";
   import DropDown from "../../../lib/DropDown/DropDown.svelte";
   import { clickOutside } from "../../../lib/OutsideClicker/OutsideClicker.js";
+  import { hasSearchResetRequest } from "../shareLinkViewState.js";
   let dropDownIsVisible = false;
   let isSearchVIsible = false;
+  let lastSearchResetVersion = searchResetVersion;
   let timer;
   const debounce = (v) => {
     clearTimeout(timer);
@@ -22,6 +25,11 @@
     if (dropDownIsVisible) {
       dropDownIsVisible = false;
     }
+  }
+
+  $: if (hasSearchResetRequest(lastSearchResetVersion, searchResetVersion)) {
+    lastSearchResetVersion = searchResetVersion;
+    isSearchVIsible = false;
   }
 </script>
 
@@ -77,6 +85,7 @@
       </div>{/if}
     <input
       type="text"
+      bind:value={searchText}
       on:input={(e) => {
         searchText = e.target.value;
       }}

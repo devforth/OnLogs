@@ -13,6 +13,11 @@
   import { fade } from "svelte/transition";
   import { handleKeydown, copyCustomText } from "../../utils/functions.js";
   import { findSearchTextInLogs } from "../../Views/Logs/functions.js";
+  import { applySharedLogUrl, buildSharedLogUrl } from "./shareLink.js";
+  import {
+    shouldAutoScrollLogs,
+    shouldFlushBufferedLogs,
+  } from "./shareLinkViewState.js";
 
   import {
     store,
@@ -84,6 +89,10 @@
   let topFetchIsStarted = false;
   let pinedBadgeTimer = null;
   let pinedBadgeIsVisible = false;
+  let skipNextSearchReload = false;
+  let skipNextStatusReload = false;
+  let searchResetVersion = 0;
+  let isSharedLinkFocusMode = false;
 
   function refreshStatus() {
     chosenStatus.set("");
@@ -209,46 +218,48 @@
 
   async function fetchIfHashIsInUrl(startWith) {
     const initialService = $lastChosenService;
-    const viewLogs = [
-      ...(await api.getLogsWithPrev({
-        containerName: $lastChosenService,
-        hostName: $lastChosenHost,
-        limit: limit * 2,
-        startWith,
-      })).logs,
-    ].reverse();
+    const getLogsArray = (response) =>
+      Array.isArray(response?.logs) ? response.logs : [];
+
+    const logsWithPrevResponse = await api.getLogsWithPrev({
+      containerName: $lastChosenService,
+      hostName: $lastChosenHost,
+      limit: limit * 2,
+      startWith,
+    });
+    const viewLogs = [...getLogsArray(logsWithPrevResponse)].reverse();
     let downLogs = [];
     let upperLogs = [];
 
     if (viewLogs.length !== limit * 2) {
-      let limitDifference = limit * 2 - viewLogs.length;
-
-      downLogs = [
-        ...(await api.getPrevLogs({
-          containerName: $lastChosenService,
-          hostName: $lastChosenHost,
-          status: $chosenStatus,
-        })).logs,
-      ];
+      const limitDifference = limit * 2 - viewLogs.length;
+      const prevLogsResponse = await api.getPrevLogs({
+        containerName: $lastChosenService,
+        limit: limitDifference,
+        startWith,
+        hostName: $lastChosenHost,
+        status: $chosenStatus,
+      });
+      downLogs = [...getLogsArray(prevLogsResponse)];
     } else {
-      downLogs = [
-        ...(await api.getPrevLogs({
-          containerName: $lastChosenService,
-          limit,
-          startWith: startWith,
-          hostName: $lastChosenHost,
-          status: $chosenStatus,
-        })).logs,
-      ];
+      const prevLogsResponse = await api.getPrevLogs({
+        containerName: $lastChosenService,
+        limit,
+        startWith: startWith,
+        hostName: $lastChosenHost,
+        status: $chosenStatus,
+      });
+      downLogs = [...getLogsArray(prevLogsResponse)];
 
       if (limit - downLogs.length) {
-        upperLogs = await api.getLogs({
+        const upperLogsResponse = await api.getLogs({
           containerName: $lastChosenService,
           limit: limit - downLogs.length,
           startWith: viewLogs?.at(0)[0],
           hostName: $lastChosenHost,
           status: $chosenStatus,
-        }).logs;
+        });
+        upperLogs = getLogsArray(upperLogsResponse);
       }
     }
     if (initialService === $lastChosenService) {
@@ -283,6 +294,12 @@
   }
 
   function addLogFromWS(logfromWS) {
+    if (isSharedLinkFocusMode) {
+      logsFromWS = [...logsFromWS, logfromWS];
+      autoscroll = false;
+      return;
+    }
+
     if (
       (!mouseDownBlockFetch && endOffLogsIntersect) ||
       (allLogs.length < 3 * limit && endOffLogsIntersect)
@@ -359,7 +376,7 @@
                 },
               });
               toastIsVisible.set(true);
-              
+
             }
           }
 
@@ -402,6 +419,69 @@
 
   function resetSearchParams() {
     searchText = "";
+  }
+
+  async function exitSharedLinkFocusMode(flushBufferedLogs = false) {
+    isSharedLinkFocusMode = false;
+
+    if (flushBufferedLogs && logsFromWS.length) {
+      await getFullLogsSet();
+      logsFromWS = [];
+    }
+  }
+
+  function showCopiedUrlToast() {
+    toast.set({
+      tittle: "Success",
+      message: "URL has been copied",
+      position: "",
+      status: "Success",
+    });
+
+    if (!$toastIsVisible) {
+      toastIsVisible.set(true);
+      toastTimeoutId.set(
+        setTimeout(() => {
+          toastIsVisible.set(false);
+        }, 1500)
+      );
+    } else {
+      clearTimeout($toastTimeoutId);
+      toastIsVisible.set(false);
+      setTimeout(() => {
+        toastIsVisible.set(true);
+      }, 400);
+    }
+  }
+
+  async function applySharedLinkToCurrentView(timeStamp) {
+    const hadSearchText = Boolean(searchText);
+    const hadChosenStatus = Boolean($chosenStatus);
+    const { hash } = applySharedLogUrl(location.href, timeStamp);
+
+    isSharedLinkFocusMode = true;
+    chosenLogsString.set(timeStamp);
+    urlHash.set(hash);
+
+    if (hadSearchText) {
+      skipNextSearchReload = true;
+    }
+    if (hadChosenStatus) {
+      skipNextStatusReload = true;
+    }
+
+    resetSearchParams();
+    searchResetVersion = searchResetVersion + 1;
+    refreshStatus();
+    resetAllLogs();
+    resetParams();
+    setInitialScroll(0);
+    isPending.set(true);
+    closeWS();
+    getLogsFromWS();
+    topFetchIsStarted = true;
+
+    await fetchIfHashIsInUrl(timeStamp);
   }
   function closeWS() {
     if (webSocket) {
@@ -494,10 +574,10 @@
                     }
                 }, 50);
                 }
-                
+
             }
           isSearching.set(false);
-        } 
+        }
           lastFetchActionIsFetch = true;
           return total_logs;
         } catch (e) {
@@ -527,7 +607,7 @@
       let total_received_logs_count = 0;
       let is_all_logs_processed = false;
       let last_key = customStartWith ? customStartWith : customStartWith === 0 ? "" : allLogs.at(0)?.at(0);
-        
+
       while (limit > total_received_logs_count && !is_all_logs_processed) {
         isSearching.set(true);
         const data = await getLogs({
@@ -569,7 +649,7 @@
       if (scrollDirection === "down" && !scrollFromButton && !stopLogsUnfetch) {
         const initialService = $lastChosenService;
         isFeatching.set(true);
-        
+
         let last_key = allLogs.at(-1) ? allLogs.at(-1)[0] : "";
         let total_logs = [];
         let total_received_logs_count = 0;
@@ -621,6 +701,7 @@
   $: {
     (async () => {
       if ($lastChosenHost && $lastChosenService) {
+        await exitSharedLinkFocusMode();
         setInitialScroll(0);
         resetAllLogs();
         resetParams();
@@ -670,6 +751,11 @@
 
   $: {
     (async () => {
+      if (skipNextSearchReload) {
+        skipNextSearchReload = false;
+        return;
+      }
+      await exitSharedLinkFocusMode();
       if (searchText) {
         resetParams();
         resetAllLogs();
@@ -685,6 +771,11 @@
 
   $: {
     (async () => {
+      if (skipNextStatusReload) {
+        skipNextStatusReload = false;
+        return;
+      }
+      await exitSharedLinkFocusMode();
       if ($chosenStatus) {
         resetParams();
         resetAllLogs();
@@ -719,7 +810,14 @@
 
   $: {
     (async () => {
-      if (endOffLogsIntersect && logsFromWS.length) {
+      if (
+        shouldFlushBufferedLogs(
+          logsFromWS.length,
+          isSharedLinkFocusMode,
+          false
+        ) &&
+        endOffLogsIntersect
+      ) {
         logsFromWS.length && (await getFullLogsSet());
         logsFromWS = [];
       }
@@ -761,14 +859,14 @@
   });
 
   afterUpdate(() => {
-    if (autoscroll) {
+    if (shouldAutoScrollLogs(autoscroll, isSharedLinkFocusMode)) {
       div && div.scrollTo(0, div.scrollHeight ? div.scrollHeight : 0);
     }
     autoscroll = false;
   });
 </script>
 
-<LogsViewHeder bind:searchText />
+<LogsViewHeder bind:searchText {searchResetVersion} />
 {#if pinedDate}<div>
     {#if pinedBadgeIsVisible || endOffLogsIntersect}<div
         transition:fade={{ duration: 250 }}
@@ -864,33 +962,12 @@
                 isHiglighted={new Date($lastLogTimestamp).getTime() <
                   new Date(logItem?.at(0)).getTime()}
                 sharedLinkCallBack={() => {
-                  let option = "";
-                  // if ($chosenLogsString !== logItem?.at(0)) {
-                  option = logItem?.at(0);
-                  // }
-                  chosenLogsString.set(option);
-                  const copiedUrl = `${location.href}#${$chosenLogsString}`;
-                  copyCustomText(copiedUrl, () => {
-                    toast.set({
-                      tittle: "Success",
-                      message: "URL has been copied",
-                      position: "",
-                      status: "Success",
-                    });
-                    if (!$toastIsVisible) {
-                      toastIsVisible.set(true);
-                      toastTimeoutId.set(
-                        setTimeout(() => {
-                          toastIsVisible.set(false);
-                        }, 3000)
-                      );
-                    } else {
-                      clearTimeout($toastTimeoutId);
-                      toastIsVisible.set(false);
-                      setTimeout(() => {
-                        toastIsVisible.set(true);
-                      }, 400);
-                    }
+                  const timeStamp = logItem?.at(0);
+                  const nextUrl = buildSharedLogUrl(location.href, timeStamp);
+
+                  copyCustomText(nextUrl, async () => {
+                    showCopiedUrlToast();
+                    await applySharedLinkToCurrentView(timeStamp);
                   });
                 }}
                 getLogsByTagOptions={(limit, searchText)}
@@ -921,6 +998,7 @@
             number={logsFromWS.length}
             ico={"Down"}
             callBack={async () => {
+              await exitSharedLinkFocusMode(true);
               scrollFromButton = true;
               autoscroll = true;
               scrollDirection === "up";
@@ -947,6 +1025,7 @@
   }}
   on:keydown={(e) => {
     handleKeydown(e, "Escape", () => {
+      exitSharedLinkFocusMode();
       chosenLogsString.set("");
       chosenStatus.set("");
     });
