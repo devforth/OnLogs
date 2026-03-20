@@ -3,10 +3,11 @@
 <a href="https://devforth.io"><img src="./.assets/df_powered_by.svg" style="height:36px"/></a>
 
 ![Passing Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LbP22/7a0933f8cba0bddbcc95c8b850e32663/raw/onlogs_passing__heads_main.json) ![Coverage Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LbP22/7a0933f8cba0bddbcc95c8b850e32663/raw/onlogs_units_coverage__heads_main.json) ![License Badge](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LbP22/7a0933f8cba0bddbcc95c8b850e32663/raw/license_MIT.json) 
+[![Ask AI](http://tluma.ai/badge)](http://tluma.ai/ask-ai/devforth/OnLogs)
 
 ![image](https://github.com/devforth/OnLogs/assets/1838656/38d0f184-3810-4389-a5af-2488b3a51276)
 
-[![Ask AI](http://tluma.ai/badge)](http://tluma.ai/ask-ai/devforth/OnLogs)
+
 
 ### Benefits
 
