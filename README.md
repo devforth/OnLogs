@@ -6,7 +6,7 @@
 
 ![image](https://github.com/devforth/OnLogs/assets/1838656/38d0f184-3810-4389-a5af-2488b3a51276)
 
-
+[![Ask AI](http://tluma.ai/badge)](http://tluma.ai/ask-ai/devforth/OnLogs)
 
 ### Benefits
 
