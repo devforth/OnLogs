@@ -86,18 +86,18 @@ func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
 }
 
 func (h *RouteController)Frontend(w http.ResponseWriter, req *http.Request) {
-	requestedPath := strings.ReplaceAll(req.URL.String(), os.Getenv("ONLOGS_PATH_PREFIX"), "")
+	// The root must be a constant. http.Dir sanitises the name it is given but
+	// never its own root, so anything caller-controlled in the root (the query
+	// string included) is an arbitrary file read.
+	dir := http.Dir("dist")
 
-	dirPath, fileName := filepath.Split(requestedPath)
-	if fileName == "" {
+	fileName := strings.TrimPrefix(strings.TrimPrefix(req.URL.Path, os.Getenv("ONLOGS_PATH_PREFIX")), "/")
+	if fileName == "" || strings.HasSuffix(fileName, "/") {
 		fileName = "index.html"
 	}
 
-	fileName = strings.Split(fileName, "?")[0]
-	dir := http.Dir("dist" + dirPath)
 	file, err := dir.Open(fileName)
 	if err != nil {
-		dir = http.Dir("dist")
 		file, err = dir.Open("index.html")
 		fileName = "index.html"
 	}
