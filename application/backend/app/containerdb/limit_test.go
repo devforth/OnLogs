@@ -73,3 +73,17 @@ func TestGetLogsClampsAnEnormousLimit(t *testing.T) {
 		t.Fatalf("a caller-supplied limit of 2^30 returned %d rows; the response is unbounded", len(logs))
 	}
 }
+
+func TestGetLogsReportsEndWhenTheScanCapStopsIt(t *testing.T) {
+	seedLogs(t, "CapHost", "CapCont", 50)
+
+	original := maxScanIterations
+	maxScanIterations = 10
+	t.Cleanup(func() { maxScanIterations = original })
+
+	result := GetLogs(false, false, "CapHost", "CapCont", "no-such-text-anywhere", 30, "", false, nil)
+
+	if result["is_end"] != true {
+		t.Fatalf("the scan stopped at the iteration cap but reported is_end=%v; the client re-requests the same page forever", result["is_end"])
+	}
+}

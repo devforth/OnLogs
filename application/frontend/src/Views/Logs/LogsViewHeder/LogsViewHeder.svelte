@@ -7,6 +7,7 @@
   import DropDown from "../../../lib/DropDown/DropDown.svelte";
   import { clickOutside } from "../../../lib/OutsideClicker/OutsideClicker.js";
   import { hasSearchResetRequest } from "../shareLinkViewState.js";
+  import { onDestroy } from "svelte";
   let dropDownIsVisible = false;
   let isSearchVIsible = false;
   let lastSearchResetVersion = searchResetVersion;
@@ -30,7 +31,10 @@
   $: if (hasSearchResetRequest(lastSearchResetVersion, searchResetVersion)) {
     lastSearchResetVersion = searchResetVersion;
     isSearchVIsible = false;
+    clearTimeout(timer);
   }
+
+  onDestroy(() => clearTimeout(timer));
 </script>
 
 <div id="top-line">
@@ -85,10 +89,8 @@
       </div>{/if}
     <input
       type="text"
-      bind:value={searchText}
-      on:input={(e) => {
-        searchText = e.target.value;
-      }}
+      value={searchText}
+      on:input={(e) => debounce(e.target.value)}
       placeholder="Search"
     />
   </div>

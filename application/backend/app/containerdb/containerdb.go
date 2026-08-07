@@ -211,6 +211,9 @@ const (
 	maxLogsPerRequest     = 1000
 )
 
+// Bounds one scan. A var so tests can exercise the cap without a million rows.
+var maxScanIterations = 1000000
+
 var (
 	logCleanupMu     sync.Mutex
 	nextCleanup      time.Time
@@ -389,7 +392,12 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	iteration := 0
 	last_processed_key := ""
 	normalizedMessage := normalizeForSearch(message, caseSensetivity)
-	for counter < limit && iteration < 1000000 {
+	hitScanCap := false
+	for counter < limit {
+		if iteration >= maxScanIterations {
+			hitScanCap = true
+			break
+		}
 		iteration += 1
 		key := iter.Key()
 		if len(key) == 0 {
@@ -424,6 +432,12 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		logs = append(logs, []string{timeStr, value})
 		increaseAndMove(&counter, move_direction)
 		last_processed_key = keyStr
+	}
+
+	if hitScanCap {
+		// The scan was cut short, not exhausted. Reporting "more available"
+		// makes the client re-request the same page forever.
+		to_return["is_end"] = true
 	}
 
 	to_return["logs"] = logs

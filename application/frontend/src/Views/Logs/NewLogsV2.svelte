@@ -81,7 +81,7 @@
   let interceptorsWait = false;
   let autoscroll = false;
   let div;
-  let getFullLogsSetIsTrottle = false;
+  let logsLoadGeneration = 0;
   let pauseWS = false;
   let newLogsAmount = 1;
   let controller = null;
@@ -144,45 +144,64 @@
   }
 
   async function getFullLogsSet() {
-    if (!getFullLogsSetIsTrottle && $lastChosenService) {
-      const initialService = $lastChosenService;
-      pauseWS = true;
-      let total_logs_amount = 0;
-      let last_key = "";
-      let is_all_logs_processed = false;
-      while (total_logs_amount < limit && !is_all_logs_processed) {
-        isSearching.set(true);
-        let data = await api.getLogs({
-            containerName: $lastChosenService,
-            hostName: $lastChosenHost,
-            limit: limit * 3,
-            search: searchText,
-            caseSens: !$store.caseInSensitive,
-            status: $chosenStatus,
-            startWith: last_key,
-        })
-        last_key = data.last_processed_key;
-        is_all_logs_processed = data.is_end;
-        total_logs_amount += data.logs.length;
-
-        if (initialService === $lastChosenService) {
-            setLastLogTime(data.logs?.at(0)?.at(0));
-            allLogs = [...allLogs, ...data.logs.reverse()];
-            let allLogsCopy = [...allLogs];
-
-            newLogs = allLogsCopy.splice(0, limit);
-
-            visibleLogs = allLogsCopy.splice(0, limit);
-            previousLogs = allLogsCopy.splice(0, limit);
-        }
-      }
-      isSearching.set(false);
-      isPending.set(false);
-      autoscroll = true;
-      pauseWS = false;
-
-      logsFromWS = [];
+    if (!$lastChosenService) {
+      return;
     }
+
+    const initialService = $lastChosenService;
+    const generation = ++logsLoadGeneration;
+    pauseWS = true;
+
+    let acc = [];
+    let total_logs_amount = 0;
+    let last_key = "";
+    let is_all_logs_processed = false;
+
+    while (total_logs_amount < limit && !is_all_logs_processed) {
+      isSearching.set(true);
+      const data = await api.getLogs({
+        containerName: $lastChosenService,
+        hostName: $lastChosenHost,
+        limit: limit * 3,
+        search: searchText,
+        caseSens: !$store.caseInSensitive,
+        status: $chosenStatus,
+        startWith: last_key,
+      });
+
+      // A newer load, or a service switch, has superseded this one.
+      if (generation !== logsLoadGeneration || initialService !== $lastChosenService) {
+        return;
+      }
+
+      last_key = data.last_processed_key;
+      is_all_logs_processed = data.is_end;
+      total_logs_amount += data.logs.length;
+
+      if (!data.logs.length) {
+        break;
+      }
+
+      setLastLogTime(data.logs?.at(0)?.at(0));
+      acc = [...acc, ...data.logs.reverse()];
+    }
+
+    if (generation !== logsLoadGeneration || initialService !== $lastChosenService) {
+      return;
+    }
+
+    allLogs = acc;
+    const allLogsCopy = [...allLogs];
+    newLogs = allLogsCopy.splice(0, limit);
+    visibleLogs = allLogsCopy.splice(0, limit);
+    previousLogs = allLogsCopy.splice(0, limit);
+
+    isSearching.set(false);
+    isPending.set(false);
+    autoscroll = true;
+    pauseWS = false;
+
+    logsFromWS = [];
   }
 
   async function checkIfHashIsInUrl() {
@@ -509,83 +528,80 @@
     initialScroll = val;
   }
   const fetchedLogs = async (doNotScroll, customStartWith) => {
-    if (!$isFeatching) {
-      stopLogsUnfetch = false;
-      controller = new AbortController();
-      signal = controller.signal;
-      // if (mouseDownBlockFetch) {
-      //   return;
-      // }
-      const initialService = $lastChosenService;
-      if (scrollDirection === "up") {
-        isFeatching.set(true);
+    if ($isFeatching || scrollDirection !== "up") {
+      return;
+    }
 
-        try {
-          let total_logs_amount = 0;
-          let total_logs = [];
-          let is_all_logs_processed = false;
-          let last_key = customStartWith ? customStartWith : customStartWith === 0 ? "" : allLogs.at(0)?.at(0);
-          while (limit < total_logs_amount && !is_all_logs_processed) {
-            isSearching.set(true);
-            const data = (await getLogs({
-              containerName: $lastChosenService,
-              search: searchText,
-              limit,
-              status: $chosenStatus,
-              caseSens: !$store.caseInSensitive,
-              startWith: last_key,
-              hostName: $lastChosenHost,
-              signal,
-            })).logs.reverse();
-            total_logs = [...total_logs, ...data];
-            total_logs_amount += data.length;
-            is_all_logs_processed = data.is_end;
-            last_key = data.last_processed_key;
+    stopLogsUnfetch = false;
+    controller = new AbortController();
+    signal = controller.signal;
+    const initialService = $lastChosenService;
+    isFeatching.set(true);
 
-            if (initialService === $lastChosenService) {
-                if (data.length) {
-                let numberOfNewLogs = data.length;
+    try {
+      let total_logs_amount = 0;
+      let total_logs = [];
+      let is_all_logs_processed = false;
+      let last_key = customStartWith
+        ? customStartWith
+        : customStartWith === 0
+        ? ""
+        : allLogs.at(0)?.at(0);
 
-                const logsToPrevious = visibleLogs.splice(
-                    visibleLogs.length - numberOfNewLogs,
-                    numberOfNewLogs
-                );
+      while (total_logs_amount < limit && !is_all_logs_processed) {
+        isSearching.set(true);
+        const response = await getLogs({
+          containerName: $lastChosenService,
+          search: searchText,
+          limit,
+          status: $chosenStatus,
+          caseSens: !$store.caseInSensitive,
+          startWith: last_key,
+          hostName: $lastChosenHost,
+          signal,
+        });
 
-                const logsToVisible = newLogs.splice(
-                    newLogs.length - numberOfNewLogs,
-                    numberOfNewLogs
-                );
+        const data = response.logs.reverse();
+        total_logs = [...total_logs, ...data];
+        total_logs_amount += data.length;
+        is_all_logs_processed = response.is_end;
+        last_key = response.last_processed_key;
 
-                previousLogs.splice(
-                    previousLogs.length - numberOfNewLogs,
-                    numberOfNewLogs
-                );
-                newLogs = [...data, ...newLogs];
-                visibleLogs = [...logsToVisible, ...visibleLogs];
-                previousLogs = [...logsToPrevious, ...previousLogs];
-                previousLogs.length = limit;
-
-                allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-                }
-                if (data.length === limit) {
-                setTimeout(() => {
-                    if (!doNotScroll) {
-                    scrollToNewLogsEnd(".newLogsEnd");
-                    }
-                }, 50);
-                }
-
-            }
-          isSearching.set(false);
+        if (initialService !== $lastChosenService || !data.length) {
+          break;
         }
-          lastFetchActionIsFetch = true;
-          return total_logs;
-        } catch (e) {
-          console.log(e);
+
+        const numberOfNewLogs = data.length;
+        const logsToPrevious = visibleLogs.splice(
+          visibleLogs.length - numberOfNewLogs,
+          numberOfNewLogs
+        );
+        const logsToVisible = newLogs.splice(
+          newLogs.length - numberOfNewLogs,
+          numberOfNewLogs
+        );
+        previousLogs.splice(previousLogs.length - numberOfNewLogs, numberOfNewLogs);
+
+        newLogs = [...data, ...newLogs];
+        visibleLogs = [...logsToVisible, ...visibleLogs];
+        previousLogs = [...logsToPrevious, ...previousLogs].slice(0, limit);
+        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+
+        if (data.length === limit && !doNotScroll) {
+          setTimeout(() => {
+            scrollToNewLogsEnd(".newLogsEnd");
+          }, 50);
         }
       }
+
+      lastFetchActionIsFetch = true;
+      return total_logs;
+    } catch (e) {
+      console.log(e);
+    } finally {
+      isSearching.set(false);
+      isFeatching.set(false);
     }
-    isFeatching.set(false);
   };
 
   const fetchedTopLogs = async (customStartWith) => {
@@ -623,6 +639,9 @@
         is_all_logs_processed = data.is_end;
         last_key = data.last_processed_key;
         total_received_logs_count += data.logs.length;
+        if (!data.logs.length) {
+          break;
+        }
         total_logs = [...total_logs, ...data.logs.reverse()];
       }
       isSearching.set(false);
@@ -669,6 +688,9 @@
           total_received_logs_count += data.logs.length;
           is_all_logs_processed = data.is_end;
           last_key = data.last_processed_key;
+          if (!data.logs.length) {
+            break;
+          }
           total_logs = [...total_logs, ...data.logs];
         }
         isSearching.set(false);
