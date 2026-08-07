@@ -16,7 +16,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.24.x
+        go-version: 1.26.x
 
     - name: Get coverage tool
       run: |
@@ -58,7 +58,7 @@ jobs:
     - name: Set up Node
       uses: actions/setup-node@v4
       with:
-        node-version: 22.x
+        node-version: 24.x
 
     - name: Frontend tests
       run: |
