@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -40,6 +41,21 @@ func enableCors(w *http.ResponseWriter) {
 	(*w).Header().Set("Access-Control-Allow-Credentials", "true")
 	(*w).Header().Set("Access-Control-Allow-Methods", "*")
 	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type")
+}
+
+func isAllowedOrigin(req *http.Request) bool {
+	origin := req.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	if os.Getenv("ENV_NAME") == "local" && parsed.Host == "localhost:5173" {
+		return true
+	}
+	return strings.EqualFold(parsed.Host, req.Host)
 }
 
 func verifyAdminUser(w *http.ResponseWriter, req *http.Request) bool {
@@ -76,6 +92,28 @@ func verifyUser(w *http.ResponseWriter, req *http.Request) bool {
 	return true
 }
 
+const (
+	maxRequestBody  = 1 << 20
+	sessionLifetime = 48 * time.Hour
+)
+
+func isTLS(req *http.Request) bool {
+	return req.TLS != nil || strings.EqualFold(req.Header.Get("X-Forwarded-Proto"), "https")
+}
+
+// Bounds the body and, unlike the bare decoder it replaces, does not discard the
+// decode error.
+func decodeBody(w http.ResponseWriter, req *http.Request, target interface{}) bool {
+	req.Body = http.MaxBytesReader(w, req.Body, maxRequestBody)
+	if err := json.NewDecoder(req.Body).Decode(target); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request body"})
+		return false
+	}
+	return true
+}
+
 func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
 	enableCors(w)
 	if req.Method == "OPTIONS" {
@@ -86,9 +124,7 @@ func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
 }
 
 func (h *RouteController)Frontend(w http.ResponseWriter, req *http.Request) {
-	// The root must be a constant. http.Dir sanitises the name it is given but
-	// never its own root, so anything caller-controlled in the root (the query
-	// string included) is an arbitrary file read.
+	// http.Dir sanitises the name it is given but never its own root.
 	dir := http.Dir("dist")
 
 	fileName := strings.TrimPrefix(strings.TrimPrefix(req.URL.Path, os.Getenv("ONLOGS_PATH_PREFIX")), "/")
@@ -140,11 +176,17 @@ func (h *RouteController)AddLogLine(w http.ResponseWriter, req *http.Request) {
 		Container string
 		LogLine   []string
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&logItem)
+	if !decodeBody(w, req, &logItem) {
+		return
+	}
 
 	if !db.IsTokenExists(logItem.Token) {
 		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	if !util.IsSafeName(logItem.Host) || !util.IsSafeName(logItem.Container) || len(logItem.LogLine) < 2 {
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -176,12 +218,24 @@ func (h *RouteController)AddHost(w http.ResponseWriter, req *http.Request) {
 		Token    string
 		Services []string
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&addReq)
+	if !decodeBody(w, req, &addReq) {
+		return
+	}
 
 	if !db.IsTokenExists(addReq.Token) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
+	}
+
+	if !util.IsSafeName(addReq.Hostname) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	for _, container := range addReq.Services {
+		if !util.IsSafeName(container) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
 
 	vars.AgentsActiveContainers[addReq.Hostname] = addReq.Services
@@ -205,8 +259,9 @@ func (h *RouteController)ChangeFavourite(w http.ResponseWriter, req *http.Reques
 		Host    string `json:"host"`
 		Service string `json:"service"`
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&container)
+	if !decodeBody(w, req, &container) {
+		return
+	}
 
 	key := []byte(container.Host + "/" + container.Service)
 	isAlreadyFavourite, _ := vars.FavsDB.Has(key, nil)
@@ -221,7 +276,7 @@ func (h *RouteController)ChangeFavourite(w http.ResponseWriter, req *http.Reques
 }
 
 func (h *RouteController)GetSecret(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
 
@@ -245,11 +300,7 @@ func (h *RouteController)GetChartData(w http.ResponseWriter, req *http.Request) 
 		Unit        string `json:"unit"`
 		UnitsAmount int    `json:"unitsAmount"`
 	}
-	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&data)
-	if err != nil {
-		w.Header().Add("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid data!"})
+	if !decodeBody(w, req, &data) {
 		return
 	}
 
@@ -382,12 +433,7 @@ func (h *RouteController)GetStats(w http.ResponseWriter, req *http.Request) {
 		Value   int    `json:"period"` // 1 = 30min, 2 = 1hr, 48 = 1d
 	}
 
-	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&data)
-
-	if err != nil {
-		w.Header().Add("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid data!"})
+	if !decodeBody(w, req, &data) {
 		return
 	}
 	w.Header().Add("Content-Type", "application/json")
@@ -403,14 +449,10 @@ func (h *RouteController)GetStorageData(w http.ResponseWriter, req *http.Request
 		Host string `json:"host"`
 	}
 
-	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&data)
-
-	w.Header().Add("Content-Type", "application/json")
-	if err != nil {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid data!"})
+	if !decodeBody(w, req, &data) {
 		return
 	}
+	w.Header().Add("Content-Type", "application/json")
 
 	// TODO make for different hosts
 	if data.Host != util.GetHost() {
@@ -509,12 +551,15 @@ func (h *RouteController)GetLogsStream(w http.ResponseWriter, req *http.Request)
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
+		CheckOrigin:     isAllowedOrigin,
 	}
-	upgrader.CheckOrigin = func(r *http.Request) bool { return true } // verify req here?
 
 	ws, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
+		// gorilla returns (nil, err); appending here seeds a nil conn that a
+		// background goroutine later dereferences.
 		fmt.Println(err)
+		return
 	}
 	vars.Connections[container] = append(vars.Connections[container], ws)
 }
@@ -531,20 +576,34 @@ func (h *RouteController)Login(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var loginData vars.UserData
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&loginData)
+	if !decodeBody(w, req, &loginData) {
+		return
+	}
+
+	ipKey := "ip:" + clientAddr(req)
+	loginKey := "login:" + loginData.Login
+	if !loginLimiter.allow(ipKey, loginKey) {
+		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusTooManyRequests)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Too many failed login attempts. Try again later."})
+		return
+	}
 
 	isCorrect := userdb.CheckUserPassword(loginData.Login, loginData.Password)
 	if !isCorrect {
+		loginLimiter.fail(ipKey, loginKey)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Wrong login or password!"})
 		return
 	}
+	loginLimiter.succeed(ipKey, loginKey)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "onlogs-cookie",
 		Value:    util.CreateJWT(loginData.Login),
 		Expires:  time.Now().AddDate(0, 0, 2),
-		MaxAge:   int(time.Now().AddDate(0, 0, 2).Unix()),
+		MaxAge:   int(sessionLifetime / time.Second),
+		HttpOnly: true,
+		Secure:   isTLS(req),
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
@@ -560,7 +619,9 @@ func (h *RouteController)Logout(w http.ResponseWriter, req *http.Request) {
 		Name:     "onlogs-cookie",
 		Value:    "toDelete",
 		Expires:  time.Now().AddDate(-5, -5, -5),
-		MaxAge:   0,
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isTLS(req),
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
@@ -579,8 +640,9 @@ func (h *RouteController)CreateUser(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var loginData vars.UserData
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&loginData)
+	if !decodeBody(w, req, &loginData) {
+		return
+	}
 
 	err := userdb.CreateUser(loginData.Login, loginData.Password)
 	if err == nil {
@@ -592,7 +654,7 @@ func (h *RouteController)CreateUser(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *RouteController)GetUsers(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
 
@@ -607,8 +669,9 @@ func (h *RouteController)UpdateUserSettings(w http.ResponseWriter, req *http.Req
 	}
 
 	var settings map[string]interface{}
-	body, _ := io.ReadAll(req.Body)
-	json.Unmarshal(body, &settings)
+	if !decodeBody(w, req, &settings) {
+		return
+	}
 	username, _ := util.GetUserFromJWT(*req)
 	userdb.UpdateUserSettings(username, settings)
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
@@ -633,8 +696,9 @@ func (h *RouteController)EditHostname(w http.ResponseWriter, req *http.Request) 
 		Host string
 		Name string
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&data)
+	if !decodeBody(w, req, &data) {
+		return
+	}
 
 	if data.Name != "" {
 		if data.Host != util.GetHost() {
@@ -654,8 +718,9 @@ func (h *RouteController)EditUser(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var loginData vars.UserData
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&loginData)
+	if !decodeBody(w, req, &loginData) {
+		return
+	}
 
 	if loginData.Login == os.Getenv("ADMIN_USERNAME") {
 		w.Header().Add("Content-Type", "application/json")
@@ -681,8 +746,9 @@ func (h *RouteController)DeleteContainerLogs(w http.ResponseWriter, req *http.Re
 		Host    string `json:"host"`
 		Service string `json:"service"`
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&containerItem)
+	if !decodeBody(w, req, &containerItem) {
+		return
+	}
 
 	go containerdb.DeleteContainer(containerItem.Host, containerItem.Service, false)
 	w.Header().Add("Content-Type", "application/json")
@@ -698,8 +764,9 @@ func (h *RouteController)DeleteDockerLogs(w http.ResponseWriter, req *http.Reque
 		Host    string
 		Service string
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&logItem)
+	if !decodeBody(w, req, &logItem) {
+		return
+	}
 
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": util.DeleteDockerLogs(logItem.Host, logItem.Service)})
@@ -710,8 +777,9 @@ func (h *RouteController)AskForDelete(w http.ResponseWriter, req *http.Request) 
 		Hostname string
 		Token    string
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&logItem)
+	if !decodeBody(w, req, &logItem) {
+		return
+	}
 
 	if !db.IsTokenExists(logItem.Token) {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -737,8 +805,9 @@ func (h *RouteController)DeleteContainer(w http.ResponseWriter, req *http.Reques
 		Host    string
 		Service string
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&logItem)
+	if !decodeBody(w, req, &logItem) {
+		return
+	}
 
 	if logItem.Host == "" || logItem.Host == util.GetHost() {
 		dockerContainerID := util.GetDockerContainerID(logItem.Host, logItem.Service)
@@ -768,8 +837,9 @@ func (h *RouteController)DeleteUser(w http.ResponseWriter, req *http.Request) {
 	var loginData struct {
 		Login string `json:"login"`
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&loginData)
+	if !decodeBody(w, req, &loginData) {
+		return
+	}
 	if loginData.Login == os.Getenv("ADMIN_USERNAME") {
 		w.Header().Add("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"error": "Can't delete admin"})

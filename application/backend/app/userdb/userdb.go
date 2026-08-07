@@ -1,10 +1,10 @@
 package userdb
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"os"
-	"strings"
 
 	"github.com/devforth/OnLogs/app/vars"
 )
@@ -19,8 +19,7 @@ func CreateUser(login string, password string) error {
 		return errors.New("User is already exists")
 	}
 
-	vars.UsersDB.Put([]byte(login), []byte(password), nil)
-	return nil
+	return vars.UsersDB.Put([]byte(login), []byte(HashPassword(password)), nil)
 }
 
 func GetUsers() []map[string]interface{} {
@@ -45,8 +44,8 @@ func GetUsers() []map[string]interface{} {
 	return users
 }
 
-func EditUser(login string, password string) {
-	vars.UsersDB.Put([]byte(login), []byte(password), nil)
+func EditUser(login string, password string) error {
+	return vars.UsersDB.Put([]byte(login), []byte(HashPassword(password)), nil)
 }
 
 func DeleteUser(login string, password string) error {
@@ -60,11 +59,25 @@ func DeleteUser(login string, password string) error {
 }
 
 func CheckUserPassword(login string, gotPassword string) bool {
-	password, err := vars.UsersDB.Get([]byte(login), nil)
-	if err != nil || strings.Compare(string(password), gotPassword) != 0 {
+	// goleveldb returns ([]byte{}, nil) for a key stored with an empty value.
+	if login == "" || gotPassword == "" {
 		return false
 	}
 
+	stored, err := vars.UsersDB.Get([]byte(login), nil)
+	if err != nil || len(stored) == 0 {
+		return false
+	}
+
+	if ok, wasHashed := verifyHash(string(stored), gotPassword); wasHashed {
+		return ok
+	}
+
+	// Accounts predating hashing hold the password verbatim; verify, then upgrade.
+	if subtle.ConstantTimeCompare(stored, []byte(gotPassword)) != 1 {
+		return false
+	}
+	vars.UsersDB.Put([]byte(login), []byte(HashPassword(gotPassword)), nil)
 	return true
 }
 

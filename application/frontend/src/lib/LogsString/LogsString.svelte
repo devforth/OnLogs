@@ -56,7 +56,7 @@
     {#if !parsedStr}<p>
         {@html messageHtml}
       </p>{:else if $store.transformJson}<p>{@html toAnsiHtml(parsedStr.startText)}</p>
-      <pre>{@html parsedStr.html}</pre>
+      <pre>{JSON.stringify(parsedStr.json, null, 2)}</pre>
       <p>{@html toAnsiHtml(parsedStr.endText)}</p>
     {:else}<p>
         {@html messageHtml}

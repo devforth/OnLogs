@@ -6,13 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build --base=/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION ",
-    "test": "vite build --base=/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION && node startDebug.js ",
+    "test": "node scripts/run-tests.mjs",
     "test:ansi": "node src/utils/ansi.test.mjs",
     "test:highlight": "node src/Views/Logs/highlight.test.mjs",
     "preview": "vite preview",
     "sb": "start-storybook -p 6006",
     "build-storybook": "build-storybook",
-    "buildfont": "node generate_font.js"
+    "buildfont": "node generate_font.js",
+    "debug": "vite build --base=/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION && node startDebug.js"
   },
   "devDependencies": {
     "@babel/core": "^7.19.3",
@@ -36,7 +37,6 @@
     "@vusion/webfonts-generator": "^0.8.0",
     "ansi-to-html": "^0.7.2",
     "chart.js": "^4.2.0",
-    "json-to-html": "^0.1.2",
     "svelte-chartjs": "^3.1.2",
     "svelte-loading-spinners": "^0.3.4",
     "svelte-routing": "^1.6.0"

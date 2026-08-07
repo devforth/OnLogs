@@ -1,4 +1,3 @@
-import json2html from "json-to-html";
 
 export const handleKeydown = (e, keyValue, cb) => {
   if (e.key === keyValue) {
@@ -25,24 +24,19 @@ export const tryToParseLogString = (str) => {
   const beginningOfJson = str.search(/[{[]/);
   const endingOfJson = str.search(/[\]}](?![\s\S]*[\]}])/);
 
-  let html = "";
-  let startText = "";
-  let endText = "";
-
-  if (beginningOfJson !== -1 && endingOfJson !== -1 && endingOfJson > beginningOfJson) {
-    const jsonPart = str.slice(beginningOfJson, endingOfJson + 1);
-    startText = str.slice(0, beginningOfJson);
-    endText = str.slice(endingOfJson + 1);
-
-    try {
-      const parsed = JSON.parse(jsonPart);
-      html = json2html(parsed, 2);
-    } catch (e) { }
+  if (beginningOfJson === -1 || endingOfJson === -1 || endingOfJson <= beginningOfJson) {
+    return null;
   }
 
-  if (html) {
-    return { startText, html, endText };
-  } else return null;
+  try {
+    return {
+      startText: str.slice(0, beginningOfJson),
+      json: JSON.parse(str.slice(beginningOfJson, endingOfJson + 1)),
+      endText: str.slice(endingOfJson + 1),
+    };
+  } catch (e) {
+    return null;
+  }
 };
 
 export const copyText = function (ref, cb) {

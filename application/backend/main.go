@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
@@ -16,18 +19,55 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// The persisted key is only trusted when it is non-empty.
+func ensureJWTSecret() error {
+	if os.Getenv("JWT_SECRET") != "" {
+		return nil
+	}
+
+	if persisted, err := os.ReadFile("leveldb/JWT_secret"); err == nil && len(persisted) > 0 {
+		os.Setenv("JWT_SECRET", string(persisted))
+		return nil
+	}
+
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return fmt.Errorf("unable to generate a JWT secret: %w", err)
+	}
+	secret := hex.EncodeToString(buf)
+
+	if err := os.MkdirAll("leveldb", 0700); err != nil {
+		return fmt.Errorf("unable to create leveldb directory for the JWT secret: %w", err)
+	}
+	if err := os.WriteFile("leveldb/JWT_secret", []byte(secret), 0600); err != nil {
+		return fmt.Errorf("unable to persist the generated JWT secret: %w", err)
+	}
+
+	os.Setenv("JWT_SECRET", secret)
+	return nil
+}
+
+// gorilla clears the connection deadlines after hijacking (server.go:251), so
+// WriteTimeout does not reach the websocket at /api/v1/getLogsStream.
+func newServer(port string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              ":" + port,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+}
+
 func init_config() {
 	if os.Getenv("PORT") == "" {
 		os.Setenv("PORT", "2874")
 	}
 
-	if os.Getenv("JWT_SECRET") == "" {
-		token, err := os.ReadFile("leveldb/JWT_secret")
-		if err != nil {
-			os.WriteFile("leveldb/JWT_secret", []byte(os.Getenv("JWT_SECRET")), 0700)
-			token, _ = os.ReadFile("leveldb/JWT_secret")
-		}
-		os.Setenv("JWT_SECRET", string(token))
+	if err := ensureJWTSecret(); err != nil {
+		fmt.Println("FATAL:", err)
+		os.Exit(1)
 	}
 
 	if os.Getenv("DOCKER_HOST") == "" {
@@ -44,6 +84,11 @@ func init_config() {
 func main() {
 	godotenv.Load(".env")
 	init_config()
+
+	if os.Getenv("JWT_SECRET") == "" {
+		fmt.Println("FATAL: JWT_SECRET is empty; refusing to start. Unset it to have one generated, or set a non-empty value.")
+		os.Exit(1)
+	}
 
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
@@ -78,7 +123,14 @@ func main() {
 	go streamController.StreamLogs(bgContext)
 	// go util.RunSpaceMonitoring()
 	util.ReplacePrefixVariableForFrontend()
-	util.CreateInitUser()
+	if err := util.CreateInitUser(); err != nil {
+		if os.Getenv("DISABLE_AUTH") == "true" {
+			fmt.Println("WARNING:", err, "(DISABLE_AUTH=true, continuing without an administrator account)")
+		} else {
+			fmt.Println("FATAL:", err)
+			os.Exit(1)
+		}
+	}
 
 	// Initialize the "Controller" with its dependencies
 	routerCtrl := &routes.RouteController{
@@ -119,5 +171,5 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/updateUserSettings", routerCtrl.UpdateUserSettings)
 
 	fmt.Println("Listening on port:", string(os.Getenv("PORT"))+"...")
-	fmt.Println("ONLOGS: ", http.ListenAndServe(":"+string(os.Getenv("PORT")), nil))
+	fmt.Println("ONLOGS: ", newServer(os.Getenv("PORT"), nil).ListenAndServe())
 }

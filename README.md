@@ -66,7 +66,7 @@ volumes:
 
 ### Docker Run example with traefik
 ```sh
-docker run --restart always -e ADMIN_USERNAME=admin -e PASSWORD=<any password> -e PORT=8798 \
+docker run --restart always -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD=<any password> -e PORT=8798 \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
     -v /var/lib/docker/containers:/var/lib/docker/containers \
     -v /etc/hostname:/etc/hostname \
@@ -83,7 +83,7 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 |----------------------------|---------------------------------|--------|-----------------|
 | DOCKER_HOST              | URL of the docker socket to connect to. See below | `unix:///var/run/docker.sock` | |
 | ADMIN_USERNAME           | Username for initial user                        | `admin`                 | if `AGENT=false`
-| ADMIN_PASSWORD           | Password for initial user                        |                    | if `AGENT=false`
+| ADMIN_PASSWORD           | Password for initial user. Must not be empty — OnLogs refuses to start without it unless `DISABLE_AUTH=true` |                    | if `AGENT=false`
 | PORT               | Port to listen on                                | `2874`             | if `AGENT=false`
 | JWT_SECRET         | Secret for JWT tokens for users                  | Generates randomly | -
 | ONLOGS_PATH_PREFIX | Base path if you using OnLogs not on subdomain   |                    | only if using on path prefix

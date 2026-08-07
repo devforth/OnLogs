@@ -14,6 +14,9 @@ import (
 
 func restartStats(host string, container string) {
 	current_db := util.GetDB(host, container, "statistics")
+	if current_db == nil {
+		return
+	}
 	location := host
 	if container != "" {
 		location += "/" + container
@@ -150,6 +153,9 @@ func GetStatisticsByService(host string, service string, value int) map[string]u
 	searchTo := time.Now().Add(-(time.Hour * time.Duration(value/2))).UTC()
 	var tmp_stats map[string]uint64
 	current_db := util.GetDB(host, service, "statistics")
+	if current_db == nil {
+		return to_return
+	}
 	iter := current_db.NewIterator(nil, nil)
 	defer iter.Release()
 	iter.Last()
@@ -192,7 +198,11 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 
 	location := host + "/" + service
 	to_return := map[string]map[string]uint64{}
-	iter := util.GetDB(host, service, "statistics").NewIterator(nil, nil)
+	statsDB := util.GetDB(host, service, "statistics")
+	if statsDB == nil {
+		return to_return
+	}
+	iter := statsDB.NewIterator(nil, nil)
 	iter.Last()
 	defer iter.Release()
 	hasPrev := true

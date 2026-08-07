@@ -136,6 +136,9 @@ func (h *DaemonService) isRecentDuplicate(containerName, fingerprint string) boo
 
 func (h *DaemonService) getResumeSince(host, containerName string) time.Time {
 	db := util.GetDB(host, containerName, "streamstate")
+	if db == nil {
+		return time.Now().Add(-initialBackfill)
+	}
 	raw, err := db.Get([]byte(cursorKey), nil)
 	if err != nil || len(raw) == 0 {
 		return time.Now().Add(-initialBackfill)
@@ -151,6 +154,9 @@ func (h *DaemonService) getResumeSince(host, containerName string) time.Time {
 
 func (h *DaemonService) saveCursor(host, containerName string, ts time.Time) {
 	db := util.GetDB(host, containerName, "streamstate")
+	if db == nil {
+		return
+	}
 	err := db.Put([]byte(cursorKey), []byte(ts.UTC().Format(streamTimestampFmt)), nil)
 	if err != nil {
 		fmt.Println("ERROR: unable to save stream cursor:", err)

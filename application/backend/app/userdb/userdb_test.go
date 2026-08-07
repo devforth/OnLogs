@@ -35,13 +35,18 @@ func TestGetUsers(t *testing.T) {
 	}
 }
 
+// Rewritten: this used to assert the stored value was literally "sus?", which
+// only held while passwords were kept in cleartext.
 func TestEditUser(t *testing.T) {
 	CreateUser("testtest", "testtest")
 	EditUser("testtest", "sus?")
 
-	pass, _ := vars.UsersDB.Get([]byte("testtest"), nil)
-	if string(pass) != "sus?" {
+	if !CheckUserPassword("testtest", "sus?") {
 		t.Error("User wasn't edited")
+	}
+	pass, _ := vars.UsersDB.Get([]byte("testtest"), nil)
+	if string(pass) == "sus?" {
+		t.Error("Password is stored in cleartext")
 	}
 }
 

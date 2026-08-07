@@ -31,8 +31,16 @@ func TestContains(t *testing.T) {
 	}
 }
 
+// Rewritten: this used to assert that an admin is created with no password set.
 func TestCreateInitUser(t *testing.T) {
-	CreateInitUser()
+	os.Setenv("ADMIN_USERNAME", "admin")
+	os.Setenv("ADMIN_PASSWORD", "an-actual-admin-password")
+	t.Cleanup(func() { os.Setenv("ADMIN_PASSWORD", "") })
+
+	if err := CreateInitUser(); err != nil {
+		t.Fatalf("CreateInitUser: %v", err)
+	}
+
 	isExist, err := vars.UsersDB.Has([]byte("admin"), nil)
 	if err != nil {
 		t.Error(err.Error())

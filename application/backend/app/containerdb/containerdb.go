@@ -206,6 +206,11 @@ func findOldestCutoffKey(cutoffKeys [][]byte) []byte {
 	return oldestKey
 }
 
+const (
+	defaultLogsPerRequest = 30
+	maxLogsPerRequest     = 1000
+)
+
 var (
 	logCleanupMu     sync.Mutex
 	nextCleanup      time.Time
@@ -248,6 +253,12 @@ func MaybeScheduleCleanup(host string, container string) {
 }
 
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
+	if db == nil {
+		return fmt.Errorf("no database for %s/%s", host, container)
+	}
+	if len(message_item) < 2 {
+		return fmt.Errorf("malformed log line for %s/%s", host, container)
+	}
 	if len(message_item[0]) < 30 {
 		fmt.Println("WARNING: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
 		return nil
@@ -284,18 +295,24 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	return err
 }
 
-func fitsForSearch(logLine string, message string, caseSensetivity bool) bool {
-	logLine = ansiEscapeRegex.ReplaceAllString(logLine, "")
-	message = ansiEscapeRegex.ReplaceAllString(message, "")
-	logLine = strings.Join(strings.Fields(logLine), " ")
-	message = strings.Join(strings.Fields(message), " ")
-
+func normalizeForSearch(s string, caseSensetivity bool) string {
+	s = ansiEscapeRegex.ReplaceAllString(s, "")
+	s = strings.Join(strings.Fields(s), " ")
 	if !caseSensetivity {
-		logLine = strings.ToLower(logLine)
-		message = strings.ToLower(message)
+		s = strings.ToLower(s)
 	}
+	return s
+}
 
-	return strings.Contains(logLine, message)
+func fitsForSearch(logLine string, message string, caseSensetivity bool) bool {
+	return fitsNormalizedSearch(logLine, normalizeForSearch(message, caseSensetivity), caseSensetivity)
+}
+
+func fitsNormalizedSearch(logLine string, normalizedMessage string, caseSensetivity bool) bool {
+	if normalizedMessage == "" {
+		return true
+	}
+	return strings.Contains(normalizeForSearch(logLine, caseSensetivity), normalizedMessage)
 }
 
 func increaseAndMove(counter *int, move_direction func() bool) {
@@ -339,7 +356,17 @@ returns json obj like this:
 	}
 */
 func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool, status *string) map[string]interface{} {
+	if limit <= 0 {
+		limit = defaultLogsPerRequest
+	} else if limit > maxLogsPerRequest {
+		limit = maxLogsPerRequest
+	}
+
 	logs_db := util.GetDB(host, container, "logs")
+	if logs_db == nil {
+		return map[string]interface{}{"logs": [][]string{}, "last_processed_key": "", "is_end": true}
+	}
+
 	var statusDb *leveldb.DB
 	if status != nil {
 		statusDb = util.GetDB(host, container, "statuses")
@@ -361,6 +388,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	counter := 0
 	iteration := 0
 	last_processed_key := ""
+	normalizedMessage := normalizeForSearch(message, caseSensetivity)
 	for counter < limit && iteration < 1000000 {
 		iteration += 1
 		key := iter.Key()
@@ -388,7 +416,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 			}
 		}
 
-		if !fitsForSearch(value, message, caseSensetivity) {
+		if !fitsNormalizedSearch(value, normalizedMessage, caseSensetivity) {
 			move_direction()
 			continue
 		}
@@ -404,6 +432,12 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 }
 
 func DeleteContainer(host string, container string, fullDelete bool) {
+	// Both callers are bare goroutines, so this rejects rather than panics.
+	if !util.IsSafeName(host) || !util.IsSafeName(container) {
+		fmt.Println("ERROR: refusing to delete container with unsafe name:", host, container)
+		return
+	}
+
 	path := "leveldb/hosts/" + host + "/containers/" + container
 	if fullDelete {
 		os.RemoveAll(path)

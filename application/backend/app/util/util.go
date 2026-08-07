@@ -2,10 +2,10 @@ package util
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io/fs"
-	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -45,13 +46,19 @@ func Contains(a string, list []string) bool {
 	return false
 }
 
-func CreateInitUser() {
+func CreateInitUser() error {
 	admin_username := os.Getenv("ADMIN_USERNAME")
 	if admin_username == "" {
 		admin_username = "admin"
 		os.Setenv("ADMIN_USERNAME", admin_username)
 	}
-	vars.UsersDB.Put([]byte(admin_username), []byte(os.Getenv("ADMIN_PASSWORD")), nil)
+
+	admin_password := os.Getenv("ADMIN_PASSWORD")
+	if admin_password == "" {
+		return errors.New("ADMIN_PASSWORD is empty; refusing to create an administrator that would accept an empty password")
+	}
+
+	return vars.UsersDB.Put([]byte(admin_username), []byte(userdb.HashPassword(admin_password)), nil)
 }
 
 func ReplacePrefixVariableForFrontend() {
@@ -80,7 +87,17 @@ func CreateJWT(login string) string {
 	return tokenString
 }
 
+// Every path component must be a single, literal name; anything else escapes
+// leveldb/hosts.
+func IsSafeName(s string) bool {
+	return s != "" && s != "." && s != ".." && !strings.ContainsRune(s, 0) && s == filepath.Base(s)
+}
+
 func GetDB(host string, container string, dbType string) *leveldb.DB {
+	if !IsSafeName(host) || !IsSafeName(container) || !IsSafeName(dbType) {
+		return nil
+	}
+
 	vars.DBMutex.RLock()
 	db := getExistingDB(host, container, dbType)
 	vars.DBMutex.RUnlock()
@@ -171,6 +188,10 @@ func GetHost() string {
 }
 
 func GetDirSize(host string, container string) float64 {
+	if !IsSafeName(host) || !IsSafeName(container) {
+		return 0
+	}
+
 	var size int64
 
 	path := "leveldb/hosts/" + host + "/containers/" + container
@@ -197,39 +218,46 @@ func GetUserFromJWT(req http.Request) (string, error) {
 		return "", errors.New("401 - Unauthorized!")
 	}
 
+	// An empty key verifies every HMAC token.
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return "", errors.New("401 - Unauthorized!")
+	}
+
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(c.Value, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(os.Getenv("JWT_SECRET")), nil
-	})
+		return []byte(secret), nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired())
 
-	if err != nil && strings.Compare(err.Error(), "Token is expired") != 0 {
+	if err != nil {
 		return "", err
 	}
 
-	if int64(int64(claims["exp"].(float64))) < time.Now().Unix() {
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		return "", errors.New("Token is expired")
+	}
+	if int64(exp) < time.Now().Unix() {
 		return "", errors.New("Token is expired")
 	}
 
-	return claims["user"].(string), nil
+	user, ok := claims["user"].(string)
+	if !ok || user == "" {
+		return "", errors.New("401 - Unauthorized!")
+	}
+	return user, nil
 }
 
+// Mints agent ingestion tokens, so it must be cryptographically random.
 func GenerateJWTSecret() string {
-	tokenLen := 25
-
-	letterBytes := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-_."
-	b := make([]byte, tokenLen)
-
-	s1 := rand.NewSource(time.Now().UnixNano())
-	r1 := rand.New(s1)
-	for i := range b {
-		b[i] = letterBytes[r1.Int63()%int64(len(letterBytes))]
-	}
-	token := string(b)
-
-	return token
+	return rand.Text()
 }
 
 func GetDockerContainerID(host string, container string) string {
+	if !IsSafeName(host) {
+		return ""
+	}
+
 	_, err := os.ReadDir("leveldb/hosts/" + host)
 	if err != nil {
 		return ""
