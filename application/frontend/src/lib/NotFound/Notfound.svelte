@@ -7,14 +7,14 @@
   <h1 class="tittle">404 This is not the web page you are looking for...</h1>
   <div class="linksContainer">
     <p
-      on:click={() => {
+      onclick={() => {
         navigate(`${changeKey}/`, { replace: true });
       }}
     >
       Move to home page
     </p>
     <p
-      on:click={() => {
+      onclick={() => {
         navigate(`${changeKey}/404`, { replace: true });
       }}
     >

@@ -1,8 +1,7 @@
 <script>
   // @ts-nocheck
 
-  import { onMount, onDestroy, afterUpdate } from "svelte";
-  export let discribeText = "";
+  import { onMount, onDestroy, } from "svelte";
   import {
     lastChosenHost,
     lastChosenService,
@@ -12,8 +11,15 @@
   import FetchApi from "../../utils/fetch.js";
   import Button from "../Button/Button.svelte";
   const fetchApi = new FetchApi();
-  export let isAllLogs = false;
-  let logsSize = 0;
+  /**
+   * @typedef {Object} Props
+   * @property {string} [discribeText]
+   * @property {boolean} [isAllLogs]
+   */
+
+  /** @type {Props} */
+  let { discribeText = "", isAllLogs = false } = $props();
+  let logsSize = $state(0);
   let fetchCount = 0;
   let updateIntervalID = null;
   let UPDATE_INTERVAL = 30000;
@@ -56,20 +62,20 @@
     }, UPDATE_INTERVAL);
   }
 
-  $: {
+  $effect(() => {
     if (($lastChosenHost || $lastChosenService) && !isAllLogs) {
       updateDataFromInterval(fetchServiceLogs);
     }
-  }
-  $: {
+  });
+  $effect(() => {
     if (($lastChosenHost || $lastChosenService) && isAllLogs) {
       updateDataFromInterval(fetchAllLogs);
     }
-  }
+  });
 </script>
 
 <div class="logSizeContainer">
-  <i class="log log-Data" />
+  <i class="log log-Data"></i>
   {#if !isAllLogs}<div class="cleanButtonContainer">
       <Button
         icon={"log log-Clean"}

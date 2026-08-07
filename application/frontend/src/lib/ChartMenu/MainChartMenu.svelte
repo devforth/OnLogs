@@ -32,7 +32,7 @@
       {#each headerOptions as option}
         <li
           class="item flex {$lastStatisticPeriod === option ? 'isActive' : ''}"
-          on:click={() => {
+          onclick={() => {
             lastStatisticPeriod.set(option);
           }}
         >

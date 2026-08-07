@@ -1,29 +1,39 @@
 <script>
-  import { createEventDispatcher } from "svelte";
+  /**
+   * @typedef {Object} Props
+   * @property {string} [title]
+   * @property {boolean} [border]
+   * @property {boolean} [highlighted]
+   * @property {number} [minWidth]
+   * @property {number} [minHeight]
+   * @property {string} [icon]
+   * @property {any} [CB]
+   * @property {number} [iconHeight]
+   * @property {string} [type]
+   * @property {boolean} [disabled]
+   * @property {string} [id]
+   */
 
-  const dispatch = createEventDispatcher();
-
-  function clickButton() {
-    dispatch("onClickButton");
-  }
-
-  export let title = "";
-  export let border = true;
-  export let highlighted = false;
-  export let minWidth = 0;
-  export let minHeight = 0;
-  export let icon = "";
-  export let CB = () => {};
-  export let iconHeight = 12;
-  export let type = "button";
-  export let disabled = false;
-  export let id = "";
+  /** @type {Props} */
+  let {
+    title = "",
+    border = true,
+    highlighted = false,
+    minWidth = 0,
+    minHeight = 0,
+    icon = "",
+    CB = () => {},
+    iconHeight = 12,
+    type = "button",
+    disabled = false,
+    id = ""
+  } = $props();
 </script>
 
 <button
   {id}
   {disabled}
-  on:click={(e) => {
+  onclick={(e) => {
     CB();
     return e;
   }}
@@ -38,5 +48,5 @@
     style:line-height={"100%"}
     class={icon ? `${icon}` : ""}
     class:iconWidthText={title && icon}
-  />{title}
+></i>{title}
 </button>

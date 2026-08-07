@@ -4,4 +4,4 @@
   import { chosenLogsString } from "../../Stores/stores.js";
 </script>
 
-<div class="logStringHeaderContainer" />
+<div class="logStringHeaderContainer"></div>

@@ -8,7 +8,7 @@
 
 <div class="dropDownContainer addHost " id="addHost">
   <table class="dropDownTable">
-    <thbody>
+    <tbody>
       <DropDownRow
         rowTitle={"Create services group"}
         rowImage={"log log-Group"}
@@ -27,6 +27,6 @@
           addHostMenuIsVisible.set(false);
         }}
       />
-    </thbody>
+    </tbody>
   </table>
 </div>

@@ -18,16 +18,13 @@ function type(window, input, value) {
 async function run() {
   const bundlePath = await bundleComponent("test/entry.js");
   const { window } = installDom({});
-  const { LogsViewHeder } = await importBundle(bundlePath);
+  const bundle = await importBundle(bundlePath);
 
   const target = window.document.body;
-  const component = new LogsViewHeder({
-    target,
-    props: { searchText: "", searchResetVersion: 0 },
-  });
+  const props = bundle.reactiveProps({ searchText: "", searchResetVersion: 0 });
+  const component = bundle.mount(bundle.LogsViewHeder, { target, props });
 
   const observed = [];
-  component.$on("searchTextChanged", () => {});
 
   const input = target.querySelector("input[type=text]");
   assert.ok(input, "the search input should be rendered");
@@ -37,7 +34,7 @@ async function run() {
   for (let i = 1; i <= word.length; i++) {
     type(window, input, word.slice(0, i));
     await settle(2);
-    observed.push(component.searchText);
+    observed.push(props.searchText);
   }
 
   console.log(`  searchText after ${word.length} keystrokes: ${JSON.stringify(observed)}`);
@@ -52,25 +49,25 @@ async function run() {
   // After the debounce window it must land exactly once, on the final value.
   await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS + 250));
   assert.equal(
-    component.searchText,
+    props.searchText,
     word,
     `searchText should be ${JSON.stringify(word)} after the debounce window, got ` +
-      JSON.stringify(component.searchText)
+      JSON.stringify(props.searchText)
   );
 
   // A pending timer must not write back after the view clears the search, or a
   // service switch reloads the new service filtered by the old term.
   type(window, input, "stale term");
-  component.searchResetVersion = component.searchResetVersion + 1;
+  props.searchResetVersion = props.searchResetVersion + 1;
   await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS + 250));
 
   assert.notEqual(
-    component.searchText,
+    props.searchText,
     "stale term",
     "a pending debounce timer resurrected the previous search term after it was cleared"
   );
 
-  component.$destroy();
+  bundle.unmount(component);
   console.log("LogsViewHeder debounce tests passed");
   process.exit(0);
 }

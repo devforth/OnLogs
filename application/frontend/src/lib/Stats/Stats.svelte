@@ -8,7 +8,7 @@
   } from "../../Stores/stores.js";
   import fetchApi from "../../utils/fetch";
 
-  let data = {};
+  let data = $state({});
   const api = new fetchApi();
   let intervalId;
 
@@ -35,24 +35,23 @@
     clearInterval(intervalId);
   });
 
-  $: {
-    (async () => {
-      if ($lastChosenHost && $lastChosenService) {
-        data = await api.getStats({
-          period: $lastStatsPeriod,
-          service: $lastChosenService,
-          host: $lastChosenHost,
-        });
-      }
-    })();
-  }
+  $effect(() => {
+    if ($lastChosenHost && $lastChosenService) {
+      const period = $lastStatsPeriod;
+      const service = $lastChosenService;
+      const host = $lastChosenHost;
+      api.getStats({ period, service, host }).then((result) => {
+        data = result;
+      });
+    }
+  });
 </script>
 
 <div class="statsContainer">
   <div class="flex spaceBetween ">
     <i
       class="log log-Chart "
-      on:click={() => {
+      onclick={() => {
         // navigate(
         //   `${changeKey}/stats/${$lastChosenHost}/${$lastChosenService}`,
         //   {
@@ -61,11 +60,11 @@
         // );
       }}
       title="Counter updates every 1 min since OnLogs started. So, it may cause some asynchrony."
-    />
+></i>
     <div class=" timeSpan flex spaceBetween">
       <div
         class={$lastStatsPeriod === 2 ? "active" : ""}
-        on:click={() => {
+        onclick={() => {
           setPeriod(2);
         }}
       >
@@ -73,7 +72,7 @@
       </div>
       <div
         class={$lastStatsPeriod === 48 ? "active" : ""}
-        on:click={() => {
+        onclick={() => {
           setPeriod(48);
         }}
       >
@@ -81,7 +80,7 @@
       </div>
       <div
         class={$lastStatsPeriod === 336 ? "active" : ""}
-        on:click={() => {
+        onclick={() => {
           setPeriod(336);
         }}
       >
@@ -89,7 +88,7 @@
       </div>
       <div
         class={$lastStatsPeriod === 1344 ? "active" : ""}
-        on:click={() => {
+        onclick={() => {
           setPeriod(1344);
         }}
       >
@@ -110,7 +109,7 @@
       }
     }) as [key, name]}
       <li class="flex spaceBetween statsItem"
-        on:click={async () => {
+        onclick={async () => {
             if ($chosenStatus !== key) {
             chosenStatus.set(key);
             } else {

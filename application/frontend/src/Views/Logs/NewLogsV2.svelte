@@ -4,7 +4,7 @@
   import LogsString from "../../lib/LogsString/LogsString.svelte";
   import fetchApi from "../../utils/fetch";
   import { navigate } from "svelte-routing";
-  import { afterUpdate, onDestroy, onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import { get } from "svelte/store";
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
   import IntersectionObserver from "svelte-intersection-observer";
@@ -50,52 +50,52 @@
     scrollToNewLogsEnd,
     scrollToSpecificLog,
   } from "./functions";
-  import { debug } from "svelte/internal";
   const api = new fetchApi();
   let visibleLogs = [];
   let newLogs = [];
   let previousLogs = [];
-  let allLogs = [];
+  let allLogs = $state([]);
   let webSocket = null;
-  let logsFromWS = [];
+  let logsFromWS = $state([]);
 
-  let elements = [];
-  let intersects = [];
+  let elements = $state([]);
+  // Dense: binding a hole into IntersectionObserver's `intersecting` throws.
+  let intersects = $state([false, false, false, false]);
 
-  let dateEls = [];
-  let dateIntersects = [];
+  let dateEls = $state([]);
+  let dateIntersects = $state([]);
   let lastVisibleEl = null;
-  let endOffLogs = null;
-  let startOfLogs = null;
-  let startOfLogsIntersect = null;
-  let endOffLogsIntersect = null;
+  let endOffLogs = $state(null);
+  let startOfLogs = $state(null);
+  let startOfLogsIntersect = $state(null);
+  let endOffLogsIntersect = $state(null);
 
   let initialScroll = 0;
   let lastScrollTop = 0;
-  let scrollDirection = "up";
-  let pinedDate = ";";
+  let scrollDirection = $state("up");
+  let pinedDate = $state(";");
   let lastFetchActionIsFetch = true;
-  let scrollFromButton = false;
+  let scrollFromButton = $state(false);
   let stopLogsUnfetch = false;
 
-  let mouseDownBlockFetch = false;
-  let extremalScrollId = "";
-  let interceptorsWait = false;
-  let autoscroll = false;
-  let div;
+  let mouseDownBlockFetch = $state(false);
+  let extremalScrollId = $state("");
+  let interceptorsWait = $state(false);
+  let autoscroll = $state(false);
+  let div = $state();
   let logsLoadGeneration = 0;
   // Deliberately an object field: assigning a `let` here would retrigger the very
   // reactive blocks this is meant to hold back.
   const viewFlags = createLogsViewFlags();
   let pauseWS = false;
-  let newLogsAmount = 1;
+  let newLogsAmount = $state(1);
   let controller = null;
   let signal = null;
   let topFetchIsStarted = false;
   let pinedBadgeTimer = null;
-  let pinedBadgeIsVisible = false;
-  let searchResetVersion = 0;
-  let isSharedLinkFocusMode = false;
+  let pinedBadgeIsVisible = $state(false);
+  let searchResetVersion = $state(0);
+  let isSharedLinkFocusMode = $state(false);
 
   function refreshStatus() {
     chosenStatus.set("");
@@ -124,16 +124,12 @@
     }
   }
 
-  $: {
-    if (dateIntersects) {
-      findLastVisibleLog();
-    }
-  }
+
 
   //fetch params:
 
-  let searchText = "";
-  let limit = 60;
+  let searchText = $state("");
+  let limit = $state(60);
 
   let startWith = "";
   let tmpStartWith = [];
@@ -759,30 +755,6 @@
     }
   };
 
-  //
-
-  $: {
-    (async () => {
-      if ($lastChosenHost && $lastChosenService) {
-        // Read without subscribing: referencing $urlHash here would make this
-        // block depend on it, and clearing the hash would retrigger it forever.
-        if (get(urlHash)) {
-          viewFlags.beginDeepLink();
-        }
-        await exitSharedLinkFocusMode();
-        setInitialScroll(0);
-        resetAllLogs();
-        resetParams();
-        resetSearchParams();
-        refreshStatus();
-
-        isPending.set(true);
-        closeWS();
-        await checkIfHashIsInUrl();
-        addScrollLIstenersToLogs();
-      }
-    })();
-  }
 
   let scrollHandler = null;
   let scrollTarget = null;
@@ -822,78 +794,10 @@
     }, 1000);
   }
 
-  $: {
-    (async () => {
-      if (viewFlags.consumeSearchSkip() || viewFlags.isDeepLinkPending()) {
-        return;
-      }
-      await exitSharedLinkFocusMode();
-      if (searchText) {
-        resetParams();
-        resetAllLogs();
-        isPending.set(true);
-        await getFullLogsSet();
-      } else {
-        resetAllLogs();
-        await getFullLogsSet();
-      }
-      addScrollLIstenersToLogs();
-    })();
-  }
 
-  $: {
-    (async () => {
-      if (viewFlags.consumeStatusSkip() || viewFlags.isDeepLinkPending()) {
-        return;
-      }
-      await exitSharedLinkFocusMode();
-      if ($chosenStatus) {
-        resetParams();
-        resetAllLogs();
-        isPending.set(true);
-        await getFullLogsSet();
-      } else {
-        resetAllLogs()
-        await getFullLogsSet();
-      }
-      addScrollLIstenersToLogs();
-    })();
-  }
 
-  $: {
-    isInterceptorVIsible(intersects[0], fetchedLogs, !mouseDownBlockFetch);
-  }
-  $: {
-    isInterceptorVIsible(intersects[1], unfetchedLogs, !mouseDownBlockFetch);
-  }
-  // $: {
-  //   isInterceptorVIsible(intersects[2], fetchedLogs, mouseDownBlockFetch);
-  // }
-  $: {
-    isInterceptorVIsible(intersects[3], unfetchedLogs, mouseDownBlockFetch);
-  }
 
-  $: {
-    if ([...allLogs]) {
-      highlightSearchText();
-    }
-  }
 
-  $: {
-    (async () => {
-      if (
-        shouldFlushBufferedLogs(
-          logsFromWS.length,
-          isSharedLinkFocusMode,
-          false
-        ) &&
-        endOffLogsIntersect
-      ) {
-        logsFromWS.length && (await getFullLogsSet());
-        logsFromWS = [];
-      }
-    })();
-  }
 
   const checkIfScrollOnTop = () => {
     return setInterval(async () => {
@@ -955,11 +859,121 @@
     isPending.set(false);
   });
 
-  afterUpdate(() => {
+  // Was afterUpdate: reading allLogs makes this run once the new rows are in
+  // the DOM, which is what the scroll depends on.
+  $effect(() => {
+    allLogs;
     if (shouldAutoScrollLogs(autoscroll, isSharedLinkFocusMode)) {
       div && div.scrollTo(0, div.scrollHeight ? div.scrollHeight : 0);
     }
     autoscroll = false;
+  });
+  $effect.pre(() => {
+    if (dateIntersects.length !== allLogs.length) {
+      dateIntersects = Array.from(
+        { length: allLogs.length },
+        (_, i) => dateIntersects[i] ?? false
+      );
+    }
+  });
+  $effect.pre(() => {
+    if (dateIntersects) {
+      findLastVisibleLog();
+    }
+  });
+  //
+
+  $effect(() => {
+    (async () => {
+      if ($lastChosenHost && $lastChosenService) {
+        // Read without subscribing: referencing $urlHash here would make this
+        // block depend on it, and clearing the hash would retrigger it forever.
+        if (get(urlHash)) {
+          viewFlags.beginDeepLink();
+        }
+        await exitSharedLinkFocusMode();
+        setInitialScroll(0);
+        resetAllLogs();
+        resetParams();
+        resetSearchParams();
+        refreshStatus();
+
+        isPending.set(true);
+        closeWS();
+        await checkIfHashIsInUrl();
+        addScrollLIstenersToLogs();
+      }
+    })();
+  });
+  $effect(() => {
+    const currentSearchText = searchText;
+    (async () => {
+      if (viewFlags.consumeSearchSkip() || viewFlags.isDeepLinkPending()) {
+        return;
+      }
+      await exitSharedLinkFocusMode();
+      if (currentSearchText) {
+        resetParams();
+        resetAllLogs();
+        isPending.set(true);
+        await getFullLogsSet();
+      } else {
+        resetAllLogs();
+        await getFullLogsSet();
+      }
+      addScrollLIstenersToLogs();
+    })();
+  });
+  $effect(() => {
+    const currentStatus = $chosenStatus;
+    (async () => {
+      if (viewFlags.consumeStatusSkip() || viewFlags.isDeepLinkPending()) {
+        return;
+      }
+      await exitSharedLinkFocusMode();
+      if (currentStatus) {
+        resetParams();
+        resetAllLogs();
+        isPending.set(true);
+        await getFullLogsSet();
+      } else {
+        resetAllLogs()
+        await getFullLogsSet();
+      }
+      addScrollLIstenersToLogs();
+    })();
+  });
+  $effect(() => {
+    isInterceptorVIsible(intersects[0], fetchedLogs, !mouseDownBlockFetch);
+  });
+  $effect(() => {
+    isInterceptorVIsible(intersects[1], unfetchedLogs, !mouseDownBlockFetch);
+  });
+  // $: {
+  //   isInterceptorVIsible(intersects[2], fetchedLogs, mouseDownBlockFetch);
+  // }
+  $effect(() => {
+    isInterceptorVIsible(intersects[3], unfetchedLogs, mouseDownBlockFetch);
+  });
+  $effect(() => {
+    if ([...allLogs]) {
+      highlightSearchText();
+    }
+  });
+  $effect(() => {
+    (async () => {
+      if (
+        shouldFlushBufferedLogs(
+          logsFromWS.length,
+          isSharedLinkFocusMode,
+          false
+        ) &&
+        endOffLogsIntersect
+      ) {
+        logsFromWS.length && (await getFullLogsSet());
+        logsFromWS = [];
+      }
+    })();
   });
 </script>
 
@@ -979,18 +993,18 @@
 {#if $isPending}<Spiner />{:else}
   <div id="logs" class="logs" bind:this={div}>
     <div class="logsTableContainer">
-      <table class="logsTable {$store.breakLines ? 'breakLines' : ''}">
+      <div class="logsTable {$store.breakLines ? 'breakLines' : ''}">
         {#if $isSearching}
         <div style="left: 50%; top: 50%; padding-bottom: 10px;" class="flex">
           <Loader />
         </div>
         {/if}
-        <div id="startOfLogs" />
+        <div id="startOfLogs"></div>
         <IntersectionObserver
           element={startOfLogs}
           bind:intersecting={startOfLogsIntersect}
         >
-          <div id="startOfLogs" bind:this={startOfLogs} />
+          <div id="startOfLogs" bind:this={startOfLogs}></div>
         </IntersectionObserver>
         {#each allLogs as logItem, i (logKey(logItem) || i)}
           {#if transformLogStringForTimeBudget(logItem, $store.UTCtime) !== transformLogStringForTimeBudget(allLogs[i - 1], $store.UTCtime) && i - 1 >= 0}
@@ -1025,7 +1039,7 @@
                   element={elements[0]}
                   bind:intersecting={intersects[0]}
                 >
-                  <div class="observer" bind:this={elements[0]} />
+                  <div class="observer" bind:this={elements[0]}></div>
                 </IntersectionObserver>{/if}
 
               {#if i === allLogs.length - limit / 2 && allLogs.length >= 3 * limit}
@@ -1033,7 +1047,7 @@
                   element={elements[1]}
                   bind:intersecting={intersects[1]}
                 >
-                  <div class="observer" bind:this={elements[1]} />
+                  <div class="observer" bind:this={elements[1]}></div>
                 </IntersectionObserver>{/if}
 
               {#if i === 0 && allLogs.length >= 3 * limit}
@@ -1041,7 +1055,7 @@
                   element={elements[2]}
                   bind:intersecting={intersects[2]}
                 >
-                  <div class="observer" bind:this={elements[2]} />
+                  <div class="observer" bind:this={elements[2]}></div>
                 </IntersectionObserver>{/if}
 
               {#if i === allLogs.length - 1 && allLogs.length >= 3 * limit}
@@ -1049,7 +1063,7 @@
                   element={elements[3]}
                   bind:intersecting={intersects[3]}
                 >
-                  <div class="observer" bind:this={elements[3]} />
+                  <div class="observer" bind:this={elements[3]}></div>
                 </IntersectionObserver>{/if}
 
               <LogsString
@@ -1077,7 +1091,7 @@
               <div
                 class={transformLogStringForTimeBudget(logItem, $store.UTCtime)}
                 bind:this={dateEls[i]}
-              />
+></div>
             </IntersectionObserver>
           </div>
         {/each}
@@ -1086,9 +1100,9 @@
           element={endOffLogs}
           bind:intersecting={endOffLogsIntersect}
         >
-          <div id="endOfLogs" bind:this={endOffLogs} />
+          <div id="endOfLogs" bind:this={endOffLogs}></div>
         </IntersectionObserver>
-      </table>
+      </div>
       {#if !endOffLogsIntersect && allLogs.length}
         <div>
           <ButtonToBottom
@@ -1109,18 +1123,18 @@
         </div>
       {/if}
     </div>
-    <div class="timeBudgeContainer" />
+    <div class="timeBudgeContainer"></div>
   </div>{/if}
 <svelte:window
-  on:mousedown={(e) => {
+  onmousedown={(e) => {
     mouseDownBlockFetch = true;
   }}
-  on:mouseup={(e) => {
+  onmouseup={(e) => {
     mouseDownBlockFetch = false;
     clearInterval(extremalScrollId);
     interceptorsWait = false;
   }}
-  on:keydown={(e) => {
+  onkeydown={(e) => {
     handleKeydown(e, "Escape", () => {
       exitSharedLinkFocusMode();
       chosenLogsString.set("");

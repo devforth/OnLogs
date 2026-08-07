@@ -10,20 +10,20 @@
     lastChosenService,
     urlHash,
   } from "./Stores/stores.js";
-  import { onMount, onDestroy } from "svelte";
+  import { onMount } from "svelte";
   import Toast from "./lib/Toast/Toast.svelte";
   import Notfound from "./lib/NotFound/Notfound.svelte";
-  export let url = "";
-  let themeState = "dark";
   let basePathname = "";
   let availibleRoutes = ["view", "login", "users", "servicesettings"];
   import { changeKey } from "./utils/changeKey";
   import { navigate } from "svelte-routing";
+  /**
+   * @typedef {Object} Props
+   * @property {string} [url]
+   */
 
-  const unsubscribe = theme.subscribe((v) => {
-    themeState = v;
-  });
-  $: themeState && checkTheme(themeState);
+  /** @type {Props} */
+  let { url = "" } = $props();
 
   function checkTheme(t) {
     const bodyEl = document.querySelector("body");
@@ -65,7 +65,6 @@
       basePathname = location.pathname.split("/")?.at(1);
     }
   });
-  onDestroy(unsubscribe);
 
   function writeLastChosenHostToLS() {
     window.localStorage.setItem(
@@ -74,21 +73,40 @@
     );
   }
 
-  $: {
+  $effect(() => {
+    checkTheme($theme);
+  });
+
+  $effect(() => {
     if ($lastChosenHost && $lastChosenService) {
       writeLastChosenHostToLS();
     }
-  }
+  });
 </script>
 
 <Router {url} basepath={`${changeKey}/`}>
   <div>
-    <Route path="/view/:host/:service" component={Main} />
-    <Route path={"/login"} component={Login} />
-    <Route path="/users" component={Main} />
-    <Route path="/servicesettings/:host/:service" component={Main} />
-    <Route path="/stats/:host/:service" component={Main} />
-    <Route component={Notfound} />
+    <!-- Snippet form, not component={}: svelte-routing detects Svelte 4 class
+         components with `startsWith("class ")`, and Svelte 5 compiles to
+         functions, so it calls them instead of rendering them. -->
+    <Route path="/view/:host/:service">
+      {#snippet children({ params })}
+        <Main host={params.host} service={params.service} />
+      {/snippet}
+    </Route>
+    <Route path={"/login"}><Login /></Route>
+    <Route path="/users"><Main /></Route>
+    <Route path="/servicesettings/:host/:service">
+      {#snippet children({ params })}
+        <Main host={params.host} service={params.service} />
+      {/snippet}
+    </Route>
+    <Route path="/stats/:host/:service">
+      {#snippet children({ params })}
+        <Main host={params.host} service={params.service} />
+      {/snippet}
+    </Route>
+    <Route><Notfound /></Route>
 
     <Route path={`/`}><Main /></Route>
     <Route path={`/path`}><Main /></Route>

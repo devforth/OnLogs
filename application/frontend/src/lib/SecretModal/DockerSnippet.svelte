@@ -1,6 +1,12 @@
 <script>
-  export let token = "";
-  export let origin = "";
+  /**
+   * @typedef {Object} Props
+   * @property {string} [token]
+   * @property {string} [origin]
+   */
+
+  /** @type {Props} */
+  let { token = "", origin = "" } = $props();
 </script>
 
 <pre class="secretSnippet">

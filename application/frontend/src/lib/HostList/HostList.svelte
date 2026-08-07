@@ -1,8 +1,14 @@
 <script>
-  export let hostName = "";
-  export let servicesData = [];
 
-  export let selectedName = "";
+  /**
+   * @typedef {Object} Props
+   * @property {string} [hostName]
+   * @property {any} [servicesData]
+   * @property {string} [selectedName]
+   */
+
+  /** @type {Props} */
+  let { hostName = "", servicesData = [], selectedName = $bindable("") } = $props();
 
   const selectItem = (serviceName) => {
     selectedName = serviceName;
@@ -12,7 +18,7 @@
 <div class="hostList">
   <div class="hostListHeader">
     <div class="icon">
-      <i class={"log log-Server"} />
+      <i class={"log log-Server"}></i>
     </div>
     <p class="listName">{hostName}</p>
   </div>
@@ -26,7 +32,7 @@
             <!-- <i class="log log-Wheel"/> -->
           {:else}
             <li
-              on:click={() => {
+              onclick={() => {
                 selectItem(service);
               }}
             >

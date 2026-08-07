@@ -11,7 +11,7 @@
   import { fly } from "svelte/transition";
   // Reactive: the component is reused across toasts, so a non-reactive
   // destructure shows the previous message with the new icon.
-  $: ({ tittle, message, status, additionButton } = $toast);
+  let { tittle, message, status, additionButton } = $derived($toast);
 
   onDestroy(() => {
     if ($toastTimeoutId) {
@@ -24,7 +24,7 @@
   transition:fly={{ y: -200, duration: 200 }}
   class="toastContainer {status}"
 >
-  <div class="toastIcoContainer"><i class="log log-{$toast.status}" /></div>
+  <div class="toastIcoContainer"><i class="log log-{$toast.status}"></i></div>
   <h4>{tittle}</h4>
   <p>{message}</p>
 
@@ -57,7 +57,7 @@
 </div>
 
 <svelte:window
-  on:keydown={(e) => {
+  onkeydown={(e) => {
     handleKeydown(e, "Escape", () => {
       toastIsVisible.set(false);
       if (toastTimeoutId) {

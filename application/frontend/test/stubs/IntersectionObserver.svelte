@@ -1,16 +1,21 @@
 <script>
   // jsdom has no viewport, so a real IntersectionObserver could never fire.
   // Instances register themselves so a test can drive intersection explicitly.
+  // Runes + $bindable mirrors the real package: binding a hole into
+  // `intersecting` has to fail here the same way it does in a browser.
   import { onMount } from "svelte";
 
-  export let element = null;
-  export let once = false;
-  export let intersecting = false;
-  export let root = null;
-  export let rootMargin = "0px";
-  export let threshold = 0;
-  export let entry = null;
-  export let observer = null;
+  let {
+    element = null,
+    once = false,
+    intersecting = $bindable(false),
+    root = null,
+    rootMargin = "0px",
+    threshold = 0,
+    entry = $bindable(null),
+    observer = $bindable(null),
+    children,
+  } = $props();
 
   onMount(() => {
     const handle = {
@@ -31,4 +36,4 @@
   });
 </script>
 
-<slot />
+{@render children?.()}

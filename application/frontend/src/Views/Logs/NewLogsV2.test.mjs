@@ -105,7 +105,7 @@ function renderedTimestamps(target) {
     .filter(Boolean);
 }
 
-async function mount(bundle, fetchImpl, counter) {
+async function mountView(bundle, fetchImpl, counter) {
   const { window } = installDom({ fetchImpl });
   const { NewLogsV2, lastChosenHost, lastChosenService, isPending } = bundle;
 
@@ -116,7 +116,7 @@ async function mount(bundle, fetchImpl, counter) {
   isPending.set(false);
 
   const target = window.document.body;
-  const component = new NewLogsV2({ target });
+  const component = bundle.mount(NewLogsV2, { target });
   await settle();
   return { component, target, counter };
 }
@@ -128,7 +128,7 @@ async function run() {
   installDom({ fetchImpl: stubFetch(counter) });
   const bundle = await importBundle(bundlePath);
 
-  const { component, target } = await mount(bundle, stubFetch(counter), counter);
+  const { component, target } = await mountView(bundle, stubFetch(counter), counter);
 
   const rows = renderedRowCount(target);
   const timestamps = renderedTimestamps(target);
@@ -152,11 +152,11 @@ async function run() {
     `duplicate rows on screen: ${JSON.stringify(timestamps)}`
   );
 
-  component.$destroy();
+  bundle.unmount(component);
 
   // --- an empty page must end the load, not restart it ---
   const emptyCounter = { getLogs: 0 };
-  const empty = await mount(
+  const empty = await mountView(
     bundle,
     stubEmptyPageFetch(emptyCounter),
     emptyCounter
@@ -174,11 +174,11 @@ async function run() {
     0,
     "an empty result set should render no rows"
   );
-  empty.component.$destroy();
+  bundle.unmount(empty.component);
 
   // --- a failed request must not wedge the view ---
   const failingCounter = { getLogs: 0 };
-  const failing = await mount(
+  const failing = await mountView(
     bundle,
     stubFailingFetch(failingCounter),
     failingCounter
@@ -194,7 +194,7 @@ async function run() {
   console.log(`  after a 502: isPending=${pendingValue} isSearching=${searchingValue}`);
   assert.equal(pendingValue, false, "a failed request left the spinner up forever");
   assert.equal(searchingValue, false, "a failed request left the loader up forever");
-  failing.component.$destroy();
+  bundle.unmount(failing.component);
 
   // --- destroying the view must not leave a zombie driving the shared stores ---
   const zombieCounter = { getLogs: 0 };
@@ -204,11 +204,11 @@ async function run() {
   bundle.lastChosenHost.set("testhost");
   bundle.lastChosenService.set("testservice");
   bundle.isPending.set(false);
-  const zombie = new bundle.NewLogsV2({ target: zombieWindow.document.body });
+  const zombie = bundle.mount(bundle.NewLogsV2, { target: zombieWindow.document.body });
   await settle();
 
   assert.ok(sockets.length > 0, "the view never opened a websocket");
-  zombie.$destroy();
+  bundle.unmount(zombie);
   await settle(5);
 
   assert.ok(
@@ -226,7 +226,7 @@ async function run() {
 
   // --- a re-served row must not reach the screen twice ---
   const overlapCounter = { getLogs: 0 };
-  const overlap = await mount(
+  const overlap = await mountView(
     bundle,
     stubOverlappingFetch(overlapCounter),
     overlapCounter
@@ -241,7 +241,7 @@ async function run() {
     overlapMessages.length,
     `a re-served row reached the screen twice: ${JSON.stringify(overlapMessages)}`
   );
-  overlap.component.$destroy();
+  bundle.unmount(overlap.component);
 
   // --- a status filter must not silently freeze the live tail ---
   const wsCounter = { getLogs: 0 };
@@ -251,7 +251,7 @@ async function run() {
   bundle.lastChosenHost.set("testhost");
   bundle.lastChosenService.set("testservice");
   bundle.isPending.set(false);
-  const filtered = new bundle.NewLogsV2({ target: wsWindow.document.body });
+  const filtered = bundle.mount(bundle.NewLogsV2, { target: wsWindow.document.body });
   await settle();
 
   bundle.chosenStatus.set("warn");
@@ -285,7 +285,7 @@ async function run() {
     "a live line the classifier calls warn was dropped while the warn filter was active"
   );
   bundle.chosenStatus.set("");
-  filtered.$destroy();
+  bundle.unmount(filtered);
 
   console.log("NewLogsV2 duplication tests passed");
   process.exit(0);

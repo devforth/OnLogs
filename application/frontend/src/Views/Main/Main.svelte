@@ -25,7 +25,7 @@
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
   import { navigate } from "svelte-routing";
-  import { onMount, onDestroy, afterUpdate } from "svelte";
+  import { onMount, onDestroy, } from "svelte";
 
   import ListWithChoise from "../../lib/ListWithChoise/ListWithChoise.svelte";
   import CommonList from "../../lib/CommonList/CommonList.svelte";
@@ -45,14 +45,14 @@
   import { findSearchTextInLogs } from "../../Views/Logs/functions";
 
   let api = new fetchApi();
-  let hostList = [];
+  let hostList = $state([]);
   let intervalId = null;
   let INTERVAL = 10000;
 
   let userMenuState = false;
-  let addUserModOpen = false;
-  let newUserData = { login: "", password: "" };
-  let userForAdding = "";
+  let addUserModOpen = $state(false);
+  let newUserData = $state({ login: "", password: "" });
+  let userForAdding = $state("");
   let withoutRightPanel = false;
 
   function handleClick({ target }) {
@@ -65,8 +65,14 @@
     }
   }
 
-  export let host = "";
-  export let service = "";
+  /**
+   * @typedef {Object} Props
+   * @property {string} [host]
+   * @property {string} [service]
+   */
+
+  /** @type {Props} */
+  let { host = "", service = "" } = $props();
 
   function closeModal() {
     addUserModalOpen.set(false);
@@ -159,10 +165,10 @@
         !location.pathname.includes("/servicesettings") &&
         "active"}
       id="listContainer"
-      on:mouseenter={() => {
+      onmouseenter={() => {
         listScrollIsVisible.set(true);
       }}
-      on:mouseleave={() => {
+      onmouseleave={() => {
         listScrollIsVisible.set(false);
       }}
     >
@@ -170,7 +176,7 @@
         <div class="onLogsPanel">
           <div class="onLogsPanelHeader">
             <h1
-              on:click={() => {
+              onclick={() => {
                 navigate(
                   `${changeKey}/view/${$lastChosenHost}/${$lastChosenService}`,
                   {
@@ -185,7 +191,7 @@
             <div
               style:position={"relative"}
               use:clickOutside
-              on:click_outside={() => {
+              onclick_outside={() => {
                 addHostMenuIsVisible.set(false);
               }}
               class={withoutRightPanel && "visuallyHidden"}
@@ -287,4 +293,4 @@
     {closeModal}
   /></Modal
 >
-<svelte:window on:click={handleClick} />
+<svelte:window onclick={handleClick} />

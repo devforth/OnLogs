@@ -71,7 +71,7 @@ function openDeepLink(latency) {
   bundle.urlHash.set("#" + LINKED);
 
   const target = window.document.body;
-  const component = new bundle.NewLogsV2({ target });
+  const component = bundle.mount(bundle.NewLogsV2, { target });
   return { component, target, counter };
 }
 
@@ -100,7 +100,7 @@ async function run() {
       `latency ${latency}ms: the newest page overwrote the deep-link window: ${JSON.stringify(seen)}`
     );
 
-    opened.component.$destroy();
+    bundle.unmount(opened.component);
   }
 
   console.log("shared link deep-link window tests passed");

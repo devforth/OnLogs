@@ -1,10 +1,23 @@
 <script>
-  export let width = 200;
-  export let height = 40;
-  export let value = "";
-  export let customClass = "";
-  export let thumbClass = "";
-  export let placeholder = "";
+  /**
+   * @typedef {Object} Props
+   * @property {number} [width]
+   * @property {number} [height]
+   * @property {string} [value]
+   * @property {string} [customClass]
+   * @property {string} [thumbClass]
+   * @property {string} [placeholder]
+   */
+
+  /** @type {Props} */
+  let {
+    width = 200,
+    height = 40,
+    value = $bindable(""),
+    customClass = "",
+    thumbClass = "",
+    placeholder = ""
+  } = $props();
 </script>
 
 <div class={thumbClass}>

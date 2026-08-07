@@ -4,7 +4,7 @@
 
 <div class="dropDownContainer ">
   <table class="dropDownTable">
-    <thbody>
+    <tbody>
       <DropDownRow
         rowTitle={"Break long lines"}
         rowImage={"log log-Break"}
@@ -26,6 +26,6 @@
         rowImage={"log log-Json"}
         storeValue={"transformJson"}
       />
-    </thbody>
+    </tbody>
   </table>
 </div>

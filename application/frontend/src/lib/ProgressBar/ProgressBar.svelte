@@ -13,5 +13,5 @@
 </script>
 
 <div class="progressBarContainer">
-  <div style="width: {$progress}%; " class="progressBarValue" />
+  <div style="width: {$progress}%; " class="progressBarValue"></div>
 </div>

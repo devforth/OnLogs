@@ -83,7 +83,7 @@ async function run() {
   bundle.isPending.set(false);
 
   const target = window.document.body;
-  const component = new bundle.NewLogsV2({ target });
+  const component = bundle.mount(bundle.NewLogsV2, { target });
 
   await settle(40);
   // The view only arms its interceptors once initialScroll flips, on a 1s timer.
@@ -123,7 +123,7 @@ async function run() {
   const finalRows = assertInvariants(target, "final");
   console.log(`  after ${triggered} interceptor firing(s): ${finalRows.length} rows`);
 
-  component.$destroy();
+  bundle.unmount(component);
   console.log("NewLogsV2 pagination tests passed");
   process.exit(0);
 }

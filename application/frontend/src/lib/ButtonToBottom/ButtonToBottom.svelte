@@ -1,18 +1,24 @@
 <script>
   import { onMount } from "svelte";
-  export let ico = "";
-  export let callBack = () => {};
-  export let number = null;
+  /**
+   * @typedef {Object} Props
+   * @property {string} [ico]
+   * @property {any} [callBack]
+   * @property {any} [number]
+   */
+
+  /** @type {Props} */
+  let { ico = "", callBack = () => {}, number = null } = $props();
 </script>
 
 <div
   class="buttonToBottomContainer buttonToBottom"
-  on:click={async () => {
+  onclick={async () => {
     await callBack();
   }}
 >
   <div class="icoContainer buttonToBottom">
-    <i class="log log-Down buttonToBottom" />
+    <i class="log log-Down buttonToBottom"></i>
   </div>
   {#if number}<div class="buttonToBottomNumber flex buttonToBottom">
       <p>{number}</p>
