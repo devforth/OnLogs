@@ -26,6 +26,13 @@ func TestMain(m *testing.M) {
 	if os.Getenv("JWT_SECRET") == "" {
 		os.Setenv("JWT_SECRET", "routes-package-test-signing-key")
 	}
+	// A token is only accepted while its account exists, so the accounts these
+	// tests sign tokens for have to be present.
+	os.Setenv("ADMIN_USERNAME", "admin")
+	userdb.CreateUser("admin", "admin-password-for-tests")
+	userdb.CreateUser("testuser", "testuser")
+	userdb.CreateUser("viewer", "viewer-password")
+	userdb.CreateUser("someuser", "someuser-password")
 	os.Exit(m.Run())
 }
 

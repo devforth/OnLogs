@@ -77,6 +77,11 @@ func init_config() {
 	if os.Getenv("MAX_LOGS_SIZE") == "" {
 		os.Setenv("MAX_LOGS_SIZE", "10GB")
 	}
+	if _, err := util.ParseHumanReadableSize(os.Getenv("MAX_LOGS_SIZE")); err != nil {
+		fmt.Printf("FATAL: MAX_LOGS_SIZE=%q is not a valid size (%v); log retention would never run.\n",
+			os.Getenv("MAX_LOGS_SIZE"), err)
+		os.Exit(1)
+	}
 
 	fmt.Println("INFO: OnLogs configs done!")
 }
@@ -150,7 +155,6 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/deleteContainerLogs", routerCtrl.DeleteContainerLogs)
 	http.HandleFunc(pathPrefix+"/api/v1/deleteDockerLogs", routerCtrl.DeleteDockerLogs)
 	http.HandleFunc(pathPrefix+"/api/v1/deleteUser", routerCtrl.DeleteUser)
-	http.HandleFunc(pathPrefix+"/api/v1/editHostname", routerCtrl.EditHostname)
 	http.HandleFunc(pathPrefix+"/api/v1/editUser", routerCtrl.EditUser)
 	http.HandleFunc(pathPrefix+"/api/v1/getChartData", routerCtrl.GetChartData)
 	http.HandleFunc(pathPrefix+"/api/v1/getDockerSize", routerCtrl.GetDockerSize)

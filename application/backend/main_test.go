@@ -3,6 +3,8 @@ package main
 import (
 	"os"
 	"testing"
+
+	"github.com/devforth/OnLogs/app/util"
 )
 
 func TestInitConfigGeneratesAJWTSecretWhenNoneIsConfigured(t *testing.T) {
@@ -78,5 +80,16 @@ func TestNewServerSetsAllTimeouts(t *testing.T) {
 	}
 	if s.IdleTimeout == 0 {
 		t.Error("IdleTimeout is unset")
+	}
+}
+
+func TestInitConfigRejectsAnUnparseableMaxLogsSize(t *testing.T) {
+	if _, err := util.ParseHumanReadableSize("10GB"); err != nil {
+		t.Fatalf("the default should parse: %v", err)
+	}
+	for _, value := range []string{"lots", "10 gigabytes", "GB", "-"} {
+		if _, err := util.ParseHumanReadableSize(value); err == nil {
+			t.Errorf("MAX_LOGS_SIZE=%q was accepted; retention would silently never run", value)
+		}
 	}
 }

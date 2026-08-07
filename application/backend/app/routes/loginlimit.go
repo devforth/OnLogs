@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"net"
 	"net/http"
 	"sync"
@@ -10,6 +12,8 @@ import (
 const (
 	freeLoginAttempts = 5
 	maxLoginBackoff   = 15 * time.Minute
+	loginAttemptTTL   = time.Hour
+	maxLoginEntries   = 4096
 )
 
 type loginAttempts struct {
@@ -20,6 +24,7 @@ type loginAttempts struct {
 type loginAttempt struct {
 	failures int
 	blocked  time.Time
+	seen     time.Time
 }
 
 var loginLimiter = &loginAttempts{entries: map[string]*loginAttempt{}}
@@ -35,12 +40,18 @@ func backoffFor(failures int) time.Duration {
 	return backoff
 }
 
+// Keys are bounded in size: the login half is attacker-chosen and can be up to
+// the whole request body.
+func loginKey(addr string, login string) string {
+	sum := sha256.Sum256([]byte(login))
+	return addr + "|" + hex.EncodeToString(sum[:8])
+}
+
 func (l *loginAttempts) allow(keys ...string) bool {
 	now := time.Now()
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	l.prune(now)
 
 	for _, key := range keys {
 		if entry, ok := l.entries[key]; ok && now.Before(entry.blocked) {
@@ -64,6 +75,7 @@ func (l *loginAttempts) fail(keys ...string) {
 			l.entries[key] = entry
 		}
 		entry.failures++
+		entry.seen = now
 		if backoff := backoffFor(entry.failures); backoff > 0 {
 			entry.blocked = now.Add(backoff)
 		}
@@ -78,12 +90,21 @@ func (l *loginAttempts) succeed(keys ...string) {
 	}
 }
 
+// Called only from fail(), so the scan cost is bounded by the failure rate
+// rather than paid on every login.
 func (l *loginAttempts) prune(now time.Time) {
 	for key, entry := range l.entries {
-		if entry.blocked.IsZero() || now.After(entry.blocked.Add(maxLoginBackoff)) {
-			if entry.failures <= freeLoginAttempts && entry.blocked.IsZero() {
-				continue
-			}
+		if now.Sub(entry.seen) > loginAttemptTTL && now.After(entry.blocked) {
+			delete(l.entries, key)
+		}
+	}
+
+	if len(l.entries) < maxLoginEntries {
+		return
+	}
+	// Hard ceiling: drop everything that is not currently blocking anyone.
+	for key, entry := range l.entries {
+		if now.After(entry.blocked) {
 			delete(l.entries, key)
 		}
 	}

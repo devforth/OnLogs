@@ -4,7 +4,8 @@
   import LogsString from "../../lib/LogsString/LogsString.svelte";
   import fetchApi from "../../utils/fetch";
   import { navigate } from "svelte-routing";
-  import { afterUpdate, onMount, tick } from "svelte";
+  import { afterUpdate, onDestroy, onMount, tick } from "svelte";
+  import { get } from "svelte/store";
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
   import IntersectionObserver from "svelte-intersection-observer";
   import Spiner from "./Spiner.svelte";
@@ -17,6 +18,7 @@
   import {
     shouldAutoScrollLogs,
     shouldFlushBufferedLogs,
+    createLogsViewFlags,
   } from "./shareLinkViewState.js";
 
   import {
@@ -82,6 +84,9 @@
   let autoscroll = false;
   let div;
   let logsLoadGeneration = 0;
+  // Deliberately an object field: assigning a `let` here would retrigger the very
+  // reactive blocks this is meant to hold back.
+  const viewFlags = createLogsViewFlags();
   let pauseWS = false;
   let newLogsAmount = 1;
   let controller = null;
@@ -89,8 +94,6 @@
   let topFetchIsStarted = false;
   let pinedBadgeTimer = null;
   let pinedBadgeIsVisible = false;
-  let skipNextSearchReload = false;
-  let skipNextStatusReload = false;
   let searchResetVersion = 0;
   let isSharedLinkFocusMode = false;
 
@@ -135,6 +138,9 @@
   let startWith = "";
   let tmpStartWith = [];
 
+  // The third element is the full storage key: the only unique row identity.
+  const logKey = (logItem) => logItem?.at(2) ?? logItem?.at(0) ?? "";
+
   function resetAllLogs() {
     allLogs = [];
     newLogs = [];
@@ -157,6 +163,7 @@
     let last_key = "";
     let is_all_logs_processed = false;
 
+    try {
     while (total_logs_amount < limit && !is_all_logs_processed) {
       isSearching.set(true);
       const data = await api.getLogs({
@@ -196,12 +203,15 @@
     visibleLogs = allLogsCopy.splice(0, limit);
     previousLogs = allLogsCopy.splice(0, limit);
 
-    isSearching.set(false);
-    isPending.set(false);
     autoscroll = true;
-    pauseWS = false;
-
     logsFromWS = [];
+    } catch (e) {
+      console.error(e);
+    } finally {
+      isSearching.set(false);
+      isPending.set(false);
+      pauseWS = false;
+    }
   }
 
   async function checkIfHashIsInUrl() {
@@ -219,6 +229,7 @@
     }
 
     urlHash.set("");
+    viewFlags.endDeepLink();
     setTimeout(() => {
       setTimeout(() => {
         setInitialScroll(1);
@@ -237,6 +248,7 @@
 
   async function fetchIfHashIsInUrl(startWith) {
     const initialService = $lastChosenService;
+    const generation = ++logsLoadGeneration;
     const getLogsArray = (response) =>
       Array.isArray(response?.logs) ? response.logs : [];
 
@@ -274,14 +286,14 @@
         const upperLogsResponse = await api.getLogs({
           containerName: $lastChosenService,
           limit: limit - downLogs.length,
-          startWith: viewLogs?.at(0)[0],
+          startWith: logKey(viewLogs?.at(0)),
           hostName: $lastChosenHost,
           status: $chosenStatus,
         });
         upperLogs = getLogsArray(upperLogsResponse);
       }
     }
-    if (initialService === $lastChosenService) {
+    if (initialService === $lastChosenService && generation === logsLoadGeneration) {
       allLogs = [...upperLogs.reverse(), ...viewLogs, ...downLogs];
 
       let allLogsCopy = [...allLogs];
@@ -438,6 +450,9 @@
 
   function resetSearchParams() {
     searchText = "";
+    // Also disarms any debounce timer still pending in the header, which would
+    // otherwise write the previous service's search term back a moment later.
+    searchResetVersion = searchResetVersion + 1;
   }
 
   async function exitSharedLinkFocusMode(flushBufferedLogs = false) {
@@ -483,10 +498,10 @@
     urlHash.set(hash);
 
     if (hadSearchText) {
-      skipNextSearchReload = true;
+      viewFlags.skipNextSearchReload();
     }
     if (hadChosenStatus) {
-      skipNextStatusReload = true;
+      viewFlags.skipNextStatusReload();
     }
 
     resetSearchParams();
@@ -546,7 +561,7 @@
         ? customStartWith
         : customStartWith === 0
         ? ""
-        : allLogs.at(0)?.at(0);
+        : logKey(allLogs.at(0));
 
       while (total_logs_amount < limit && !is_all_logs_processed) {
         isSearching.set(true);
@@ -622,7 +637,11 @@
       let total_logs = [];
       let total_received_logs_count = 0;
       let is_all_logs_processed = false;
-      let last_key = customStartWith ? customStartWith : customStartWith === 0 ? "" : allLogs.at(0)?.at(0);
+      let last_key = customStartWith
+        ? customStartWith
+        : customStartWith === 0
+        ? ""
+        : logKey(allLogs.at(0));
 
       while (limit > total_received_logs_count && !is_all_logs_processed) {
         isSearching.set(true);
@@ -669,7 +688,7 @@
         const initialService = $lastChosenService;
         isFeatching.set(true);
 
-        let last_key = allLogs.at(-1) ? allLogs.at(-1)[0] : "";
+        let last_key = logKey(allLogs.at(-1));
         let total_logs = [];
         let total_received_logs_count = 0;
         let is_all_logs_processed = false;
@@ -723,6 +742,11 @@
   $: {
     (async () => {
       if ($lastChosenHost && $lastChosenService) {
+        // Read without subscribing: referencing $urlHash here would make this
+        // block depend on it, and clearing the hash would retrigger it forever.
+        if (get(urlHash)) {
+          viewFlags.beginDeepLink();
+        }
         await exitSharedLinkFocusMode();
         setInitialScroll(0);
         resetAllLogs();
@@ -738,14 +762,21 @@
     })();
   }
 
-  function addScrollLIstenersToLogs() {
-    let isEventOnScroll = false;
+  let scrollHandler = null;
+  let scrollTarget = null;
 
-    const interval = setInterval(() => {
+  function addScrollLIstenersToLogs() {
+    clearInterval(scrollListenerIntervalId);
+
+    scrollListenerIntervalId = setInterval(() => {
       const logsContEl = document.querySelector("#logs");
 
       if (logsContEl) {
-        logsContEl.addEventListener("scroll", function () {
+        // Without this, every reload stacked another listener on the same node.
+        if (scrollTarget && scrollHandler) {
+          scrollTarget.removeEventListener("scroll", scrollHandler);
+        }
+        scrollHandler = function () {
           let st = window.scrollY || logsContEl.scrollTop;
           if (st > lastScrollTop) {
             scrollDirection = "down";
@@ -761,20 +792,17 @@
           pinedBadgeTimer = setTimeout(function () {
             pinedBadgeIsVisible = false;
           }, 350);
-        });
-        isEventOnScroll = true;
-      }
-      if (isEventOnScroll) {
-        clearInterval(interval);
-        isEventOnScroll = false;
+        };
+        scrollTarget = logsContEl;
+        logsContEl.addEventListener("scroll", scrollHandler);
+        clearInterval(scrollListenerIntervalId);
       }
     }, 1000);
   }
 
   $: {
     (async () => {
-      if (skipNextSearchReload) {
-        skipNextSearchReload = false;
+      if (viewFlags.consumeSearchSkip() || viewFlags.isDeepLinkPending()) {
         return;
       }
       await exitSharedLinkFocusMode();
@@ -793,8 +821,7 @@
 
   $: {
     (async () => {
-      if (skipNextStatusReload) {
-        skipNextStatusReload = false;
+      if (viewFlags.consumeStatusSkip() || viewFlags.isDeepLinkPending()) {
         return;
       }
       await exitSharedLinkFocusMode();
@@ -847,7 +874,7 @@
   }
 
   const checkIfScrollOnTop = () => {
-    const checkIfScrollOnTopInterval = setInterval(async () => {
+    return setInterval(async () => {
       if (
         startOfLogsIntersect &&
         allLogs.length >= 3 * limit &&
@@ -868,16 +895,42 @@
     }, 500);
   };
 
+  let topScrollIntervalId = null;
+  let scrollListenerIntervalId = null;
+  let onResize = null;
+
   onMount(async () => {
-    checkIfScrollOnTop();
+    topScrollIntervalId = checkIfScrollOnTop();
     initialScroll = 1;
 
-    window.addEventListener("resize", () => {
+    onResize = () => {
       const logsContEl = document.querySelector("#logs");
       if (logsContEl) {
-        limit = Math.round(logsContEl.offsetHeight / 200) * 10;
+        // Never 0: a short pane would otherwise request no logs at all.
+        limit = Math.max(10, Math.round(logsContEl.offsetHeight / 200) * 10);
       }
-    });
+    };
+    window.addEventListener("resize", onResize);
+  });
+
+  onDestroy(() => {
+    clearInterval(topScrollIntervalId);
+    clearInterval(scrollListenerIntervalId);
+    if (scrollTarget && scrollHandler) {
+      scrollTarget.removeEventListener("scroll", scrollHandler);
+    }
+    clearTimeout(extremalScrollId);
+    clearTimeout(pinedBadgeTimer);
+    if (onResize) {
+      window.removeEventListener("resize", onResize);
+    }
+    closeWS();
+    // The component is going away; it must not keep driving the shared stores
+    // the surviving instance reads.
+    logsLoadGeneration = logsLoadGeneration + 1;
+    isFeatching.set(false);
+    isSearching.set(false);
+    isPending.set(false);
   });
 
   afterUpdate(() => {

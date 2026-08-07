@@ -1,12 +1,28 @@
 package vars
 
 import (
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 const wsWriteDeadline = 10 * time.Second
+
+// gorilla permits at most one concurrent writer per connection and panics
+// otherwise, so each viewer carries its own write lock.
+type viewer struct {
+	conn    *websocket.Conn
+	writeMu sync.Mutex
+}
+
+func (v *viewer) write(messageType int, payload []byte) error {
+	v.writeMu.Lock()
+	defer v.writeMu.Unlock()
+
+	v.conn.SetWriteDeadline(time.Now().Add(wsWriteDeadline))
+	return v.conn.WriteMessage(messageType, payload)
+}
 
 // AddConnection registers a viewer's websocket for a host/container.
 func AddConnection(key string, conn *websocket.Conn) {
@@ -15,41 +31,40 @@ func AddConnection(key string, conn *websocket.Conn) {
 	}
 	connectionsMutex.Lock()
 	defer connectionsMutex.Unlock()
-	Connections[key] = append(Connections[key], conn)
+	connections[key] = append(connections[key], &viewer{conn: conn})
 }
 
-func connectionsFor(key string) []*websocket.Conn {
+func viewersFor(key string) []*viewer {
 	connectionsMutex.RLock()
 	defer connectionsMutex.RUnlock()
-	return append([]*websocket.Conn{}, Connections[key]...)
+	return append([]*viewer{}, connections[key]...)
 }
 
-func removeConnection(key string, conn *websocket.Conn) {
+func removeViewer(key string, target *viewer) {
 	connectionsMutex.Lock()
 	defer connectionsMutex.Unlock()
 
-	remaining := Connections[key][:0]
-	for _, existing := range Connections[key] {
-		if existing != conn {
+	remaining := connections[key][:0]
+	for _, existing := range connections[key] {
+		if existing != target {
 			remaining = append(remaining, existing)
 		}
 	}
 	if len(remaining) == 0 {
-		delete(Connections, key)
+		delete(connections, key)
 		return
 	}
-	Connections[key] = remaining
+	connections[key] = remaining
 }
 
 // Broadcast writes to every viewer of a host/container, dropping any connection
 // that errors or stalls. A viewer that never drains its socket would otherwise
 // block the caller forever, which freezes ingestion for that container.
 func Broadcast(key string, messageType int, payload []byte) {
-	for _, conn := range connectionsFor(key) {
-		conn.SetWriteDeadline(time.Now().Add(wsWriteDeadline))
-		if err := conn.WriteMessage(messageType, payload); err != nil {
-			removeConnection(key, conn)
-			conn.Close()
+	for _, v := range viewersFor(key) {
+		if err := v.write(messageType, payload); err != nil {
+			removeViewer(key, v)
+			v.conn.Close()
 		}
 	}
 }
@@ -57,5 +72,5 @@ func Broadcast(key string, messageType int, payload []byte) {
 func ConnectionCount(key string) int {
 	connectionsMutex.RLock()
 	defer connectionsMutex.RUnlock()
-	return len(Connections[key])
+	return len(connections[key])
 }

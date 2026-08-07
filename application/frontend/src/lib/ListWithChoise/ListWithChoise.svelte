@@ -35,7 +35,7 @@
           $lastChosenHost || (sortedData[0] && sortedData[0].host);
         const chosenService =
           $lastChosenService ||
-          (sortedData[0] && sortedData[0].services[0].serviceName);
+          sortedData[0]?.services?.[0]?.serviceName;
         activeElementName = sortedData[0] && `${chosenHost}-${chosenService}`;
 
         lastChosenHost.set(chosenHost);
@@ -281,7 +281,7 @@
             }}
           >
             <i class="log log-Archive" />
-            <p class="stopedServices">stoped services</p>
+            <p class="stopedServices">stopped services</p>
             <i
               class="log log-Pointer {!openStopedServIndexes.includes(index)
                 ? 'rotated'

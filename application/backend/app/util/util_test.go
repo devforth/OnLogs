@@ -9,6 +9,12 @@ import (
 	"github.com/devforth/OnLogs/app/vars"
 )
 
+// A token is only accepted while its account exists, so these fixtures need to.
+func TestMain(m *testing.M) {
+	vars.UsersDB.Put([]byte("test_user"), []byte("irrelevant"), nil)
+	os.Exit(m.Run())
+}
+
 func TestContains(t *testing.T) {
 	type args struct {
 		a    string

@@ -88,7 +88,26 @@ func TestGetLogs(t *testing.T) {
 		t.Error("Invalid last logItem datetime: ", logs[4][0])
 	}
 
-	logs = GetLogs(true, false, "Test", "TestGetLogsCont", "", 30, vars.Year+"-02-10T12:51:09.230421754Z", false, nil)["logs"].([][]string)
+	// Rewritten: this used to pass a BARE TIMESTAMP as the cursor and assert that
+	// 4 of the 5 rows came back. That only held because GetLogs also skipped any
+	// row whose timestamp merely equalled the cursor, which silently drops every
+	// other row written in the same instant. Page with the cursor the API returns
+	// -- the full key -- which identifies exactly one row.
+	oldest := GetLogs(true, false, "Test", "TestGetLogsCont", "", 1, "", false, nil)
+	oldestRows := oldest["logs"].([][]string)
+	if len(oldestRows) != 1 {
+		t.Fatalf("expected one row when paging forward from the start, got %d", len(oldestRows))
+	}
+	if oldestRows[0][0] != vars.Year+"-02-10T12:51:09.230421754Z" {
+		t.Error("Invalid first logItem datetime: ", oldestRows[0][0])
+	}
+
+	cursor := oldest["last_processed_key"].(string)
+	if cursor == "" {
+		t.Fatal("GetLogs returned no cursor to page with")
+	}
+
+	logs = GetLogs(true, false, "Test", "TestGetLogsCont", "", 30, cursor, false, nil)["logs"].([][]string)
 	if len(logs) != 4 {
 		t.Error("4 logItems must be returned!")
 	}

@@ -106,10 +106,21 @@ func TestAddHostRejectsNamesThatLeaveTheTree(t *testing.T) {
 		}
 	}
 
-	for _, leaked := range []string{"PWNED_HOST", "PWNED_SERVICE", "../PWNED_HOST"} {
+	// Assert on exactly the paths MkdirAll would build, not on names relative to
+	// the package directory — those resolve elsewhere and silently pass.
+	for _, leaked := range []string{
+		"leveldb/hosts/../../../../PWNED_HOST",
+		"leveldb/hosts/realhost/containers/../../../../PWNED_SERVICE",
+	} {
 		if _, err := os.Stat(leaked); err == nil {
 			os.RemoveAll(leaked)
 			t.Errorf("addHost created %s outside leveldb/hosts", leaked)
+		}
+	}
+	entries, _ := os.ReadDir("leveldb/hosts")
+	for _, entry := range entries {
+		if !util.IsSafeName(entry.Name()) {
+			t.Errorf("addHost created an unsafe host directory: %q", entry.Name())
 		}
 	}
 }
@@ -131,9 +142,11 @@ func TestAddLogLineRejectsNamesThatLeaveTheTree(t *testing.T) {
 	if code := rr.Result().StatusCode; code != http.StatusBadRequest {
 		t.Errorf("addLogLine accepted a traversing host: status %d", code)
 	}
-	if _, err := os.Stat("../../../../PWNED_INGEST"); err == nil {
-		os.RemoveAll("../../../../PWNED_INGEST")
-		t.Error("addLogLine created a directory outside leveldb/hosts")
+	for _, leaked := range []string{"../../../../PWNED_INGEST", "leveldb/hosts/../../../../PWNED_INGEST"} {
+		if _, err := os.Stat(leaked); err == nil {
+			os.RemoveAll(leaked)
+			t.Errorf("addLogLine created %s outside leveldb/hosts", leaked)
+		}
 	}
 }
 
@@ -233,12 +246,8 @@ func TestGetLogsStreamRejectsAForeignOrigin(t *testing.T) {
 	if code := rr.Result().StatusCode; code != http.StatusForbidden {
 		t.Errorf("a cross-origin websocket handshake was not rejected: status %d", code)
 	}
-	for _, conns := range vars.Connections {
-		for _, c := range conns {
-			if c == nil {
-				t.Fatal("a failed upgrade stored a nil connection that a background goroutine will dereference")
-			}
-		}
+	if got := vars.ConnectionCount(util.GetHost() + "/somecontainer"); got != 0 {
+		t.Fatalf("a failed upgrade stored %d connection(s); a background goroutine will dereference them", got)
 	}
 }
 

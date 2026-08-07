@@ -74,16 +74,46 @@ func TestGetLogsClampsAnEnormousLimit(t *testing.T) {
 	}
 }
 
-func TestGetLogsReportsEndWhenTheScanCapStopsIt(t *testing.T) {
-	seedLogs(t, "CapHost", "CapCont", 50)
+// A capped scan must hand back a cursor that advances. Reporting is_end would
+// make everything past the cap unreachable; an empty cursor would restart the
+// client at the newest row and loop forever.
+func TestGetLogsResumesPastTheScanCap(t *testing.T) {
+	seedLogs(t, "CapHost", "CapCont", 60)
 
 	original := maxScanIterations
 	maxScanIterations = 10
 	t.Cleanup(func() { maxScanIterations = original })
 
-	result := GetLogs(false, false, "CapHost", "CapCont", "no-such-text-anywhere", 30, "", false, nil)
+	seen := map[string]int{}
+	cursor := ""
+	for round := 0; round < 40; round++ {
+		// "line 0" matches exactly one row, the OLDEST — far beyond the first cap
+		// window, since the scan walks newest-first.
+		result := GetLogs(false, false, "CapHost", "CapCont", "line 0", 30, cursor, false, nil)
 
-	if result["is_end"] != true {
-		t.Fatalf("the scan stopped at the iteration cap but reported is_end=%v; the client re-requests the same page forever", result["is_end"])
+		for _, row := range result["logs"].([][]string) {
+			seen[row[1]]++
+		}
+		if result["is_end"] == true {
+			break
+		}
+
+		next := result["last_processed_key"].(string)
+		if next == "" {
+			t.Fatalf("round %d: a capped scan returned no cursor, so the client restarts at the newest row", round)
+		}
+		if next == cursor {
+			t.Fatalf("round %d: the cursor did not advance past the cap (%q)", round, next)
+		}
+		cursor = next
+	}
+
+	if len(seen) == 0 {
+		t.Fatal("a rare search term past the scan cap was never reachable")
+	}
+	for message, count := range seen {
+		if count != 1 {
+			t.Errorf("row %q was returned %d times across the capped scan", message, count)
+		}
 	}
 }

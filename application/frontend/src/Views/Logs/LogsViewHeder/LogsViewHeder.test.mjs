@@ -58,6 +58,18 @@ async function run() {
       JSON.stringify(component.searchText)
   );
 
+  // A pending timer must not write back after the view clears the search, or a
+  // service switch reloads the new service filtered by the old term.
+  type(window, input, "stale term");
+  component.searchResetVersion = component.searchResetVersion + 1;
+  await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS + 250));
+
+  assert.notEqual(
+    component.searchText,
+    "stale term",
+    "a pending debounce timer resurrected the previous search term after it was cleared"
+  );
+
   component.$destroy();
   console.log("LogsViewHeder debounce tests passed");
   process.exit(0);

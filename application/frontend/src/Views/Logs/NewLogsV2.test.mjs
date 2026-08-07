@@ -60,6 +60,19 @@ function stubEmptyPageFetch(counter) {
   };
 }
 
+// One transient 502 used to leave a permanent spinner, infinite scroll dead in
+// both directions, and the websocket connected but every line silently dropped.
+function stubFailingFetch(counter) {
+  return async (url) => {
+    const target = String(url);
+    if (target.includes("getLogs?")) {
+      counter.getLogs += 1;
+      return { status: 502, ok: false, json: async () => ({}) };
+    }
+    return jsonResponse({ logs: [], last_processed_key: "", is_end: true });
+  };
+}
+
 function renderedRowCount(target) {
   return target.querySelectorAll(".chosenString").length;
 }
@@ -140,6 +153,54 @@ async function run() {
     "an empty result set should render no rows"
   );
   empty.component.$destroy();
+
+  // --- a failed request must not wedge the view ---
+  const failingCounter = { getLogs: 0 };
+  const failing = await mount(
+    bundle,
+    stubFailingFetch(failingCounter),
+    failingCounter
+  );
+
+  const pending = bundle.isPending;
+  const searching = bundle.isSearching;
+  let pendingValue;
+  let searchingValue;
+  pending.subscribe((v) => (pendingValue = v))();
+  searching.subscribe((v) => (searchingValue = v))();
+
+  console.log(`  after a 502: isPending=${pendingValue} isSearching=${searchingValue}`);
+  assert.equal(pendingValue, false, "a failed request left the spinner up forever");
+  assert.equal(searchingValue, false, "a failed request left the loader up forever");
+  failing.component.$destroy();
+
+  // --- destroying the view must not leave a zombie driving the shared stores ---
+  const zombieCounter = { getLogs: 0 };
+  const { window: zombieWindow, sockets } = installDom({
+    fetchImpl: stubFetch(zombieCounter),
+  });
+  bundle.lastChosenHost.set("testhost");
+  bundle.lastChosenService.set("testservice");
+  bundle.isPending.set(false);
+  const zombie = new bundle.NewLogsV2({ target: zombieWindow.document.body });
+  await settle();
+
+  assert.ok(sockets.length > 0, "the view never opened a websocket");
+  zombie.$destroy();
+  await settle(5);
+
+  assert.ok(
+    sockets.every((s) => s.readyState === 3),
+    "destroying the view left its websocket open"
+  );
+
+  let stillFetching;
+  bundle.isFeatching.subscribe((v) => (stillFetching = v))();
+  assert.equal(
+    stillFetching,
+    false,
+    "a destroyed view left the shared isFeatching store set, which blocks the live one"
+  );
 
   console.log("NewLogsV2 duplication tests passed");
   process.exit(0);

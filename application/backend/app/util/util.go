@@ -90,7 +90,14 @@ func CreateJWT(login string) string {
 // Every path component must be a single, literal name; anything else escapes
 // leveldb/hosts.
 func IsSafeName(s string) bool {
-	return s != "" && s != "." && s != ".." && !strings.ContainsRune(s, 0) && s == filepath.Base(s)
+	if s == "" || s == "." || s == ".." {
+		return false
+	}
+	// filepath.Base("/") is "/", so the Base comparison alone lets it through.
+	if strings.ContainsAny(s, `/\`) || strings.ContainsRune(s, 0) {
+		return false
+	}
+	return s == filepath.Base(s)
 }
 
 func GetDB(host string, container string, dbType string) *leveldb.DB {
@@ -128,8 +135,8 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 	}
 
 	if err != nil {
-		panic(fmt.Sprintf("ERROR: unable to open db for %s/%s/%s\n%v",
-			host, container, dbType, err))
+		fmt.Printf("ERROR: unable to open db for %s/%s/%s: %v\n", host, container, dbType, err)
+		return nil
 	}
 
 	switch dbType {
@@ -154,6 +161,37 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 
 // ResetDB closes a cached handle and drops it, so the next GetDB opens a fresh
 // one. Closing without dropping leaves callers holding a closed handle.
+// containersMeta lives beside the containers directory rather than inside it, so
+// it needs its own accessor. Two copies of this block used to open it with no
+// lock, which raced and panicked on the flock conflict.
+func GetContainersMetaDB(host string) *leveldb.DB {
+	if !IsSafeName(host) {
+		return nil
+	}
+
+	vars.DBMutex.RLock()
+	db := vars.ContainersMeta_DBs[host]
+	vars.DBMutex.RUnlock()
+	if db != nil {
+		return db
+	}
+
+	vars.DBMutex.Lock()
+	defer vars.DBMutex.Unlock()
+
+	if db = vars.ContainersMeta_DBs[host]; db != nil {
+		return db
+	}
+
+	db, err := leveldb.OpenFile("leveldb/hosts/"+host+"/containersMeta", nil)
+	if err != nil {
+		fmt.Printf("ERROR: unable to open containersMeta for %s: %v\n", host, err)
+		return nil
+	}
+	vars.ContainersMeta_DBs[host] = db
+	return db
+}
+
 func ResetDB(host string, container string, dbType string) {
 	if !IsSafeName(host) || !IsSafeName(container) || !IsSafeName(dbType) {
 		return
@@ -292,6 +330,11 @@ func GetUserFromJWT(req http.Request) (string, error) {
 	if !ok || user == "" {
 		return "", errors.New("401 - Unauthorized!")
 	}
+
+	// A valid signature is not enough: deleting an account must revoke it.
+	if exists, err := vars.UsersDB.Has([]byte(user), nil); err != nil || !exists {
+		return "", errors.New("401 - Unauthorized!")
+	}
 	return user, nil
 }
 
@@ -310,15 +353,10 @@ func GetDockerContainerID(host string, container string) string {
 		return ""
 	}
 
-	containersMetaDB := vars.ContainersMeta_DBs[host]
+	containersMetaDB := GetContainersMetaDB(host)
 	if containersMetaDB == nil {
-		containersMetaDB, err := leveldb.OpenFile("leveldb/hosts/"+host+"/containersMeta", nil)
-		if err != nil {
-			panic(err)
-		}
-		vars.ContainersMeta_DBs[host] = containersMetaDB
+		return ""
 	}
-	containersMetaDB = vars.ContainersMeta_DBs[host]
 
 	iter := containersMetaDB.NewIterator(nil, nil)
 	defer iter.Release()

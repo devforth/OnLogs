@@ -101,10 +101,10 @@
     if (Array.isArray(data) && data.at(0)) {
       hostList = [...data];
     }
-    if (data.host) {
+    if (data?.host) {
       hostList = [data];
     }
-    return data;
+    return Array.isArray(data) ? data : [];
   }
   onMount(async () => {
     const data = await getHosts();
@@ -121,18 +121,18 @@
           return s.serviceName === $lastChosenService;
         }
       );
-      if (isAlreadyChosenService[0].serviceName) {
+      if (isAlreadyChosenService[0]?.serviceName) {
         return;
       } else {
         if (service) {
           lastChosenService.set(service);
         } else {
-          lastChosenService.set(hostList.at(0)["services"].at(0).serviceName);
+          lastChosenService.set(hostList.at(0)?.services?.at(0)?.serviceName);
         }
         if (host) {
           lastChosenHost.set(host);
         } else {
-          lastChosenHost.set(hostList.at(0)["host"]);
+          lastChosenHost.set(hostList.at(0)?.host);
         }
       }
     }

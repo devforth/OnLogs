@@ -9,6 +9,10 @@ func TestGetDBRefusesNamesThatLeaveTheTree(t *testing.T) {
 	t.Chdir(t.TempDir())
 
 	cases := [][3]string{
+		{"/", "c", "logs"},
+		{"c", "/", "logs"},
+		{"c", "c", "/"},
+		{"a\\b", "c", "logs"},
 		{"../../../PWN", "c", "logs"},
 		{"realhost", "../../../../PWN", "logs"},
 		{"realhost", "c", "../../../PWN"},
@@ -82,5 +86,23 @@ func TestGetDockerContainerIDRefusesNamesThatLeaveTheTree(t *testing.T) {
 	}
 	if _, err := os.Stat("containersMeta"); err == nil {
 		t.Fatal("GetDockerContainerID created a LevelDB outside leveldb/hosts")
+	}
+}
+
+func TestIsSafeNameRejectsEverySeparatorShape(t *testing.T) {
+	unsafe := []string{
+		"", ".", "..", "/", "//", "a/", "/a", "a/b", "../x", "x/..",
+		"a\\b", "\\", "a\x00b",
+	}
+	for _, name := range unsafe {
+		if IsSafeName(name) {
+			t.Errorf("IsSafeName(%q) accepted a name that is not a single path component", name)
+		}
+	}
+
+	for _, name := range []string{"ok", "my-container", "my_container.1", "a"} {
+		if !IsSafeName(name) {
+			t.Errorf("IsSafeName(%q) rejected a legitimate name", name)
+		}
 	}
 }

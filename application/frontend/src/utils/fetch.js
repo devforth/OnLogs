@@ -36,6 +36,9 @@ class fetchApi {
       navigate(`${changeKey}/login`, { replace: true });
       return null;
     }
+    if (!response.ok) {
+      throw new Error(`${method} ${path} failed with ${response.status}`);
+    }
     return await response.json();
   }
 
@@ -75,16 +78,18 @@ class fetchApi {
     hostName = "",
     signal,
   }) {
-    return await this.doFetch(
-      "GET",
-      `${
-        this.url
-      }getLogs?host=${hostName}&id=${containerName}&search=${search}&status=${status}&limit=${limit}&startWith=${startWith}${
-        search ? `&caseSens=${caseSens}` : ""
-      }`,
-      null,
-      signal
-    );
+    const params = new URLSearchParams({
+      host: hostName,
+      id: containerName,
+      search,
+      status,
+      limit,
+      startWith,
+    });
+    if (search) {
+      params.set("caseSens", caseSens);
+    }
+    return await this.doFetch("GET", `${this.url}getLogs?${params}`, null, signal);
   }
 
   async getPrevLogs({
@@ -97,10 +102,17 @@ class fetchApi {
     startWith = "",
     hostName = "",
   }) {
-    return await this.doFetch(
-      "GET",
-      `${this.url}getPrevLogs?host=${hostName}&id=${containerName}&search=${search}&status=${status}&limit=${limit}&offset=${offset}&startWith=${startWith}&caseSens=${caseSens}`
-    );
+    const params = new URLSearchParams({
+      host: hostName,
+      id: containerName,
+      search,
+      status,
+      limit,
+      offset,
+      startWith,
+      caseSens,
+    });
+    return await this.doFetch("GET", `${this.url}getPrevLogs?${params}`);
   }
 
   async getUsers() {
@@ -126,10 +138,8 @@ class fetchApi {
     return await this.doFetch("GET", `${this.url}getSizeByAll`);
   }
   async getServiceLogsSize(host, service) {
-    return await this.doFetch(
-      "GET",
-      `${this.url}getSizeByService?host=${host}&service=${service}`
-    );
+    const params = new URLSearchParams({ host, service });
+    return await this.doFetch("GET", `${this.url}getSizeByService?${params}`);
   }
   async cleanLogs(host, service) {
     return await this.doFetch("POST", `${this.url}deleteContainerLogs`, {
@@ -175,10 +185,13 @@ class fetchApi {
     startWith = "",
     hostName = "",
   }) {
-    return await this.doFetch(
-      "GET",
-      `${this.url}getLogWithPrev?host=${hostName}&id=${containerName}&limit=${limit}&startWith=${startWith}`
-    );
+    const params = new URLSearchParams({
+      host: hostName,
+      id: containerName,
+      limit,
+      startWith,
+    });
+    return await this.doFetch("GET", `${this.url}getLogWithPrev?${params}`);
   }
 
   async cleanDockerLogs(host, service) {
@@ -199,10 +212,14 @@ class fetchApi {
   }
 
   async getLogsByTag({ host, containerName, limit, status, message }) {
-    return await this.doFetch(
-      "GET",
-      `${this.url}getUserSettings?host=${host}&id=${containerName}&limit=${limit}&status=${status}&message=${message}`
-    );
+    const params = new URLSearchParams({
+      host,
+      id: containerName,
+      limit,
+      status,
+      message,
+    });
+    return await this.doFetch("GET", `${this.url}getUserSettings?${params}`);
   }
 }
 

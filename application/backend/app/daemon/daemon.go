@@ -22,6 +22,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
+	leveldbUtil "github.com/syndtr/goleveldb/leveldb/util"
 )
 
 const (
@@ -41,6 +42,7 @@ type DaemonService struct {
 	streamSeq          uint64
 	recentFingerprints map[string][]string
 	recentSet          map[string]map[string]struct{}
+	droppedReplays     map[string]int
 }
 
 func (h *DaemonService) ensureRuntimeState() {
@@ -58,6 +60,9 @@ func (h *DaemonService) ensureRuntimeState() {
 	}
 	if h.recentSet == nil {
 		h.recentSet = map[string]map[string]struct{}{}
+	}
+	if h.droppedReplays == nil {
+		h.droppedReplays = map[string]int{}
 	}
 }
 
@@ -107,6 +112,70 @@ func parseDockerLogLine(line string) ([]string, time.Time, bool) {
 	return []string{tsStr, parts[1]}, ts, true
 }
 
+func (h *DaemonService) rememberFingerprint(containerName, fingerprint string) {
+	if h.recentSet[containerName] == nil {
+		h.recentSet[containerName] = map[string]struct{}{}
+	}
+	if _, exists := h.recentSet[containerName][fingerprint]; exists {
+		return
+	}
+
+	h.recentSet[containerName][fingerprint] = struct{}{}
+	h.recentFingerprints[containerName] = append(h.recentFingerprints[containerName], fingerprint)
+	if len(h.recentFingerprints[containerName]) > maxRecentLogEntries {
+		toDrop := h.recentFingerprints[containerName][0]
+		h.recentFingerprints[containerName] = h.recentFingerprints[containerName][1:]
+		delete(h.recentSet[containerName], toDrop)
+	}
+}
+
+// forgetContainer releases the dedupe state for a container whose stream ended.
+func (h *DaemonService) forgetContainer(containerName string) {
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	delete(h.recentSet, containerName)
+	delete(h.recentFingerprints, containerName)
+	delete(h.droppedReplays, containerName)
+}
+
+// seedBoundaryFingerprints loads the lines already stored at exactly the cursor
+// timestamp, so a replay of them is recognised while a genuinely new line
+// sharing that nanosecond is still kept.
+func (h *DaemonService) seedBoundaryFingerprints(host, containerName string, cursor time.Time) {
+	if cursor.IsZero() {
+		return
+	}
+	db := util.GetDB(host, containerName, "logs")
+	if db == nil {
+		return
+	}
+
+	prefix := cursor.UTC().Format(streamTimestampFmt)
+	iter := db.NewIterator(leveldbUtil.BytesPrefix([]byte(prefix)), nil)
+	defer iter.Release()
+
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	for iter.Next() {
+		h.rememberFingerprint(containerName, prefix+" "+string(iter.Value()))
+	}
+}
+
+func (h *DaemonService) countDroppedReplay(containerName string) {
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	h.droppedReplays[containerName]++
+	if count := h.droppedReplays[containerName]; count == 1 || count%100 == 0 {
+		fmt.Printf("INFO: dropped %d replayed log line(s) for %s\n", count, containerName)
+	}
+}
+
+func (h *DaemonService) DroppedReplays(containerName string) int {
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	return h.droppedReplays[containerName]
+}
+
 func (h *DaemonService) isRecentDuplicate(containerName, fingerprint string) bool {
 	h.streamsMu.Lock()
 	defer h.streamsMu.Unlock()
@@ -118,15 +187,67 @@ func (h *DaemonService) isRecentDuplicate(containerName, fingerprint string) boo
 		return true
 	}
 
-	h.recentSet[containerName][fingerprint] = struct{}{}
-	h.recentFingerprints[containerName] = append(h.recentFingerprints[containerName], fingerprint)
-	if len(h.recentFingerprints[containerName]) > maxRecentLogEntries {
-		toDrop := h.recentFingerprints[containerName][0]
-		h.recentFingerprints[containerName] = h.recentFingerprints[containerName][1:]
-		delete(h.recentSet[containerName], toDrop)
+	h.rememberFingerprint(containerName, fingerprint)
+	return false
+}
+
+// storedThrough is the cursor as persisted: the timestamp of the newest line
+// already stored. getResumeSince deliberately rewinds behind it, so everything
+// the stream replays up to this point is already on disk.
+func (h *DaemonService) storedThrough(host, containerName string) time.Time {
+	db := util.GetDB(host, containerName, "streamstate")
+	if db == nil {
+		return time.Time{}
+	}
+	raw, err := db.Get([]byte(cursorKey), nil)
+	if err != nil || len(raw) == 0 {
+		return time.Time{}
+	}
+	ts, err := time.Parse(time.RFC3339Nano, string(raw))
+	if err != nil {
+		return time.Time{}
+	}
+	return ts
+}
+
+// ingestLine stores one streamed line, dropping anything the previous run had
+// already persisted. Returns true when the line was stored.
+func (h *DaemonService) ingestLine(host, containerName string, currentDB *leveldb.DB, token string, toHost bool, storedThrough time.Time, line string) bool {
+	h.ensureRuntimeState()
+
+	logItem, cursorTS, ok := parseDockerLogLine(line)
+	if !ok {
+		return false
 	}
 
-	return false
+	// Docker's Since is floored to whole seconds and the cursor is rewound on
+	// purpose, so every attach replays lines that are already stored.
+	if !storedThrough.IsZero() && cursorTS.Before(storedThrough) {
+		h.countDroppedReplay(containerName)
+		return false
+	}
+
+	fingerprint := logItem[0] + " " + logItem[1]
+	if h.isRecentDuplicate(containerName, fingerprint) {
+		h.countDroppedReplay(containerName)
+		return false
+	}
+
+	if toHost {
+		agent.SendLogMessage(token, containerName, logItem)
+		h.saveCursor(host, containerName, cursorTS)
+		return true
+	}
+
+	if err := containerdb.PutLogMessage(currentDB, host, containerName, logItem); err != nil {
+		fmt.Println("ERROR:", err.Error())
+		return false
+	}
+	h.saveCursor(host, containerName, cursorTS)
+
+	toSend, _ := json.Marshal(logItem)
+	vars.Broadcast(containerName, websocket.TextMessage, toSend)
+	return true
 }
 
 func (h *DaemonService) getResumeSince(host, containerName string) time.Time {
@@ -230,6 +351,8 @@ func (h *DaemonService) finalizeStream(containerName string, streamID uint64) bo
 
 func (h *DaemonService) runContainerStream(ctx context.Context, containerName string, toHost bool, streamID uint64) {
 	host := util.GetHost()
+	storedThrough := h.storedThrough(host, containerName)
+	h.seedBoundaryFingerprints(host, containerName, storedThrough)
 	since := h.getResumeSince(host, containerName)
 	rc, err := h.DockerClient.Client.ContainerLogs(
 		ctx,
@@ -265,31 +388,7 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 	}
 
 	streamErr := h.streamDockerLogs(ctx, rc, func(line string) {
-		logItem, cursorTS, ok := parseDockerLogLine(line)
-		if !ok {
-			return
-		}
-
-		fingerprint := logItem[0] + " " + logItem[1]
-		if h.isRecentDuplicate(containerName, fingerprint) {
-			return
-		}
-
-		if toHost {
-			agent.SendLogMessage(token, containerName, logItem)
-			h.saveCursor(host, containerName, cursorTS)
-			return
-		}
-
-		err := containerdb.PutLogMessage(currentDB, host, containerName, logItem)
-		if err != nil {
-			fmt.Println("ERROR:", err.Error())
-			return
-		}
-		h.saveCursor(host, containerName, cursorTS)
-
-		toSend, _ := json.Marshal(logItem)
-		vars.Broadcast(containerName, websocket.TextMessage, toSend)
+		h.ingestLine(host, containerName, currentDB, token, toHost, storedThrough, line)
 	}, !h.isContainerTTY(ctx, containerName))
 
 	if streamErr != nil && ctx.Err() == nil {
@@ -360,6 +459,18 @@ func (h *DaemonService) CreateDaemonToDBStream(ctx context.Context, containerNam
 	h.runContainerStream(ctx, containerName, false, 0)
 }
 
+// runningNames keeps only containers docker reports as running. Attaching to an
+// exited container writes a started/stopped META pair on every reconcile.
+func runningNames(result []docker.ContainerNamesResult) []string {
+	var names []string
+	for i := range result {
+		if result[i].Running && result[i].Name != "" {
+			names = append(names, result[i].Name)
+		}
+	}
+	return names
+}
+
 // returns list of names of docker containers from docker daemon
 func (h *DaemonService) GetContainersList(ctx context.Context) []string {
 	result, err := h.DockerClient.GetContainerNames(ctx)
@@ -370,24 +481,21 @@ func (h *DaemonService) GetContainersList(ctx context.Context) []string {
 
 	var names []string
 
-	containersMetaDB := vars.ContainersMeta_DBs[util.GetHost()]
+	containersMetaDB := util.GetContainersMetaDB(util.GetHost())
 	if containersMetaDB == nil {
-		containersMetaDB, err := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
-		if err != nil {
-			panic(err)
-		}
-		vars.ContainersMeta_DBs[util.GetHost()] = containersMetaDB
+		return runningNames(result)
 	}
-	containersMetaDB = vars.ContainersMeta_DBs[util.GetHost()]
 
 	for i := range result {
 		name := result[i].Name
 		id := result[i].ID
 
-		names = append(names, name)
+		// Every container is recorded, so a stopped one can still be looked up
+		// by name; only running ones are streamed and shown as enabled.
 		containersMetaDB.Put([]byte(name), []byte(id), nil)
 	}
 
+	names = runningNames(result)
 	return names
 }
 

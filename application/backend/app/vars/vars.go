@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -23,8 +22,11 @@ var (
 	DockerContainers       = []string{}
 	AgentsActiveContainers = map[string][]string{}
 
-	ToDelete    = map[string][]string{}
-	Connections = map[string][]*websocket.Conn{}
+	ToDelete = map[string][]string{}
+
+	// Reachable only through AddConnection/Broadcast/ConnectionCount so it
+	// cannot be touched without the lock.
+	connections = map[string][]*viewer{}
 
 	Counters_For_Hosts_Last_30_Min = map[string]map[string]uint64{}
 	Container_Stat_Counter         = map[string]map[string]uint64{}

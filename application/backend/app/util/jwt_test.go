@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/devforth/OnLogs/app/vars"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -101,5 +102,28 @@ func TestGenerateJWTSecretIsNotPredictable(t *testing.T) {
 			t.Fatalf("duplicate token generated: %q", s)
 		}
 		seen[s] = true
+	}
+}
+
+func TestGetUserFromJWTRejectsADeletedAccount(t *testing.T) {
+	secret := "a-real-secret-value-for-the-test"
+	os.Setenv("JWT_SECRET", secret)
+
+	login := "about-to-be-deleted"
+	if err := vars.UsersDB.Put([]byte(login), []byte("irrelevant"), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	signed := CreateJWT(login)
+	if user, err := GetUserFromJWT(requestWithCookie(signed)); err != nil || user != login {
+		t.Fatalf("the token should work while the account exists: %q %v", user, err)
+	}
+
+	if err := vars.UsersDB.Delete([]byte(login), nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if user, err := GetUserFromJWT(requestWithCookie(signed)); err == nil {
+		t.Fatalf("a deleted account still authenticates as %q; deleting a user revokes nothing", user)
 	}
 }

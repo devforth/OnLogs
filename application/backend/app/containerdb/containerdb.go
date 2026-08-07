@@ -17,17 +17,30 @@ import (
 	leveldbUtil "github.com/syndtr/goleveldb/leveldb/util"
 )
 
+// One classification rule, mirrored by classifyLogLine in
+// frontend/src/Views/Logs/functions.js. The two used to disagree, so the status
+// filter hid exactly the lines the UI painted red.
+var logLevels = []struct {
+	needle string
+	level  string
+}{
+	{"ERROR", "error"},
+	{"ERR", "error"},
+	{"WARNING", "warn"},
+	{"WARN", "warn"},
+	{"DEBUG", "debug"},
+	{"INFO", "info"},
+	{"ONLOGS", "meta"},
+}
+
 func GetLogStatusKey(message string) string {
-	if strings.Contains(message, "ERROR") || strings.Contains(message, "ERR") {
-		return "error"
-	} else if strings.Contains(message, "WARN") || strings.Contains(message, "WARNING") {
-		return "warn"
-	} else if strings.Contains(message, "DEBUG") {
-		return "debug"
-	} else if strings.Contains(message, "INFO") {
-		return "info"
-	} else if strings.Contains(message, "ONLOGS") {
-		return "meta"
+	for _, token := range strings.Fields(ansiEscapeRegex.ReplaceAllString(message, "")) {
+		upper := strings.ToUpper(token)
+		for _, level := range logLevels {
+			if strings.Contains(upper, level.needle) {
+				return level.level
+			}
+		}
 	}
 	return "other"
 }
@@ -298,7 +311,13 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	countLogStatus(location, status_key)
 
 	if statusesDB != nil {
-		statusesDB.Put([]byte(logKey), []byte(status_key), nil)
+		if err := statusesDB.Put([]byte(logKey), []byte(status_key), nil); err != nil {
+			// The handle may have been closed by a concurrent delete; without a
+			// retry the line is invisible to every severity filter, forever.
+			if reopened := util.GetDB(host, container, "statuses"); reopened != nil {
+				reopened.Put([]byte(logKey), []byte(status_key), nil)
+			}
+		}
 	}
 
 	err := db.Put([]byte(logKey), []byte(message_item[1]), nil)
@@ -344,15 +363,25 @@ func getMoveDirection(getPrev bool, iter iterator.Iterator) func() bool {
 	return func() bool { return iter.Next() }
 }
 
-func searchInit(iter iterator.Iterator, startWith string) bool {
-	iter.Last()
-
-	if startWith != "" {
-		if !iter.Seek([]byte(startWith)) {
-			return startWith > getDateTimeFromKey(string(iter.Key()))
+// Positions the iterator for the requested direction. A failed Seek means no key
+// is >= startWith: walking newer there is genuinely finished, while walking older
+// should start from the newest row. goleveldb leaves a failed Seek at dirEOI,
+// where Prev() silently jumps to Last() — so the direction must be explicit.
+func searchInit(iter iterator.Iterator, startWith string, getPrev bool) bool {
+	if startWith == "" {
+		if getPrev {
+			return iter.First()
 		}
+		return iter.Last()
 	}
-	return true
+
+	if iter.Seek([]byte(startWith)) {
+		return true
+	}
+	if getPrev {
+		return false
+	}
+	return iter.Last()
 }
 
 func getDateTimeFromKey(key string) string {
@@ -397,7 +426,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	logs := [][]string{}
 	move_direction := getMoveDirection(getPrev, iter)
 
-	if !searchInit(iter, startWith) {
+	if !searchInit(iter, startWith, getPrev) {
 		to_return["is_end"] = true
 		return to_return
 	}
@@ -405,6 +434,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	counter := 0
 	iteration := 0
 	last_processed_key := ""
+	last_visited_key := ""
 	normalizedMessage := normalizeForSearch(message, caseSensetivity)
 	hitScanCap := false
 	for counter < limit {
@@ -423,8 +453,11 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		}
 
 		keyStr := string(key)
+		last_visited_key = keyStr
 		timeStr := getDateTimeFromKey(keyStr)
-		if !include && (keyStr == startWith || timeStr == startWith) {
+		// Only the exact cursor row is skipped. Comparing the bare timestamp
+		// skipped every row sharing that millisecond.
+		if !include && keyStr == startWith {
 			move_direction()
 			continue
 		}
@@ -443,15 +476,20 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 			continue
 		}
 
-		logs = append(logs, []string{timeStr, value})
+		logs = append(logs, []string{timeStr, value, keyStr})
 		increaseAndMove(&counter, move_direction)
 		last_processed_key = keyStr
 	}
 
 	if hitScanCap {
-		// The scan was cut short, not exhausted. Reporting "more available"
-		// makes the client re-request the same page forever.
-		to_return["is_end"] = true
+		// Cut short rather than exhausted. is_end already reflects whether the
+		// iterator ran out, so only the cursor needs filling in: hand back the
+		// last key VISITED so the next request resumes past it. An empty cursor
+		// would restart the client at the newest row and loop forever.
+		to_return["scan_capped"] = true
+		if last_processed_key == "" {
+			last_processed_key = last_visited_key
+		}
 	}
 
 	to_return["logs"] = logs

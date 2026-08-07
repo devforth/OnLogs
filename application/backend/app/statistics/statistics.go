@@ -43,7 +43,7 @@ func restartStats(host string, container string) {
 	last_stat_time := getLastStatTime(current_db)
 	if last_stat_time == "" {
 		last_stat_time = current_datetime
-		calc_stat := collectLogsBackward(host, container, last_stat_time)
+		calc_stat := collectLogsBackward(host, container, "")
 		saveStats(current_db, calc_stat, last_stat_time)
 	} else {
 		calc_stat, new_datetime := collectLogsForward(host, container, last_stat_time)
@@ -71,7 +71,7 @@ func collectLogsBackward(host, container, until string) map[string]uint64 {
 	calc_stat := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 
 	for {
-		raw_logs := containerdb.GetLogs(false, true, host, container, "", 1000, until, true, nil)
+		raw_logs := containerdb.GetLogs(false, false, host, container, "", 1000, until, true, nil)
 		logs, ok := raw_logs["logs"].([][]string)
 		if !ok || len(logs) == 0 {
 			break
@@ -115,9 +115,16 @@ func collectLogsForward(host, container, since string) (map[string]uint64, strin
 	return calcStat, since
 }
 
+// Statistics are keyed by time and read back with time.Parse, so a full log key
+// (which carries a " +<nano>-<counter>" suffix) must be reduced to its timestamp.
 func saveStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
+	key := strings.Split(timestamp, " +")[0]
+	if _, err := time.Parse(time.RFC3339Nano, key); err != nil {
+		key = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+
 	to_put, _ := json.Marshal(stats)
-	db.Put([]byte(timestamp), to_put, nil)
+	db.Put([]byte(key), to_put, nil)
 }
 
 func resetInMemoryStats(location string) {

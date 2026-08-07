@@ -322,7 +322,7 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 		Services []map[string]interface{} `json:"services"`
 	}
 
-	var to_return []HostsList
+	to_return := []HostsList{}
 	ctx := req.Context()
 	activeContainers := h.DaemonService.GetContainersList(ctx)
 
@@ -331,7 +331,7 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name() + "/containers")
 		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
-			isFavorite, _ := vars.FavsDB.Has([]byte(util.GetHost()+"/"+container.Name()), nil)
+			isFavorite, _ := vars.FavsDB.Has([]byte(host.Name()+"/"+container.Name()), nil)
 			if util.Contains(container.Name(), activeContainers) || util.Contains(container.Name(), vars.AgentContainers(host.Name())) {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
 			} else {
@@ -457,6 +457,14 @@ func (h *RouteController) GetStorageData(w http.ResponseWriter, req *http.Reques
 	json.NewEncoder(w).Encode(util.GetStorageData())
 }
 
+func statusFilter(params url.Values) *string {
+	status := params.Get("status")
+	if status == "" {
+		return nil
+	}
+	return &status
+}
+
 func (h *RouteController) GetPrevLogs(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
@@ -478,7 +486,7 @@ func (h *RouteController) GetPrevLogs(w http.ResponseWriter, req *http.Request) 
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	json.NewEncoder(w).Encode(containerdb.GetLogs(true, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive, nil))
+	json.NewEncoder(w).Encode(containerdb.GetLogs(true, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive, statusFilter(params)))
 }
 
 func (h *RouteController) GetLogs(w http.ResponseWriter, req *http.Request) {
@@ -497,15 +505,9 @@ func (h *RouteController) GetLogs(w http.ResponseWriter, req *http.Request) {
 		panic("Host is not mentioned!")
 	}
 
-	status := params.Get("status")
-	var statusPtr *string
-	if status != "" {
-		statusPtr = &status
-	}
-
 	json.NewEncoder(w).Encode(containerdb.GetLogs(
 		false, false, params.Get("host"), params.Get("id"), params.Get("search"),
-		limit, params.Get("startWith"), caseSensetive, statusPtr,
+		limit, params.Get("startWith"), caseSensetive, statusFilter(params),
 	))
 }
 
@@ -520,7 +522,7 @@ func (h *RouteController) GetLogWithPrev(w http.ResponseWriter, req *http.Reques
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	json.NewEncoder(w).Encode(containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false, nil))
+	json.NewEncoder(w).Encode(containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false, statusFilter(params)))
 }
 
 // TODO return {"error": "Invalid host!"} when host is not exists
@@ -575,9 +577,12 @@ func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	ipKey := "ip:" + clientAddr(req)
-	loginKey := "login:" + loginData.Login
-	if !loginLimiter.allow(ipKey, loginKey) {
+	// Keyed on the address and on the (address, login) pair -- never on the login
+	// alone, or anyone could lock any account out by guessing at it.
+	addr := clientAddr(req)
+	ipKey := "ip:" + addr
+	pairKey := "pair:" + loginKey(addr, loginData.Login)
+	if !loginLimiter.allow(ipKey, pairKey) {
 		w.Header().Add("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Too many failed login attempts. Try again later."})
@@ -586,11 +591,11 @@ func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 
 	isCorrect := userdb.CheckUserPassword(loginData.Login, loginData.Password)
 	if !isCorrect {
-		loginLimiter.fail(ipKey, loginKey)
+		loginLimiter.fail(ipKey, pairKey)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Wrong login or password!"})
 		return
 	}
-	loginLimiter.succeed(ipKey, loginKey)
+	loginLimiter.succeed(ipKey, pairKey)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "onlogs-cookie",
@@ -682,31 +687,6 @@ func (h *RouteController) GetUserSettings(w http.ResponseWriter, req *http.Reque
 	json.NewEncoder(w).Encode(userdb.GetUserSettings(username))
 }
 
-func (h *RouteController) EditHostname(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
-		return
-	}
-
-	var data struct {
-		Host string
-		Name string
-	}
-	if !decodeBody(w, req, &data) {
-		return
-	}
-
-	if data.Name != "" {
-		if data.Host != util.GetHost() {
-			// TODO ask for command
-		} else {
-			os.WriteFile("/etc/hosntame", []byte(data.Name), 0644)
-		}
-	}
-
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
-}
-
 func (h *RouteController) EditUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
@@ -729,6 +709,17 @@ func (h *RouteController) EditUser(w http.ResponseWriter, req *http.Request) {
 	}
 
 	w.Header().Add("Content-Type", "application/json")
+
+	if loginData.Password == "" {
+		json.NewEncoder(w).Encode(map[string]string{"error": "Password can not be empty"})
+		return
+	}
+
+	if err := userdb.EditUser(loginData.Login, loginData.Password); err != nil {
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
