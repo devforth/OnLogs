@@ -38,19 +38,22 @@ func restartStats(host string, container string) {
 		location += "/" + container
 	}
 
-	current_datetime := time.Now().UTC().Format("2006-01-02T15:04:05.999999999Z")
-
 	last_stat_time := getLastStatTime(current_db)
 	if last_stat_time == "" {
-		last_stat_time = current_datetime
-		calc_stat := collectLogsBackward(host, container, "")
-		saveStats(current_db, calc_stat, last_stat_time)
+		// Anchored to the newest line actually seen, never to the clock: the
+		// clock is ahead of lines docker has not replayed yet, and the forward
+		// scan would then seek straight past them.
+		calc_stat, newest := collectLogsBackward(host, container, "")
+		if newest != "" {
+			saveStats(current_db, calc_stat, newest)
+		}
 	} else {
 		calc_stat, new_datetime := collectLogsForward(host, container, last_stat_time)
-		if last_stat_time == new_datetime {
-			new_datetime = current_datetime
+		// Nothing new: saving would rewrite the previous interval's record with
+		// an empty one and move the cursor off the log timeline onto the clock.
+		if last_stat_time != new_datetime {
+			saveStats(current_db, calc_stat, new_datetime)
 		}
-		saveStats(current_db, calc_stat, new_datetime)
 	}
 
 	resetInMemoryStats(location)
@@ -67,14 +70,22 @@ func getLastStatTime(db *leveldb.DB) string {
 	return string(iter.Key())
 }
 
-func collectLogsBackward(host, container, until string) map[string]uint64 {
+// Also reports the newest log key it saw, which is where the cursor belongs.
+func collectLogsBackward(host, container, until string) (map[string]uint64, string) {
 	calc_stat := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	newest := ""
 
 	for {
 		raw_logs := containerdb.GetLogs(false, false, host, container, "", 1000, until, true, nil)
 		logs, ok := raw_logs["logs"].([][]string)
 		if !ok || len(logs) == 0 {
 			break
+		}
+
+		// The scan walks newest to oldest, so the first row of the first page is
+		// the newest line there is.
+		if newest == "" {
+			newest = logs[0][2]
 		}
 
 		for _, log := range logs {
@@ -88,7 +99,7 @@ func collectLogsBackward(host, container, until string) map[string]uint64 {
 		until = raw_logs["last_processed_key"].(string)
 	}
 
-	return calc_stat
+	return calc_stat, newest
 }
 
 func collectLogsForward(host, container, since string) (map[string]uint64, string) {
@@ -234,8 +245,12 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 		} else {
 			datetime = strings.Split(string(iter.Key()), sep)[0] + formatting
 		}
-		to_return[datetime] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-		tmp_stats := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+		// A bucket spans several records; resetting it here kept only the oldest,
+		// since the iteration runs newest first.
+		if to_return[datetime] == nil {
+			to_return[datetime] = emptyStats()
+		}
+		tmp_stats := emptyStats()
 		json.Unmarshal(iter.Value(), &tmp_stats)
 
 		to_return[datetime]["error"] += tmp_stats["error"]

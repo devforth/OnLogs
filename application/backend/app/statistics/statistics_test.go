@@ -50,6 +50,10 @@ func TestGetStatisticsByService(t *testing.T) {
 }
 
 func TestGetChartData(t *testing.T) {
+	// Every run appended another record to this database, and they all land in
+	// the same hour bucket. That only went unnoticed while the bucket kept just
+	// one record instead of summing them.
+	os.RemoveAll("leveldb/hosts/test/statistics")
 	cur_db, _ := leveldb.OpenFile("leveldb/hosts/test/statistics", nil)
 	vars.Container_Stat_Counter["test/test"] = map[string]uint64{"error": 2, "debug": 1, "info": 3, "warn": 5, "meta": 0, "other": 4}
 	vars.Stat_Containers_DBs["test/test"] = cur_db
