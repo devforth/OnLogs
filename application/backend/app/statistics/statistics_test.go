@@ -11,13 +11,23 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
+// Reads the shared maps under the same locks the production writers hold; this
+// test read them bare, which is why the suite could not run under -race.
 func TestRunStatisticForContainer(t *testing.T) {
 	go RunStatisticForContainer("Test", "TestContainer")
 	time.Sleep(1 * time.Second)
-	if vars.Container_Stat_Counter["Test/TestContainer"] == nil {
+
+	vars.Mutex.Lock()
+	counter := vars.Container_Stat_Counter["Test/TestContainer"]
+	vars.Mutex.Unlock()
+	if counter == nil {
 		t.Error("No counter variable for container was created!")
 	}
-	if vars.Stat_Containers_DBs["Test/TestContainer"] == nil {
+
+	vars.DBMutex.RLock()
+	statsDB := vars.Stat_Containers_DBs["Test/TestContainer"]
+	vars.DBMutex.RUnlock()
+	if statsDB == nil {
 		t.Error("DB for stats wasn't created!")
 	}
 }

@@ -3,10 +3,8 @@ package streamer
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/devforth/OnLogs/app/agent"
@@ -19,59 +17,22 @@ import (
 
 type StreamController struct {
 	DaemonService *daemon.DaemonService
-
-	statsMu      sync.Mutex
-	statsCancels map[string]context.CancelFunc
 }
 
 func getStatsWorkerKey(host, container string) string {
-	return host + "/" + container
-}
-
-func (ctrl *StreamController) registerStatisticsWorker(location string, cancel context.CancelFunc) bool {
-	ctrl.statsMu.Lock()
-	defer ctrl.statsMu.Unlock()
-	if ctrl.statsCancels == nil {
-		ctrl.statsCancels = map[string]context.CancelFunc{}
-	}
-	if _, exists := ctrl.statsCancels[location]; exists {
-		return false
-	}
-	ctrl.statsCancels[location] = cancel
-	return true
-}
-
-func (ctrl *StreamController) unregisterStatisticsWorker(location string) (context.CancelFunc, bool) {
-	ctrl.statsMu.Lock()
-	defer ctrl.statsMu.Unlock()
-	cancel, exists := ctrl.statsCancels[location]
-	if exists {
-		delete(ctrl.statsCancels, location)
-	}
-	return cancel, exists
+	return statistics.WorkerKey(host, container)
 }
 
 func (ctrl *StreamController) ensureStatisticsWorker(ctx context.Context, host, container string) {
-	location := getStatsWorkerKey(host, container)
-	workerCtx, cancel := context.WithCancel(ctx)
-	if !ctrl.registerStatisticsWorker(location, cancel) {
-		cancel()
-		return
-	}
-	go statistics.RunStatisticForContainerWithContext(workerCtx, host, container)
+	statistics.EnsureWorker(ctx, host, container)
 }
 
 func (ctrl *StreamController) stopStatisticsWorker(host, container string) {
-	cancel, exists := ctrl.unregisterStatisticsWorker(getStatsWorkerKey(host, container))
-	if exists {
-		cancel()
-	}
+	statistics.StopWorker(host, container)
 }
 
 func (ctrl *StreamController) statisticsWorkersCount() int {
-	ctrl.statsMu.Lock()
-	defer ctrl.statsMu.Unlock()
-	return len(ctrl.statsCancels)
+	return statistics.WorkerCount()
 }
 
 func (ctrl *StreamController) ensureStreams(ctx context.Context, containers []string) {
@@ -83,14 +44,15 @@ func (ctrl *StreamController) ensureStreams(ctx context.Context, containers []st
 }
 
 func (ctrl *StreamController) reconcileStreams(ctx context.Context) {
+	containers := vars.DockerContainerList()
 	current := map[string]struct{}{}
-	for _, container := range vars.DockerContainers {
+	for _, container := range containers {
 		current[container] = struct{}{}
 	}
 
-	ctrl.ensureStreams(ctx, vars.DockerContainers)
+	ctrl.ensureStreams(ctx, containers)
 
-	for _, active := range append([]string{}, vars.Active_Daemon_Streams...) {
+	for _, active := range vars.ActiveStreams() {
 		if _, exists := current[active]; !exists {
 			ctrl.DaemonService.StopStream(active)
 			ctrl.stopStatisticsWorker(util.GetHost(), active)
@@ -106,9 +68,7 @@ func (ctrl *StreamController) handleContainerEvent(ctx context.Context, msg even
 
 	switch msg.Action {
 	case "start", "restart", "unpause":
-		if !util.Contains(containerName, vars.DockerContainers) {
-			vars.DockerContainers = append(vars.DockerContainers, containerName)
-		}
+		vars.AddDockerContainer(containerName)
 		ctrl.ensureStatisticsWorker(ctx, util.GetHost(), containerName)
 		ctrl.DaemonService.EnsureStream(ctx, containerName)
 	case "die", "stop", "pause":
@@ -162,10 +122,10 @@ func (ctrl *StreamController) StreamLogs(ctx context.Context) {
 		return
 	}
 
-	vars.DockerContainers = ctrl.DaemonService.GetContainersList(ctx)
+	vars.SetDockerContainers(ctrl.DaemonService.GetContainersList(ctx))
 	ctrl.reconcileStreams(ctx)
-	if os.Getenv("AGENT") != "" {
-		agent.SendInitRequest(vars.DockerContainers)
+	if util.IsAgentMode() {
+		agent.SendInitRequest(vars.DockerContainerList())
 	}
 
 	go ctrl.startEventsLoop(ctx)
@@ -179,10 +139,10 @@ func (ctrl *StreamController) StreamLogs(ctx context.Context) {
 			return
 		case <-reconcileTicker.C:
 			vars.Year = strconv.Itoa(time.Now().UTC().Year())
-			vars.DockerContainers = ctrl.DaemonService.GetContainersList(ctx)
+			vars.SetDockerContainers(ctrl.DaemonService.GetContainersList(ctx))
 			ctrl.reconcileStreams(ctx)
-			if os.Getenv("AGENT") != "" {
-				agent.SendUpdate(vars.DockerContainers)
+			if util.IsAgentMode() {
+				agent.SendUpdate(vars.DockerContainerList())
 				agent.TryResend()
 			}
 		}

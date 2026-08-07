@@ -115,7 +115,7 @@ func main() {
 
 	bgContext := context.Background()
 
-	if os.Getenv("AGENT") != "" {
+	if util.IsAgentMode() {
 		streamController.StreamLogs(bgContext)
 	}
 

@@ -4,14 +4,22 @@ import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/devforth/OnLogs/app/statistics"
 )
 
+// The registry moved into the statistics package so the docker streamer and the
+// agent ingestion route share one worker per host/container.
 func TestRegisterStatisticsWorkerNoDuplicates(t *testing.T) {
 	ctrl := &StreamController{}
-	location := getStatsWorkerKey("host", "container")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	first := ctrl.registerStatisticsWorker(location, func() {})
-	second := ctrl.registerStatisticsWorker(location, func() {})
+	baseline := ctrl.statisticsWorkersCount()
+	t.Cleanup(func() { ctrl.stopStatisticsWorker("host", "container") })
+
+	first := statistics.EnsureWorker(ctx, "host", "container")
+	second := statistics.EnsureWorker(ctx, "host", "container")
 
 	if !first {
 		t.Fatal("first registration must succeed")
@@ -19,8 +27,8 @@ func TestRegisterStatisticsWorkerNoDuplicates(t *testing.T) {
 	if second {
 		t.Fatal("duplicate registration must be rejected")
 	}
-	if ctrl.statisticsWorkersCount() != 1 {
-		t.Fatalf("expected exactly one worker, got %d", ctrl.statisticsWorkersCount())
+	if got := ctrl.statisticsWorkersCount(); got != baseline+1 {
+		t.Fatalf("expected exactly one new worker, got %d (baseline %d)", got, baseline)
 	}
 }
 
@@ -29,6 +37,7 @@ func TestStatisticsWorkersLongChurnDoesNotLeak(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	baseline := ctrl.statisticsWorkersCount()
 	host := "churn-host"
 	for i := 0; i < 300; i++ {
 		container := fmt.Sprintf("ephemeral-%d", i)
@@ -36,7 +45,7 @@ func TestStatisticsWorkersLongChurnDoesNotLeak(t *testing.T) {
 		ctrl.stopStatisticsWorker(host, container)
 	}
 
-	if ctrl.statisticsWorkersCount() != 0 {
-		t.Fatalf("expected zero workers after churn, got %d", ctrl.statisticsWorkersCount())
+	if got := ctrl.statisticsWorkersCount(); got != baseline {
+		t.Fatalf("expected %d workers after churn, got %d", baseline, got)
 	}
 }

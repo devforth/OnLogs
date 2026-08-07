@@ -1,23 +1,24 @@
 package routes
 
 import (
-	"crypto/tls"
-	"strconv"
-
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
-	"github.com/devforth/OnLogs/app/userdb"
-	"github.com/devforth/OnLogs/app/vars"
-
-	"github.com/devforth/OnLogs/app/db"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/devforth/OnLogs/app/db"
+	"github.com/devforth/OnLogs/app/statistics"
+	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/util"
+	"github.com/devforth/OnLogs/app/vars"
 )
 
 func TestFrontendDoesNotServeFilesOutsideDist(t *testing.T) {
@@ -260,5 +261,46 @@ func TestLoginRateLimitsRepeatedFailures(t *testing.T) {
 
 	if code := post("correct-horse"); code != http.StatusTooManyRequests {
 		t.Fatalf("20 failed logins from one address did not trigger a backoff: status %d", code)
+	}
+}
+
+func TestAddLogLineDoesNotSpawnAWorkerPerLogLine(t *testing.T) {
+	ctrl := initTestConfig()
+	token := db.CreateOnLogsToken()
+	before := statistics.WorkerCount()
+	t.Cleanup(func() { statistics.StopWorker("statsprobehost", "statsprobecontainer") })
+
+	ingest := func(count int) {
+		for i := 0; i < count; i++ {
+			body, _ := json.Marshal(map[string]interface{}{
+				"Token":     token,
+				"Host":      "statsprobehost",
+				"Container": "statsprobecontainer",
+				"LogLine":   []string{"2026-02-10T12:56:09.230421754Z", "line " + strconv.Itoa(i)},
+			})
+			req, _ := http.NewRequest("POST", "/api/v1/addLogLine", bytes.NewBuffer(body))
+			rr := httptest.NewRecorder()
+			http.HandlerFunc(ctrl.AddLogLine).ServeHTTP(rr, req)
+			if code := rr.Result().StatusCode; code != http.StatusOK {
+				t.Fatalf("ingestion failed: status %d", code)
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	// Warm up: the first line legitimately starts one worker, which opens
+	// databases and so brings its own goroutines with it.
+	ingest(25)
+	settled := runtime.NumGoroutine()
+
+	// A second, identical batch must cost nothing: the worker already exists.
+	ingest(25)
+	growth := runtime.NumGoroutine() - settled
+
+	if got := statistics.WorkerCount() - before; got != 1 {
+		t.Errorf("expected exactly one registered statistics worker, got %d", got)
+	}
+	if growth > 5 {
+		t.Fatalf("a further 25 log lines started %d more goroutines; the leak scales with ingestion and each worker zeroes the live counter", growth)
 	}
 }

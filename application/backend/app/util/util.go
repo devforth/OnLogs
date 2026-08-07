@@ -134,7 +134,7 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 
 	switch dbType {
 	case "logs":
-		vars.ActiveDBs[container] = db
+		vars.ActiveDBs[host+"/"+container] = db
 	case "statistics":
 		vars.Stat_Containers_DBs[host+"/"+container] = db
 	case "hosts_statistics":
@@ -142,7 +142,7 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 	case "statuses":
 		vars.Statuses_DBs[host+"/"+container] = db
 	case "brokenlogs":
-		vars.BrokenLogs_DBs[container] = db
+		vars.BrokenLogs_DBs[host+"/"+container] = db
 	case "containersmeta":
 		vars.ContainersMeta_DBs[host+"/"+container] = db
 	case "streamstate":
@@ -152,10 +152,42 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 	return db
 }
 
+// ResetDB closes a cached handle and drops it, so the next GetDB opens a fresh
+// one. Closing without dropping leaves callers holding a closed handle.
+func ResetDB(host string, container string, dbType string) {
+	if !IsSafeName(host) || !IsSafeName(container) || !IsSafeName(dbType) {
+		return
+	}
+
+	vars.DBMutex.Lock()
+	defer vars.DBMutex.Unlock()
+
+	if db := getExistingDB(host, container, dbType); db != nil {
+		db.Close()
+	}
+
+	switch dbType {
+	case "logs":
+		delete(vars.ActiveDBs, host+"/"+container)
+	case "statistics":
+		delete(vars.Stat_Containers_DBs, host+"/"+container)
+	case "hosts_statistics":
+		delete(vars.Stat_Hosts_DBs, host)
+	case "statuses":
+		delete(vars.Statuses_DBs, host+"/"+container)
+	case "brokenlogs":
+		delete(vars.BrokenLogs_DBs, host+"/"+container)
+	case "containersmeta":
+		delete(vars.ContainersMeta_DBs, host+"/"+container)
+	case "streamstate":
+		delete(vars.StreamState_DBs, host+"/"+container)
+	}
+}
+
 func getExistingDB(host, container, dbType string) *leveldb.DB {
 	switch dbType {
 	case "logs":
-		return vars.ActiveDBs[container]
+		return vars.ActiveDBs[host+"/"+container]
 	case "statistics":
 		return vars.Stat_Containers_DBs[host+"/"+container]
 	case "hosts_statistics":
@@ -163,7 +195,7 @@ func getExistingDB(host, container, dbType string) *leveldb.DB {
 	case "statuses":
 		return vars.Statuses_DBs[host+"/"+container]
 	case "brokenlogs":
-		return vars.BrokenLogs_DBs[container]
+		return vars.BrokenLogs_DBs[host+"/"+container]
 	case "containersmeta":
 		return vars.ContainersMeta_DBs[host+"/"+container]
 	case "streamstate":
@@ -172,19 +204,34 @@ func getExistingDB(host, container, dbType string) *leveldb.DB {
 	return nil
 }
 
-func GetHost() string {
-	hostname, err := os.ReadFile("/etc/hostname")
-	var host string
-	if err != nil {
-		host, _ = os.Hostname()
-	} else {
-		host = string(hostname)
+// AGENT is documented as a boolean, so "false" must mean off. Testing it with
+// != "" turned the documented default into agent mode.
+func IsAgentMode() bool {
+	enabled, err := strconv.ParseBool(os.Getenv("AGENT"))
+	return err == nil && enabled
+}
+
+func parseHostname(raw string, readErr error) string {
+	if readErr != nil {
+		fallback, _ := os.Hostname()
+		raw = fallback
 	}
 
-	if host[len(host)-1] < 32 || host[len(host)-1] > 126 {
-		host = host[:len(host)-1]
+	host := strings.TrimFunc(raw, func(r rune) bool { return r < 32 || r > 126 })
+	if host == "" {
+		if fallback, err := os.Hostname(); err == nil {
+			host = strings.TrimSpace(fallback)
+		}
+	}
+	if host == "" {
+		host = "localhost"
 	}
 	return host
+}
+
+func GetHost() string {
+	hostname, err := os.ReadFile("/etc/hostname")
+	return parseHostname(string(hostname), err)
 }
 
 func GetDirSize(host string, container string) float64 {
@@ -289,7 +336,7 @@ func GetDockerContainerID(host string, container string) string {
 
 func DeleteDockerLogs(host string, container string) error {
 	if host != GetHost() {
-		vars.ToDelete[host] = append(vars.ToDelete[host+"/"+container], container)
+		vars.QueueDelete(host, container)
 		return nil
 	}
 

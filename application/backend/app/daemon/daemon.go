@@ -20,6 +20,7 @@ import (
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
@@ -80,13 +81,7 @@ func validateMessage(message string) (string, bool) {
 }
 
 func closeActiveStream(containerName string) {
-	newDaemonStreams := make([]string, 0, len(vars.Active_Daemon_Streams))
-	for _, stream := range vars.Active_Daemon_Streams {
-		if stream != containerName {
-			newDaemonStreams = append(newDaemonStreams, stream)
-		}
-	}
-	vars.Active_Daemon_Streams = newDaemonStreams
+	vars.RemoveActiveStream(containerName)
 }
 
 func normalizeTimestamp(raw string) (string, time.Time, error) {
@@ -294,9 +289,7 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 		h.saveCursor(host, containerName, cursorTS)
 
 		toSend, _ := json.Marshal(logItem)
-		for _, c := range vars.Connections[containerName] {
-			c.WriteMessage(1, toSend)
-		}
+		vars.Broadcast(containerName, websocket.TextMessage, toSend)
 	}, !h.isContainerTTY(ctx, containerName))
 
 	if streamErr != nil && ctx.Err() == nil {
@@ -333,11 +326,9 @@ func (h *DaemonService) EnsureStream(ctx context.Context, containerName string) 
 	h.streamIDs[containerName] = streamID
 	h.streamsMu.Unlock()
 
-	if !util.Contains(containerName, vars.Active_Daemon_Streams) {
-		vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, containerName)
-	}
+	vars.AddActiveStream(containerName)
 
-	if os.Getenv("AGENT") != "" {
+	if util.IsAgentMode() {
 		go h.runContainerStream(streamCtx, containerName, true, streamID)
 		return
 	}
@@ -374,7 +365,7 @@ func (h *DaemonService) GetContainersList(ctx context.Context) []string {
 	result, err := h.DockerClient.GetContainerNames(ctx)
 	if err != nil {
 		fmt.Println("ERROR: failed to get containers list from docker daemon:", err)
-		return vars.DockerContainers
+		return vars.DockerContainerList()
 	}
 
 	var names []string

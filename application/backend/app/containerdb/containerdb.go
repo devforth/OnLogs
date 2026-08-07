@@ -255,6 +255,20 @@ func MaybeScheduleCleanup(host string, container string) {
 	}()
 }
 
+func newStatCounter() map[string]uint64 {
+	return map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+}
+
+func countLogStatus(location string, statusKey string) {
+	vars.Mutex.Lock()
+	defer vars.Mutex.Unlock()
+
+	if vars.Container_Stat_Counter[location] == nil {
+		vars.Container_Stat_Counter[location] = newStatCounter()
+	}
+	vars.Container_Stat_Counter[location][statusKey]++
+}
+
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
 	if db == nil {
 		return fmt.Errorf("no database for %s/%s", host, container)
@@ -276,24 +290,24 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	location := host + "/" + container
 	status_key := GetLogStatusKey(message_item[1])
 	logKey := buildLogKey(message_item[0])
-	vars.Mutex.Lock()
-	if vars.Statuses_DBs[location] == nil {
-		vars.Statuses_DBs[location] = util.GetDB(host, container, "statuses")
+
+	// Resolved before taking vars.Mutex: GetDB takes DBMutex and can panic, and
+	// it already caches the handle under that lock.
+	statusesDB := util.GetDB(host, container, "statuses")
+
+	countLogStatus(location, status_key)
+
+	if statusesDB != nil {
+		statusesDB.Put([]byte(logKey), []byte(status_key), nil)
 	}
-	vars.Container_Stat_Counter[location][status_key]++
-	vars.Statuses_DBs[location].Put([]byte(logKey), []byte(status_key), nil)
-	vars.Mutex.Unlock()
 
 	err := db.Put([]byte(logKey), []byte(message_item[1]), nil)
-	tries := 0
-	for err != nil && tries < 10 {
-		db = util.GetDB(host, container, "logs")
-		err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
+	for tries := 0; err != nil && tries < 10; tries++ {
 		time.Sleep(10 * time.Millisecond)
-		tries++
-	}
-	if err != nil {
-		panic(err)
+		if reopened := util.GetDB(host, container, "logs"); reopened != nil {
+			db = reopened
+			err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
+		}
 	}
 	return err
 }
@@ -452,6 +466,10 @@ func DeleteContainer(host string, container string, fullDelete bool) {
 		return
 	}
 
+	for _, dbType := range []string{"logs", "statuses", "statistics", "streamstate"} {
+		util.ResetDB(host, container, dbType)
+	}
+
 	path := "leveldb/hosts/" + host + "/containers/" + container
 	if fullDelete {
 		os.RemoveAll(path)
@@ -462,20 +480,11 @@ func DeleteContainer(host string, container string, fullDelete bool) {
 		}
 	}
 
-	if vars.ActiveDBs[container] != nil {
-		vars.ActiveDBs[container].Close()
-		vars.ActiveDBs[container] = util.GetDB(host, container, "active")
-	}
-	if vars.Statuses_DBs[host+"/"+container] != nil {
-		vars.Statuses_DBs[host+"/"+container].Close()
-		vars.Statuses_DBs[host+"/"+container] = util.GetDB(host, container, "statuses")
-	}
-	if vars.Stat_Containers_DBs[host+"/"+container] != nil {
-		vars.Stat_Containers_DBs[host+"/"+container].Close()
-		vars.Statuses_DBs[host+"/"+container] = util.GetDB(host, container, "statistics")
+	for _, dbType := range []string{"logs", "statuses", "statistics", "streamstate"} {
+		util.ResetDB(host, container, dbType)
 	}
 
 	vars.Mutex.Lock()
-	vars.Container_Stat_Counter[host+"/"+container] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Container_Stat_Counter[host+"/"+container] = newStatCounter()
 	vars.Mutex.Unlock()
 }

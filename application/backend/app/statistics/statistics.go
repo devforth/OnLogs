@@ -12,6 +12,22 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
+func emptyStats() map[string]uint64 {
+	return map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+}
+
+// The caller must never receive the live map: it is written on every log line.
+func snapshotCounter(location string) map[string]uint64 {
+	vars.Mutex.Lock()
+	defer vars.Mutex.Unlock()
+
+	snapshot := emptyStats()
+	for key, value := range vars.Container_Stat_Counter[location] {
+		snapshot[key] = value
+	}
+	return snapshot
+}
+
 func restartStats(host string, container string) {
 	current_db := util.GetDB(host, container, "statistics")
 	if current_db == nil {
@@ -106,14 +122,14 @@ func saveStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
 
 func resetInMemoryStats(location string) {
 	vars.Mutex.Lock()
-	vars.Container_Stat_Counter[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Container_Stat_Counter[location] = emptyStats()
 	vars.Mutex.Unlock()
 }
 
 func RunStatisticForContainerWithContext(ctx context.Context, host string, container string) {
 	location := host + "/" + container
 	vars.Mutex.Lock()
-	vars.Container_Stat_Counter[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Container_Stat_Counter[location] = emptyStats()
 	vars.Mutex.Unlock()
 	defer restartStats(host, container)
 	for {
@@ -137,14 +153,7 @@ func RunStatisticForContainer(host string, container string) {
 
 func GetStatisticsByService(host string, service string, value int) map[string]uint64 {
 	location := host + "/" + service
-
-	vars.Mutex.Lock()
-	to_return := vars.Container_Stat_Counter[location]
-	vars.Mutex.Unlock()
-
-	if to_return == nil {
-		to_return = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-	}
+	to_return := snapshotCounter(location)
 
 	if value < 1 {
 		return to_return
@@ -232,9 +241,7 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 		hasPrev = iter.Prev()
 	}
 
-	vars.Mutex.Lock()
-	to_return["now"] = vars.Container_Stat_Counter[location]
-	vars.Mutex.Unlock()
+	to_return["now"] = snapshotCounter(location)
 
 	return to_return
 }

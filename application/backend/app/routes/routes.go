@@ -2,6 +2,7 @@ package routes
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -26,8 +27,8 @@ import (
 )
 
 type RouteController struct {
-    DockerService *docker.DockerService
-    DaemonService *daemon.DaemonService
+	DockerService *docker.DockerService
+	DaemonService *daemon.DaemonService
 }
 
 func enableCors(w *http.ResponseWriter) {
@@ -123,7 +124,7 @@ func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
 	return false
 }
 
-func (h *RouteController)Frontend(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) Frontend(w http.ResponseWriter, req *http.Request) {
 	// http.Dir sanitises the name it is given but never its own root.
 	dir := http.Dir("dist")
 
@@ -161,7 +162,7 @@ func (h *RouteController)Frontend(w http.ResponseWriter, req *http.Request) {
 	http.ServeContent(w, req, fileName, stat.ModTime(), bytes.NewReader(content))
 }
 
-func (h *RouteController)CheckCookie(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) CheckCookie(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -169,7 +170,7 @@ func (h *RouteController)CheckCookie(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func (h *RouteController)AddLogLine(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 	var logItem struct {
 		Token     string
 		Host      string
@@ -190,9 +191,7 @@ func (h *RouteController)AddLogLine(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if vars.Counters_For_Hosts_Last_30_Min[logItem.Host] == nil {
-		go statistics.RunStatisticForContainer(logItem.Host, logItem.Container)
-	}
+	statistics.EnsureWorker(context.Background(), logItem.Host, logItem.Container)
 	err := containerdb.PutLogMessage(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine)
 	if err != nil {
 		defer w.WriteHeader(http.StatusInternalServerError)
@@ -200,14 +199,10 @@ func (h *RouteController)AddLogLine(w http.ResponseWriter, req *http.Request) {
 	}
 
 	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
-	conns := vars.Connections[logItem.Host+"/"+logItem.Container]
-	for i := range conns {
-		c := conns[i]
-		c.WriteMessage(websocket.TextMessage, to_send)
-	}
+	vars.Broadcast(logItem.Host+"/"+logItem.Container, websocket.TextMessage, to_send)
 }
 
-func (h *RouteController)AddHost(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) AddHost(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -238,14 +233,14 @@ func (h *RouteController)AddHost(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	vars.AgentsActiveContainers[addReq.Hostname] = addReq.Services
+	vars.SetAgentContainers(addReq.Hostname, addReq.Services)
 	// fmt.Println("New host added: " + addReq.Hostname)  need to create separate route for SendUpdate func
 	for _, container := range addReq.Services {
 		os.MkdirAll("leveldb/hosts/"+addReq.Hostname+"/containers/"+container, 0700)
 	}
 }
 
-func (h *RouteController)ChangeFavourite(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) ChangeFavourite(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -275,7 +270,7 @@ func (h *RouteController)ChangeFavourite(w http.ResponseWriter, req *http.Reques
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func (h *RouteController)GetSecret(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetSecret(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
@@ -284,7 +279,7 @@ func (h *RouteController)GetSecret(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"token": db.CreateOnLogsToken()})
 }
 
-func (h *RouteController)GetChartData(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetChartData(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -337,7 +332,7 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
 			isFavorite, _ := vars.FavsDB.Has([]byte(util.GetHost()+"/"+container.Name()), nil)
-			if util.Contains(container.Name(), activeContainers) || util.Contains(container.Name(), vars.AgentsActiveContainers[host.Name()]) {
+			if util.Contains(container.Name(), activeContainers) || util.Contains(container.Name(), vars.AgentContainers(host.Name())) {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
 			} else {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true, "isFavorite": isFavorite})
@@ -351,7 +346,7 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 	w.Write(e)
 }
 
-func (h *RouteController)GetSizeByAll(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetSizeByAll(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -373,7 +368,7 @@ func (h *RouteController)GetSizeByAll(w http.ResponseWriter, req *http.Request) 
 }
 
 // TODO need to return 0.0 when there is no logs for container in db
-func (h *RouteController)GetSizeByService(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetSizeByService(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -396,7 +391,7 @@ func (h *RouteController)GetSizeByService(w http.ResponseWriter, req *http.Reque
 	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
-func (h *RouteController)GetDockerSize(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetDockerSize(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -422,7 +417,7 @@ func (h *RouteController)GetDockerSize(w http.ResponseWriter, req *http.Request)
 	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
-func (h *RouteController)GetStats(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetStats(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -440,7 +435,7 @@ func (h *RouteController)GetStats(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(statistics.GetStatisticsByService(data.Host, data.Service, data.Value))
 }
 
-func (h *RouteController)GetStorageData(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetStorageData(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -462,7 +457,7 @@ func (h *RouteController)GetStorageData(w http.ResponseWriter, req *http.Request
 	json.NewEncoder(w).Encode(util.GetStorageData())
 }
 
-func (h *RouteController)GetPrevLogs(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetPrevLogs(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -486,7 +481,7 @@ func (h *RouteController)GetPrevLogs(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(containerdb.GetLogs(true, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive, nil))
 }
 
-func (h *RouteController)GetLogs(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetLogs(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -514,7 +509,7 @@ func (h *RouteController)GetLogs(w http.ResponseWriter, req *http.Request) {
 	))
 }
 
-func (h *RouteController)GetLogWithPrev(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetLogWithPrev(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -529,7 +524,7 @@ func (h *RouteController)GetLogWithPrev(w http.ResponseWriter, req *http.Request
 }
 
 // TODO return {"error": "Invalid host!"} when host is not exists
-func (h *RouteController)GetLogsStream(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -561,10 +556,10 @@ func (h *RouteController)GetLogsStream(w http.ResponseWriter, req *http.Request)
 		fmt.Println(err)
 		return
 	}
-	vars.Connections[container] = append(vars.Connections[container], ws)
+	vars.AddConnection(container, ws)
 }
 
-func (h *RouteController)Login(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 		return
@@ -611,7 +606,7 @@ func (h *RouteController)Login(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func (h *RouteController)Logout(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) Logout(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -629,7 +624,7 @@ func (h *RouteController)Logout(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func (h *RouteController)CreateUser(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) CreateUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
@@ -653,7 +648,7 @@ func (h *RouteController)CreateUser(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 }
 
-func (h *RouteController)GetUsers(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetUsers(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
@@ -663,7 +658,7 @@ func (h *RouteController)GetUsers(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"users": users, "error": nil})
 }
 
-func (h *RouteController)UpdateUserSettings(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) UpdateUserSettings(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -677,7 +672,7 @@ func (h *RouteController)UpdateUserSettings(w http.ResponseWriter, req *http.Req
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func (h *RouteController)GetUserSettings(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) GetUserSettings(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyUser(&w, req) {
 		return
 	}
@@ -687,7 +682,7 @@ func (h *RouteController)GetUserSettings(w http.ResponseWriter, req *http.Reques
 	json.NewEncoder(w).Encode(userdb.GetUserSettings(username))
 }
 
-func (h *RouteController)EditHostname(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) EditHostname(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
@@ -712,7 +707,7 @@ func (h *RouteController)EditHostname(w http.ResponseWriter, req *http.Request) 
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func (h *RouteController)EditUser(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) EditUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
@@ -737,7 +732,7 @@ func (h *RouteController)EditUser(w http.ResponseWriter, req *http.Request) {
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func (h *RouteController)DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
@@ -755,7 +750,7 @@ func (h *RouteController)DeleteContainerLogs(w http.ResponseWriter, req *http.Re
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func (h *RouteController)DeleteDockerLogs(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) DeleteDockerLogs(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
@@ -772,7 +767,7 @@ func (h *RouteController)DeleteDockerLogs(w http.ResponseWriter, req *http.Reque
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": util.DeleteDockerLogs(logItem.Host, logItem.Service)})
 }
 
-func (h *RouteController)AskForDelete(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) AskForDelete(w http.ResponseWriter, req *http.Request) {
 	var logItem struct {
 		Hostname string
 		Token    string
@@ -786,17 +781,13 @@ func (h *RouteController)AskForDelete(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	to_delete := []string{}
-	if len(vars.ToDelete[logItem.Hostname]) != 0 {
-		to_delete = vars.ToDelete[logItem.Hostname]
-		vars.ToDelete[logItem.Hostname] = []string{}
-	}
+	to_delete := vars.TakeQueuedDeletes(logItem.Hostname)
 
 	w.Header().Add("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{"Services": to_delete})
 }
 
-func (h *RouteController)DeleteContainer(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) DeleteContainer(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
@@ -824,7 +815,7 @@ func (h *RouteController)DeleteContainer(w http.ResponseWriter, req *http.Reques
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
-func (h *RouteController)DeleteUser(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) DeleteUser(w http.ResponseWriter, req *http.Request) {
 	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
 		return
 	}
