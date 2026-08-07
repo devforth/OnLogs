@@ -14,12 +14,8 @@
   import { fade } from "svelte/transition";
   import { handleKeydown, copyCustomText } from "../../utils/functions.js";
   import { findSearchTextInLogs } from "../../Views/Logs/functions.js";
-  import { applySharedLogUrl, buildSharedLogUrl } from "./shareLink.js";
-  import {
-    shouldAutoScrollLogs,
-    shouldFlushBufferedLogs,
-    createLogsViewFlags,
-  } from "./shareLinkViewState.js";
+  import { buildSharedLogUrl } from "./shareLink.js";
+  import { createLogsViewFlags } from "./shareLinkViewState.js";
 
   import {
     store,
@@ -80,7 +76,9 @@
 
   let mouseDownBlockFetch = $state(false);
   let extremalScrollId = $state("");
-  let interceptorsWait = $state(false);
+  // Not $state: the interceptor effects read this guard, so clearing it would
+  // re-run them and refire the fetch it was meant to hold back.
+  let interceptorsWait = false;
   let autoscroll = $state(false);
   let div = $state();
   let logsLoadGeneration = 0;
@@ -92,10 +90,11 @@
   let controller = null;
   let signal = null;
   let topFetchIsStarted = false;
+  // Latched once the server reports there is nothing older than what is loaded.
+  let startOfHistoryReached = false;
   let pinedBadgeTimer = null;
   let pinedBadgeIsVisible = $state(false);
   let searchResetVersion = $state(0);
-  let isSharedLinkFocusMode = $state(false);
 
   function refreshStatus() {
     chosenStatus.set("");
@@ -157,6 +156,7 @@
   }
 
   function resetAllLogs() {
+    startOfHistoryReached = false;
     allLogs = [];
     newLogs = [];
     visibleLogs = [];
@@ -340,12 +340,6 @@
   }
 
   function addLogFromWS(logfromWS) {
-    if (isSharedLinkFocusMode) {
-      logsFromWS = [...logsFromWS, logfromWS];
-      autoscroll = false;
-      return;
-    }
-
     if (
       (!mouseDownBlockFetch && endOffLogsIntersect) ||
       (allLogs.length < 3 * limit && endOffLogsIntersect)
@@ -473,10 +467,8 @@
     searchResetVersion = searchResetVersion + 1;
   }
 
-  async function exitSharedLinkFocusMode(flushBufferedLogs = false) {
-    isSharedLinkFocusMode = false;
-
-    if (flushBufferedLogs && logsFromWS.length) {
+  async function flushBufferedLogs() {
+    if (logsFromWS.length) {
       await getFullLogsSet();
       logsFromWS = [];
     }
@@ -506,35 +498,6 @@
     }
   }
 
-  async function applySharedLinkToCurrentView(timeStamp) {
-    const hadSearchText = Boolean(searchText);
-    const hadChosenStatus = Boolean($chosenStatus);
-    const { hash } = applySharedLogUrl(location.href, timeStamp);
-
-    isSharedLinkFocusMode = true;
-    chosenLogsString.set(timeStamp);
-    urlHash.set(hash);
-
-    if (hadSearchText) {
-      viewFlags.skipNextSearchReload();
-    }
-    if (hadChosenStatus) {
-      viewFlags.skipNextStatusReload();
-    }
-
-    resetSearchParams();
-    searchResetVersion = searchResetVersion + 1;
-    refreshStatus();
-    resetAllLogs();
-    resetParams();
-    setInitialScroll(0);
-    isPending.set(true);
-    closeWS();
-    getLogsFromWS();
-    topFetchIsStarted = true;
-
-    await fetchIfHashIsInUrl(timeStamp);
-  }
   function closeWS() {
     if (webSocket) {
       webSocket.close();
@@ -685,7 +648,13 @@
       isFeatching.set(false);
 
       if (initialService === $lastChosenService) {
-        if (total_logs.length === limit) {
+        // Nothing older left: stop asking, or the top loader repeats the same
+        // request every tick forever.
+        startOfHistoryReached = is_all_logs_processed && !total_logs.length;
+
+        // Any rows at all, not a full page: the oldest page is almost always a
+        // partial one, and requiring a whole page threw the start of history away.
+        if (total_logs.length) {
           let numberOfNewLogs = total_logs.length;
           const logsToPrevious = visibleLogs.splice(0, numberOfNewLogs);
           const logsToVisible = newLogs.splice(0, numberOfNewLogs);
@@ -804,7 +773,8 @@
       if (
         startOfLogsIntersect &&
         allLogs.length >= 3 * limit &&
-        !topFetchIsStarted
+        !topFetchIsStarted &&
+        !startOfHistoryReached
       ) {
         const data = await fetchedTopLogs();
         newLogsAmount = data.length;
@@ -863,7 +833,7 @@
   // the DOM, which is what the scroll depends on.
   $effect(() => {
     allLogs;
-    if (shouldAutoScrollLogs(autoscroll, isSharedLinkFocusMode)) {
+    if (autoscroll) {
       div && div.scrollTo(0, div.scrollHeight ? div.scrollHeight : 0);
     }
     autoscroll = false;
@@ -891,7 +861,9 @@
         if (get(urlHash)) {
           viewFlags.beginDeepLink();
         }
-        await exitSharedLinkFocusMode();
+        // Let this flush settle first: resetting synchronously re-enters this
+        // effect through the state it writes.
+        await tick();
         setInitialScroll(0);
         resetAllLogs();
         resetParams();
@@ -911,7 +883,6 @@
       if (viewFlags.consumeSearchSkip() || viewFlags.isDeepLinkPending()) {
         return;
       }
-      await exitSharedLinkFocusMode();
       if (currentSearchText) {
         resetParams();
         resetAllLogs();
@@ -930,7 +901,6 @@
       if (viewFlags.consumeStatusSkip() || viewFlags.isDeepLinkPending()) {
         return;
       }
-      await exitSharedLinkFocusMode();
       if (currentStatus) {
         resetParams();
         resetAllLogs();
@@ -962,15 +932,8 @@
   });
   $effect(() => {
     (async () => {
-      if (
-        shouldFlushBufferedLogs(
-          logsFromWS.length,
-          isSharedLinkFocusMode,
-          false
-        ) &&
-        endOffLogsIntersect
-      ) {
-        logsFromWS.length && (await getFullLogsSet());
+      if (logsFromWS.length && endOffLogsIntersect) {
+        await getFullLogsSet();
         logsFromWS = [];
       }
     })();
@@ -1076,9 +1039,10 @@
                   const timeStamp = logItem?.at(0);
                   const nextUrl = buildSharedLogUrl(location.href, timeStamp);
 
-                  copyCustomText(nextUrl, async () => {
+                  // Copy only. Re-pointing the view at the link reset the
+                  // loaded logs and the websocket, which read as a page reload.
+                  copyCustomText(nextUrl, () => {
                     showCopiedUrlToast();
-                    await applySharedLinkToCurrentView(timeStamp);
                   });
                 }}
                 getLogsByTagOptions={(limit, searchText)}
@@ -1109,7 +1073,7 @@
             number={logsFromWS.length}
             ico={"Down"}
             callBack={async () => {
-              await exitSharedLinkFocusMode(true);
+              await flushBufferedLogs();
               scrollFromButton = true;
               autoscroll = true;
               scrollDirection = "up";
@@ -1136,7 +1100,6 @@
   }}
   onkeydown={(e) => {
     handleKeydown(e, "Escape", () => {
-      exitSharedLinkFocusMode();
       chosenLogsString.set("");
       chosenStatus.set("");
     });

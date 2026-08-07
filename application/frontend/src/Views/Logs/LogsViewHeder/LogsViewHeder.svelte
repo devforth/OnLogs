@@ -92,9 +92,9 @@
     />
   </div>
   <div class="header search {!isSearchVIsible && 'hidden'}">
-    {#if !searchText}<div class="searchIcoContainer">
-        <i class={"log log-Search"}></i>
-      </div>{/if}
+    <div class="searchIcoContainer">
+      <i class={"log log-Search"}></i>
+    </div>
     <input
       type="text"
       value={searchText}

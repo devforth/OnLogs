@@ -3,17 +3,6 @@ export const hasSearchResetRequest = (
   nextResetVersion = 0
 ) => nextResetVersion !== lastResetVersion;
 
-export const shouldAutoScrollLogs = (
-  autoscroll = false,
-  isSharedLinkFocusMode = false
-) => autoscroll && !isSharedLinkFocusMode;
-
-export const shouldFlushBufferedLogs = (
-  logsFromWSLength = 0,
-  isSharedLinkFocusMode = false,
-  releaseRequested = false
-) => logsFromWSLength > 0 && (!isSharedLinkFocusMode || releaseRequested);
-
 // Svelte invalidates an object when any of its members is assigned, so plain
 // fields cannot carry state between reactive blocks without retriggering them.
 // Closure variables behind function calls can.
@@ -35,12 +24,6 @@ export function createLogsViewFlags() {
     },
     isDeepLinkPending() {
       return deepLinkPending;
-    },
-    skipNextSearchReload() {
-      skipSearchReload = true;
-    },
-    skipNextStatusReload() {
-      skipStatusReload = true;
     },
     consumeSearchSkip() {
       const skip = skipSearchReload;

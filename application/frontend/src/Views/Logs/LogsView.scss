@@ -107,6 +107,8 @@ h2.noLogsMessage {
 .searchIcoContainer {
   position: absolute;
   left: 16px;
+  // Decorative: it sits over the field, so let clicks through to focus it.
+  pointer-events: none;
 }
 
 .search {
@@ -122,7 +124,9 @@ h2.noLogsMessage {
     font-size: $main-font-m;
     background-color: $inpun-color;
     border-radius: 10px;
-    padding: 0 14px 0 14px;
+    // Left padding clears the search icon, which is pinned at 16px inside the
+    // field; at 14px the text ran underneath it.
+    padding: 0 14px 0 40px;
     height: 40px;
 
     border: 1px solid $text-placeholder-color;
@@ -131,12 +135,6 @@ h2.noLogsMessage {
     outline: none;
     border: 2px solid $active-color;
     // caret-color: transparent;
-  }
-  input::placeholder {
-    position: absolute;
-    left: 40px;
-    top: 50%;
-    transform: translate(0, -50%);
   }
 }
 
