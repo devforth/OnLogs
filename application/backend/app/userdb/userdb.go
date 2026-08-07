@@ -54,8 +54,7 @@ func DeleteUser(login string, password string) error {
 		return errors.New("No such user")
 	}
 
-	vars.UsersDB.Delete([]byte(login), nil)
-	return nil
+	return vars.UsersDB.Delete([]byte(login), nil)
 }
 
 func CheckUserPassword(login string, gotPassword string) bool {
@@ -83,6 +82,10 @@ func CheckUserPassword(login string, gotPassword string) bool {
 
 func GetUserSettings(username string) map[string]interface{} {
 	var to_return map[string]interface{}
+	if vars.SettingsDB == nil {
+		return to_return
+	}
+
 	vars.Mutex.Lock()
 	result, _ := vars.SettingsDB.Get([]byte(username), nil)
 	vars.Mutex.Unlock()
@@ -90,9 +93,16 @@ func GetUserSettings(username string) map[string]interface{} {
 	return to_return
 }
 
-func UpdateUserSettings(username string, settings map[string]interface{}) {
-	to_put, _ := json.Marshal(settings)
+func UpdateUserSettings(username string, settings map[string]interface{}) error {
+	to_put, err := json.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	if vars.SettingsDB == nil {
+		return errors.New("settings database is unavailable")
+	}
+
 	vars.Mutex.Lock()
-	vars.SettingsDB.Put([]byte(username), to_put, nil)
-	vars.Mutex.Unlock()
+	defer vars.Mutex.Unlock()
+	return vars.SettingsDB.Put([]byte(username), to_put, nil)
 }

@@ -14,7 +14,8 @@
   let localTheme = "";
   let api = new fetchApi();
 
-  const showUserMenu = window.DISABLE_AUTH ?? true;
+  // The Users menu belongs on authenticated deployments, not on DISABLE_AUTH ones.
+  const showUserMenu = !(window.DISABLE_AUTH ?? false);
 
   //store management
   function toggleUserMenu() {

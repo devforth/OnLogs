@@ -62,7 +62,19 @@
   }
 
   $: {
-    changeMessage($store.deleteFromDocker);
+    // Only the clear-logs flow owns the message; a caller-supplied action
+    // brings its own.
+    if (!$confirmationObj.action) {
+      changeMessage($store.deleteFromDocker);
+    }
+  }
+
+  async function confirm() {
+    if (typeof $confirmationObj.action === "function") {
+      await $confirmationObj.action();
+      return;
+    }
+    await deletelogs();
   }
 </script>
 
@@ -121,7 +133,7 @@
       title={"Delete"}
       highlighted={true}
       CB={() => {
-        deletelogs();
+        confirm();
       }}
     />
     <Button

@@ -1,6 +1,11 @@
 package vars
 
-import "sync"
+import (
+	"errors"
+	"sort"
+	"strings"
+	"sync"
+)
 
 var stateMutex sync.RWMutex
 
@@ -87,4 +92,27 @@ func TakeQueuedDeletes(host string) []string {
 	}
 	delete(ToDelete, host)
 	return queued
+}
+
+// CheckDatabases reports the package-level LevelDB handles that failed to open.
+// They are opened in variable initialisers, so without this the first
+// dereference is a nil-pointer panic on whichever goroutine gets there first.
+func CheckDatabases() error {
+	failures := []string{}
+	for name, err := range map[string]error{
+		"leveldb/favourites":    FavsDBErr,
+		"leveldb/state":         StateDBErr,
+		"leveldb/users":         UsersDBErr,
+		"leveldb/tokens":        TokensDBErr,
+		"leveldb/usersSettings": SettingsDBErr,
+	} {
+		if err != nil {
+			failures = append(failures, name+": "+err.Error())
+		}
+	}
+	if len(failures) == 0 {
+		return nil
+	}
+	sort.Strings(failures)
+	return errors.New("unable to open " + strings.Join(failures, "; "))
 }

@@ -1,7 +1,7 @@
 <script>
   // @ts-nocheck
 
-  import { onMount, afterUpdate } from "svelte";
+  import { onMount, onDestroy, afterUpdate } from "svelte";
   export let discribeText = "";
   import {
     lastChosenHost,
@@ -19,8 +19,14 @@
   let UPDATE_INTERVAL = 30000;
 
   async function clearLogs() {
-    confirmationObj.set({ ...$confirmationObj, isVisible: true });
+    // Explicitly null: spreading the previous state would inherit whichever
+    // action was set last, e.g. "delete this service".
+    confirmationObj.set({ ...$confirmationObj, action: null, isVisible: true });
   }
+
+  onDestroy(() => {
+    clearInterval(updateIntervalID);
+  });
 
   async function fetchAllLogs() {
     const data = await fetchApi.getAllLogsSize();

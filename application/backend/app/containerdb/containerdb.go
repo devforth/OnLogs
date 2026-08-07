@@ -144,8 +144,13 @@ func checkAndManageLogSize(host string, container string) error {
 					logsDB.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
 				}
 
-				statusesDB := util.GetDB(hostName, containerName, "statuses")
-				if statusesDB != nil {
+				// Prune everything the quota measures, or the measurement can
+				// never come down.
+				for _, dbType := range []string{"statuses", "statistics"} {
+					statusesDB := util.GetDB(hostName, containerName, dbType)
+					if statusesDB == nil {
+						continue
+					}
 					batch := new(leveldb.Batch)
 					deletedCountStatuses := 0
 					iter := statusesDB.NewIterator(nil, nil)
@@ -166,7 +171,7 @@ func checkAndManageLogSize(host string, container string) error {
 					if deletedCountStatuses > 0 {
 						err := statusesDB.Write(batch, nil)
 						if err != nil {
-							fmt.Printf("Failed to delete batch in statusesDB for %s/%s: %v\n", hostName, containerName, err)
+							fmt.Printf("Failed to delete batch in %s for %s/%s: %v\n", dbType, hostName, containerName, err)
 						}
 						statusesDB.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
 					}
@@ -408,14 +413,14 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		limit = maxLogsPerRequest
 	}
 
-	logs_db := util.GetDB(host, container, "logs")
+	logs_db := util.GetDBIfExists(host, container, "logs")
 	if logs_db == nil {
 		return map[string]interface{}{"logs": [][]string{}, "last_processed_key": "", "is_end": true}
 	}
 
 	var statusDb *leveldb.DB
 	if status != nil {
-		statusDb = util.GetDB(host, container, "statuses")
+		statusDb = util.GetDBIfExists(host, container, "statuses")
 	}
 	iter := logs_db.NewIterator(nil, nil)
 	defer iter.Release()

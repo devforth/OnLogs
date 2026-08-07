@@ -75,12 +75,15 @@ func TestGetHostsReadsFavouritesPerHost(t *testing.T) {
 	os.RemoveAll("leveldb/hosts")
 	os.MkdirAll("leveldb/hosts/FavHostA/containers/shared", 0o700)
 	os.MkdirAll("leveldb/hosts/FavHostB/containers/shared", 0o700)
+
+	// Favourites are per user, so the key carries the viewer's name.
+	starred := favouriteKey("someuser", "FavHostB", "shared")
 	t.Cleanup(func() {
-		vars.FavsDB.Delete([]byte("FavHostB/shared"), nil)
+		vars.FavsDB.Delete(starred, nil)
 		os.RemoveAll("leveldb/hosts")
 	})
 
-	if err := vars.FavsDB.Put([]byte("FavHostB/shared"), nil, nil); err != nil {
+	if err := vars.FavsDB.Put(starred, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -112,5 +115,36 @@ func TestGetHostsReadsFavouritesPerHost(t *testing.T) {
 	}
 	if favourites["FavHostA/shared"] {
 		t.Error("a container that was never starred on FavHostA is reported as a favourite")
+	}
+}
+
+// One user's star used to flip everyone's: favourites were keyed by
+// host/service only, while the user settings stored beside them are per user.
+func TestFavouritesAreScopedToTheUserWhoSetThem(t *testing.T) {
+	ctrl := initTestConfig()
+	userdb.CreateUser("favuser", "favpass")
+	userdb.CreateUser("otheruser", "otherpass")
+	t.Cleanup(func() {
+		userdb.DeleteUser("favuser", "")
+		userdb.DeleteUser("otheruser", "")
+		vars.FavsDB.Delete(favouriteKey("favuser", "h", "svc"), nil)
+		vars.FavsDB.Delete(favouriteKey("otheruser", "h", "svc"), nil)
+	})
+
+	body, _ := json.Marshal(map[string]string{"host": "h", "service": "svc"})
+	req, _ := http.NewRequest("POST", "/api/v1/changeFavorite", bytes.NewBuffer(body))
+	req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT("favuser")})
+	rr := httptest.NewRecorder()
+	http.HandlerFunc(ctrl.ChangeFavourite).ServeHTTP(rr, req)
+
+	if code := rr.Result().StatusCode; code != http.StatusOK {
+		t.Fatalf("changeFavorite returned %d: %s", code, rr.Body.String())
+	}
+
+	if starred, _ := vars.FavsDB.Has(favouriteKey("favuser", "h", "svc"), nil); !starred {
+		t.Error("the user's own favourite was not recorded")
+	}
+	if starred, _ := vars.FavsDB.Has(favouriteKey("otheruser", "h", "svc"), nil); starred {
+		t.Error("one user's star was applied to another user")
 	}
 }

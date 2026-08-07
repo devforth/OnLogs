@@ -154,7 +154,7 @@
   }
   function choseInitialHost() {
     listData.forEach((h, i) => {
-      if (h.host === $lastChosenHost) {
+      if (h.host === $lastChosenHost && !openHeaderIndexs.includes(i)) {
         openHeaderIndexs = [i, ...openHeaderIndexs];
       }
     });

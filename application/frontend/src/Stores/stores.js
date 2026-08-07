@@ -52,7 +52,8 @@ export const listScrollIsVisible = writable(false);
 
 //confirmation menu
 export const confirmationObj = writable({
-  action: function () {},
+  // null means "the default clear-logs flow"; a function replaces it.
+  action: null,
   message:
     "You want to delete host service logs. This data will be lost. This action cannot be undone.",
 

@@ -117,3 +117,38 @@ func TestGetLogsResumesPastTheScanCap(t *testing.T) {
 		}
 	}
 }
+
+// GetDB opens-or-creates and caches forever, so a read route taking a raw
+// container name let any authenticated GET allocate a LevelDB tree and pin its
+// file descriptors — one per distinct name, unbounded.
+func TestGetLogsDoesNotCreateADatabaseForAnUnknownContainer(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	if err := os.MkdirAll("leveldb/hosts/RealHost/containers/realcontainer", 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 5; i++ {
+		name := "no-such-container-" + strconv.Itoa(i)
+		result := GetLogs(false, false, "RealHost", name, "", 30, "", false, nil)
+		if rows := result["logs"].([][]string); len(rows) != 0 {
+			t.Fatalf("%s returned %d rows", name, len(rows))
+		}
+	}
+	GetLogs(false, false, "NoSuchHostAtAll", "whatever", "", 30, "", false, nil)
+
+	entries, err := os.ReadDir("leveldb/hosts/RealHost/containers")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "realcontainer" {
+		names := []string{}
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Fatalf("reading unknown containers created databases: %v", names)
+	}
+	if _, err := os.Stat("leveldb/hosts/NoSuchHostAtAll"); err == nil {
+		t.Error("reading an unknown host created a host directory")
+	}
+}

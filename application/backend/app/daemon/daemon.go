@@ -129,15 +129,6 @@ func (h *DaemonService) rememberFingerprint(containerName, fingerprint string) {
 	}
 }
 
-// forgetContainer releases the dedupe state for a container whose stream ended.
-func (h *DaemonService) forgetContainer(containerName string) {
-	h.streamsMu.Lock()
-	defer h.streamsMu.Unlock()
-	delete(h.recentSet, containerName)
-	delete(h.recentFingerprints, containerName)
-	delete(h.droppedReplays, containerName)
-}
-
 // seedBoundaryFingerprints loads the lines already stored at exactly the cursor
 // timestamp, so a replay of them is recognised while a genuinely new line
 // sharing that nanosecond is still kept.
@@ -312,12 +303,22 @@ func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.ReadCloser, 
 		_ = pw.CloseWithError(err)
 	}()
 
-	if scanErr := scanLogs(ctx, pr, onLine); scanErr != nil {
-		return scanErr
-	}
+	scanErr := scanLogs(ctx, pr, onLine)
+
+	// Release the writer before waiting on it. StdCopy may be parked in
+	// pw.Write, and neither closing rc nor cancelling ctx unblocks a blocked
+	// write -- so without this, an early return from scanLogs (cancellation, or
+	// a line over the scanner's 1 MiB limit) leaves StdCopy stuck, this function
+	// never returns, finalizeStream never runs, and EnsureStream refuses to
+	// restart that container for the life of the process.
+	_ = pr.CloseWithError(io.ErrClosedPipe)
 
 	copyErr := <-copyDone
-	if copyErr != nil && !errors.Is(copyErr, io.EOF) && !errors.Is(copyErr, context.Canceled) {
+	if scanErr != nil {
+		return scanErr
+	}
+	if copyErr != nil && !errors.Is(copyErr, io.EOF) && !errors.Is(copyErr, context.Canceled) &&
+		!errors.Is(copyErr, io.ErrClosedPipe) {
 		return copyErr
 	}
 	return nil
@@ -344,8 +345,16 @@ func (h *DaemonService) finalizeStream(containerName string, streamID uint64) bo
 		return false
 	}
 
+	// Dropping the CancelFunc without calling it leaks streamCtx and the
+	// watchdog goroutine parked on <-ctx.Done() for every stream that ends.
+	if cancel, ok := h.streamCancels[containerName]; ok {
+		defer cancel()
+	}
 	delete(h.streamCancels, containerName)
 	delete(h.streamIDs, containerName)
+	delete(h.recentSet, containerName)
+	delete(h.recentFingerprints, containerName)
+	delete(h.droppedReplays, containerName)
 	return true
 }
 

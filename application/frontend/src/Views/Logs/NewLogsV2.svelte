@@ -141,6 +141,25 @@
   // The third element is the full storage key: the only unique row identity.
   const logKey = (logItem) => logItem?.at(2) ?? logItem?.at(0) ?? "";
 
+  // Every duplication mechanism this codebase has had ends here, at a merge.
+  // Dropping repeats by key makes a recurrence visible as a missing row rather
+  // than a doubled one, and lets the {#each} be keyed.
+  function dedupeLogs(rows) {
+    const seen = new Set();
+    const unique = [];
+    for (const row of rows) {
+      const key = logKey(row);
+      if (key) {
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+      }
+      unique.push(row);
+    }
+    return unique;
+  }
+
   function resetAllLogs() {
     allLogs = [];
     newLogs = [];
@@ -197,7 +216,7 @@
       return;
     }
 
-    allLogs = acc;
+    allLogs = dedupeLogs(acc);
     const allLogsCopy = [...allLogs];
     newLogs = allLogsCopy.splice(0, limit);
     visibleLogs = allLogsCopy.splice(0, limit);
@@ -294,7 +313,7 @@
       }
     }
     if (initialService === $lastChosenService && generation === logsLoadGeneration) {
-      allLogs = [...upperLogs.reverse(), ...viewLogs, ...downLogs];
+      allLogs = dedupeLogs([...upperLogs.reverse(), ...viewLogs, ...downLogs]);
 
       let allLogsCopy = [...allLogs];
 
@@ -352,8 +371,8 @@
         previousLogs.push(logfromWS);
 
         if (allLogs.length === 3 * limit) {
-          allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-        } else allLogs = [...allLogs, logfromWS];
+          allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
+        } else allLogs = dedupeLogs([...allLogs, logfromWS]);
         if (allLogs.length < 3 * limit) {
         }
       }
@@ -411,9 +430,12 @@
             }
           }
 
+          // Use the shared classifier, not the first raw token: this compared
+          // against a value only getLogLineStatus ever produces, so warn and
+          // meta could never match and the tail silently froze.
           if (
             $chosenStatus &&
-            $chosenStatus !== logfromWS[1].split(" ")[0]?.toLowerCase()
+            $chosenStatus !== getLogLineStatus(logfromWS[1])
           ) {
             return;
           } else {
@@ -600,7 +622,7 @@
         newLogs = [...data, ...newLogs];
         visibleLogs = [...logsToVisible, ...visibleLogs];
         previousLogs = [...logsToPrevious, ...previousLogs].slice(0, limit);
-        allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+        allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
 
         if (data.length === limit && !doNotScroll) {
           setTimeout(() => {
@@ -675,7 +697,7 @@
           newLogs = [...total_logs, ...newLogs];
           visibleLogs = [...logsToVisible, ...visibleLogs];
           previousLogs = [...logsToPrevious, ...previousLogs];
-          allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+          allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
         }
         fetchedData = total_logs;
       }
@@ -723,7 +745,7 @@
               newLogs = [...newLogs, ...logsToNew];
               visibleLogs = [...visibleLogs, ...logsToVisible];
               previousLogs = [...previousLogs, ...total_logs];
-              allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+              allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
               if (total_logs.length === limit) {
                 scrollToNewLogsEnd(".newLogsEnd", true);
               }
@@ -970,7 +992,7 @@
         >
           <div id="startOfLogs" bind:this={startOfLogs} />
         </IntersectionObserver>
-        {#each allLogs as logItem, i}
+        {#each allLogs as logItem, i (logKey(logItem) || i)}
           {#if transformLogStringForTimeBudget(logItem, $store.UTCtime) !== transformLogStringForTimeBudget(allLogs[i - 1], $store.UTCtime) && i - 1 >= 0}
             <div class="timeBudgeContainer">
               <div class="timeBadgeWrapper">
@@ -1076,7 +1098,7 @@
               await exitSharedLinkFocusMode(true);
               scrollFromButton = true;
               autoscroll = true;
-              scrollDirection === "up";
+              scrollDirection = "up";
               // logsFromWS.length && (await getFullLogsSet());
 
               setTimeout(() => {

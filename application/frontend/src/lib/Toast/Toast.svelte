@@ -9,7 +9,9 @@
   import { handleKeydown } from "../../utils/functions.js";
   import { onDestroy, onMount } from "svelte";
   import { fly } from "svelte/transition";
-  const { tittle, message, status, additionButton } = $toast;
+  // Reactive: the component is reused across toasts, so a non-reactive
+  // destructure shows the previous message with the new icon.
+  $: ({ tittle, message, status, additionButton } = $toast);
 
   onDestroy(() => {
     if ($toastTimeoutId) {

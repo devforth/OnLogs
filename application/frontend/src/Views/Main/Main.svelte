@@ -88,10 +88,10 @@
     navigate(`${changeKey}/login`, { replace: true });
   }
 
-  userMenuOpen.subscribe((v) => {
+  const unsubscribeUserMenu = userMenuOpen.subscribe((v) => {
     userMenuState = v;
   });
-  addUserModalOpen.subscribe((v) => {
+  const unsubscribeAddUserModal = addUserModalOpen.subscribe((v) => {
     addUserModOpen = v;
   });
 
@@ -140,6 +140,8 @@
 
   onDestroy(() => {
     clearInterval(intervalId);
+    unsubscribeUserMenu();
+    unsubscribeAddUserModal();
   });
 
   // $: {

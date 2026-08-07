@@ -85,13 +85,33 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 | ADMIN_USERNAME           | Username for initial user                        | `admin`                 | if `AGENT=false`
 | ADMIN_PASSWORD           | Password for initial user. Must not be empty — OnLogs refuses to start without it unless `DISABLE_AUTH=true` |                    | if `AGENT=false`
 | PORT               | Port to listen on                                | `2874`             | if `AGENT=false`
-| JWT_SECRET         | Secret for JWT tokens for users                  | Generates randomly | -
+| JWT_SECRET         | Secret for JWT tokens for users. Generated with `crypto/rand` on first start and persisted to `leveldb/JWT_secret`; OnLogs refuses to start if it is set to an empty value | Generates randomly | -
 | ONLOGS_PATH_PREFIX | Base path if you using OnLogs not on subdomain   |                    | only if using on path prefix
-| AGENT             | Toggles agent mode. If enabled, there will be no web interface available, and all logs will be sent  and stored on HOST                                                      | `false` | -
+| AGENT             | Toggles agent mode. If enabled, there will be no web interface available, and all logs will be sent  and stored on HOST. Parsed as a boolean, so `false`, `0` and an unset value all mean off | `false` | -
 | HOST               | Url to OnLogs host from protocol to domain name. |                    | if `AGENT=true`
 | ONLOGS_TOKEN       | Token that will use an agent to authorize and connect to HOST | Generates with OnLogs interface   | if `AGENT=true`
-| MAX_LOGS_SIZE | Maximum allowed total logs size before cleanup triggers. Accepts human-readable formats like 5GB, 500MB, 1.5GB etc. When exceeded, 10% of logs (by count) will be removed proportionally across containers starting from oldest | 10GB | -
+| MAX_LOGS_SIZE | Maximum allowed total logs size before cleanup triggers. Accepts human-readable formats like 5GB, 500MB, 1.5GB etc. When exceeded, 10% of logs (by count) will be removed proportionally across containers starting from oldest. Validated at startup: an unparseable value stops OnLogs rather than silently disabling retention | 10GB | -
 | DISABLE_AUTH | Option to completely disable built in authentication in the application. When this option is set to `true` the app will behave like if the Administrator is logged in. The option to manage users will be removed. | false | -
+
+### Upgrading
+
+Three changes affect existing deployments:
+
+- **Passwords are hashed.** Accounts created before the upgrade keep working and
+  are converted to a hash the next time they log in successfully. Passwords
+  already on disk stay in cleartext until that happens, so rotate them if the
+  database may have been exposed.
+- **Sessions are checked against the user database.** Deleting a user now revokes
+  their session immediately instead of leaving it valid for 48 hours.
+- **A blank `ADMIN_PASSWORD` or `JWT_SECRET` stops the server.** Both previously
+  produced a deployment that anyone could log into as admin. Set them, or set
+  `DISABLE_AUTH=true` if you deliberately run without authentication.
+
+**Favourites are now per user.** They were stored under `host/service` with no
+username, so one person starring a container starred it for everyone. Existing
+stars are not migrated — they need setting again once, per user.
+
+Agent tokens issued before the upgrade continue to work.
 
 ### Docket socket URL
 By default the app will connect using the raw unix socket. But this can be overriden via the ENV variable `DOCKER_HOST`. That way you can specify fully qualified URL to the socket or URL of an docker socket proxy.

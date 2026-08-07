@@ -258,15 +258,24 @@ func (h *RouteController) ChangeFavourite(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	key := []byte(container.Host + "/" + container.Service)
-	isAlreadyFavourite, _ := vars.FavsDB.Has(key, nil)
-	if isAlreadyFavourite {
-		vars.FavsDB.Delete(key, nil)
-	} else {
-		vars.FavsDB.Put(key, nil, nil)
+	username, _ := util.GetUserFromJWT(*req)
+	key := favouriteKey(username, container.Host, container.Service)
+
+	isAlreadyFavourite, err := vars.FavsDB.Has(key, nil)
+	if err == nil {
+		if isAlreadyFavourite {
+			err = vars.FavsDB.Delete(key, nil)
+		} else {
+			err = vars.FavsDB.Put(key, nil, nil)
+		}
 	}
 
 	w.Header().Add("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 
@@ -301,7 +310,9 @@ func (h *RouteController) GetChartData(w http.ResponseWriter, req *http.Request)
 
 	if !util.Contains(data.Unit, []string{"hour", "day", "month"}) {
 		w.Header().Add("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid data!"})
+		return
 	}
 
 	w.Header().Add("Content-Type", "application/json")
@@ -323,6 +334,7 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 	}
 
 	to_return := []HostsList{}
+	viewer, _ := util.GetUserFromJWT(*req)
 	ctx := req.Context()
 	activeContainers := h.DaemonService.GetContainersList(ctx)
 
@@ -331,7 +343,7 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name() + "/containers")
 		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
-			isFavorite, _ := vars.FavsDB.Has([]byte(host.Name()+"/"+container.Name()), nil)
+			isFavorite, _ := vars.FavsDB.Has(favouriteKey(viewer, host.Name(), container.Name()), nil)
 			if util.Contains(container.Name(), activeContainers) || util.Contains(container.Name(), vars.AgentContainers(host.Name())) {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
 			} else {
@@ -403,14 +415,21 @@ func (h *RouteController) GetDockerSize(w http.ResponseWriter, req *http.Request
 	}
 
 	if params.Get("host") == "" {
-		panic("Host is not mentioned!")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Host is not mentioned!"})
+		return
 	}
 	w.Header().Add("Content-Type", "application/json")
 
+	// A container with no docker json log has size 0, not a nil dereference.
+	var size float64
 	containerID := util.GetDockerContainerID(params.Get("host"), params.Get("service"))
-	info, _ := os.Stat("/var/lib/docker/containers/" + containerID + "/" + containerID + "-json.log")
+	if containerID != "" {
+		if info, err := os.Stat("/var/lib/docker/containers/" + containerID + "/" + containerID + "-json.log"); err == nil && info != nil {
+			size = float64(info.Size()) / (1024.0 * 1024.0)
+		}
+	}
 
-	size := float64(info.Size()) / (1024.0 * 1024.0)
 	if size < 0.1 && size != 0.0 {
 		size = 0.1
 	}
@@ -455,6 +474,11 @@ func (h *RouteController) GetStorageData(w http.ResponseWriter, req *http.Reques
 		return
 	}
 	json.NewEncoder(w).Encode(util.GetStorageData())
+}
+
+// Favourites are per user, like the user settings stored next to them.
+func favouriteKey(username string, host string, service string) []byte {
+	return []byte(username + "\x00" + host + "/" + service)
 }
 
 func statusFilter(params url.Values) *string {
@@ -673,7 +697,12 @@ func (h *RouteController) UpdateUserSettings(w http.ResponseWriter, req *http.Re
 		return
 	}
 	username, _ := util.GetUserFromJWT(*req)
-	userdb.UpdateUserSettings(username, settings)
+	w.Header().Add("Content-Type", "application/json")
+	if err := userdb.UpdateUserSettings(username, settings); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 }
 

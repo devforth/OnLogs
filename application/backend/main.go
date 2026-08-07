@@ -15,6 +15,7 @@ import (
 	"github.com/devforth/OnLogs/app/routes"
 	"github.com/devforth/OnLogs/app/streamer"
 	"github.com/devforth/OnLogs/app/util"
+	"github.com/devforth/OnLogs/app/vars"
 	"github.com/docker/docker/client"
 	"github.com/joho/godotenv"
 )
@@ -89,6 +90,11 @@ func init_config() {
 func main() {
 	godotenv.Load(".env")
 	init_config()
+
+	if err := vars.CheckDatabases(); err != nil {
+		fmt.Println("FATAL:", err)
+		os.Exit(1)
+	}
 
 	if os.Getenv("JWT_SECRET") == "" {
 		fmt.Println("FATAL: JWT_SECRET is empty; refusing to start. Unset it to have one generated, or set a non-empty value.")

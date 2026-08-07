@@ -168,7 +168,7 @@ func GetStatisticsByService(host string, service string, value int) map[string]u
 
 	searchTo := time.Now().Add(-(time.Hour * time.Duration(value/2))).UTC()
 	var tmp_stats map[string]uint64
-	current_db := util.GetDB(host, service, "statistics")
+	current_db := util.GetDBIfExists(host, service, "statistics")
 	if current_db == nil {
 		return to_return
 	}
@@ -214,7 +214,7 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 
 	location := host + "/" + service
 	to_return := map[string]map[string]uint64{}
-	statsDB := util.GetDB(host, service, "statistics")
+	statsDB := util.GetDBIfExists(host, service, "statistics")
 	if statsDB == nil {
 		return to_return
 	}

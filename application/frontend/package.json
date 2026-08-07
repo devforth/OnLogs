@@ -25,6 +25,7 @@
     "@storybook/svelte": "^6.5.12",
     "@storybook/testing-library": "^0.0.13",
     "@sveltejs/vite-plugin-svelte": "^1.0.2",
+    "esbuild": "^0.15.9",
     "eslint-plugin-svelte3": "^4.0.0",
     "fs-extra": "^11.1.0",
     "jsdom": "^24.1.3",

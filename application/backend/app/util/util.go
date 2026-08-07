@@ -164,6 +164,19 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 // containersMeta lives beside the containers directory rather than inside it, so
 // it needs its own accessor. Two copies of this block used to open it with no
 // lock, which raced and panicked on the flock conflict.
+// GetDBIfExists is the read path: it never creates. GetDB opens-or-creates and
+// caches forever, so a read route taking a raw container name was a way to make
+// the process allocate a LevelDB tree and pin its file descriptors per request.
+func GetDBIfExists(host string, container string, dbType string) *leveldb.DB {
+	if !IsSafeName(host) || !IsSafeName(container) {
+		return nil
+	}
+	if info, err := os.Stat("leveldb/hosts/" + host + "/containers/" + container); err != nil || !info.IsDir() {
+		return nil
+	}
+	return GetDB(host, container, dbType)
+}
+
 func GetContainersMetaDB(host string) *leveldb.DB {
 	if !IsSafeName(host) {
 		return nil
@@ -295,6 +308,36 @@ func GetDirSize(host string, container string) float64 {
 		return nil
 	})
 	return float64(size) / (1024.0 * 1024.0)
+}
+
+// prunableDBs are the sub-databases retention actually deletes from. Measuring
+// anything else makes the quota unreachable: retention would strip these to
+// nothing trying to offset data it cannot touch.
+var prunableDBs = []string{"logs", "statuses", "statistics"}
+
+func GetPrunableSize(host string, container string) float64 {
+	if !IsSafeName(host) || !IsSafeName(container) {
+		return 0
+	}
+
+	var size int64
+	for _, dbType := range prunableDBs {
+		path := "leveldb/hosts/" + host + "/containers/" + container + "/" + dbType
+		filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if info != nil && !info.IsDir() {
+				size += info.Size()
+			}
+			return nil
+		})
+	}
+	return float64(size) / (1024.0 * 1024.0)
+}
+
+func PrunableDBs() []string {
+	return append([]string{}, prunableDBs...)
 }
 
 func GetUserFromJWT(req http.Request) (string, error) {

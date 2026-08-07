@@ -73,6 +73,28 @@ function stubFailingFetch(counter) {
   };
 }
 
+// A backend whose cursor does not advance re-serves the same rows on every page —
+// the exact shape of the cursor defect. One load then accumulates them all.
+function stubOverlappingFetch(counter) {
+  const rows = [
+    ["2026-02-10T12:44:03.560000000Z", "row-a", "2026-02-10T12:44:03.560000000Z +1-1"],
+    ["2026-02-10T12:44:03.561000000Z", "row-b", "2026-02-10T12:44:03.561000000Z +1-2"],
+  ];
+  return async (url) => {
+    const target = String(url);
+    if (target.includes("getLogs?")) {
+      counter.getLogs += 1;
+      return jsonResponse({
+        logs: rows.map((r) => [...r]),
+        // The cursor never advances, so the same page comes back each round.
+        last_processed_key: rows.at(-1)[2],
+        is_end: false,
+      });
+    }
+    return jsonResponse({ logs: [], last_processed_key: "", is_end: true });
+  };
+}
+
 function renderedRowCount(target) {
   return target.querySelectorAll(".chosenString").length;
 }
@@ -201,6 +223,69 @@ async function run() {
     false,
     "a destroyed view left the shared isFeatching store set, which blocks the live one"
   );
+
+  // --- a re-served row must not reach the screen twice ---
+  const overlapCounter = { getLogs: 0 };
+  const overlap = await mount(
+    bundle,
+    stubOverlappingFetch(overlapCounter),
+    overlapCounter
+  );
+  const overlapMessages = [...overlap.target.querySelectorAll(".message p")]
+    .map((el) => el.textContent.trim())
+    .filter((t) => t.startsWith("row-"));
+
+  console.log(`  overlapping pages rendered: ${JSON.stringify(overlapMessages)}`);
+  assert.equal(
+    new Set(overlapMessages).size,
+    overlapMessages.length,
+    `a re-served row reached the screen twice: ${JSON.stringify(overlapMessages)}`
+  );
+  overlap.component.$destroy();
+
+  // --- a status filter must not silently freeze the live tail ---
+  const wsCounter = { getLogs: 0 };
+  const { window: wsWindow, sockets: wsSockets } = installDom({
+    fetchImpl: stubFetch(wsCounter),
+  });
+  bundle.lastChosenHost.set("testhost");
+  bundle.lastChosenService.set("testservice");
+  bundle.isPending.set(false);
+  const filtered = new bundle.NewLogsV2({ target: wsWindow.document.body });
+  await settle();
+
+  bundle.chosenStatus.set("warn");
+  await settle(5);
+
+  const socket = wsSockets.at(-1);
+  assert.ok(socket, "no websocket was opened");
+
+  // Nothing sets endOffLogsIntersect under jsdom, so a delivered line lands in
+  // the buffer and shows on the scroll-to-bottom badge.
+  const bufferedCount = () => {
+    const badge = wsWindow.document.querySelector(".buttonToBottomNumber p");
+    return badge ? Number(badge.textContent.trim()) : 0;
+  };
+
+  // A line the shared classifier calls "warn". The old check compared the filter
+  // against the first raw token, so this could never match.
+  socket.onmessage({
+    data: JSON.stringify([
+      "2026-02-10T12:44:09.000000000Z",
+      "2026-02-10 WARNING disk almost full",
+      "2026-02-10T12:44:09.000000000Z +9-9",
+    ]),
+  });
+  await settle(5);
+
+  const delivered = bufferedCount();
+  console.log(`  live warn line with a "warn" filter delivered: ${delivered > 0}`);
+  assert.ok(
+    delivered > 0,
+    "a live line the classifier calls warn was dropped while the warn filter was active"
+  );
+  bundle.chosenStatus.set("");
+  filtered.$destroy();
 
   console.log("NewLogsV2 duplication tests passed");
   process.exit(0);

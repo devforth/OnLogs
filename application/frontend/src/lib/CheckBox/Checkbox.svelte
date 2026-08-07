@@ -10,7 +10,7 @@
     unsubscribe = store.subscribe((v) => (initialValue = v[storeValue]));
     active = initialValue;
   });
-  onDestroy(unsubscribe);
+  onDestroy(() => unsubscribe());
 
   function handleClick() {
     active = !active;
