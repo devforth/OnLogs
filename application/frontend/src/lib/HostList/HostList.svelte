@@ -1,13 +1,4 @@
 <script>
-
-  /**
-   * @typedef {Object} Props
-   * @property {string} [hostName]
-   * @property {any} [servicesData]
-   * @property {string} [selectedName]
-   */
-
-  /** @type {Props} */
   let { hostName = "", servicesData = [], selectedName = $bindable("") } = $props();
 
   const selectItem = (serviceName) => {

@@ -159,14 +159,8 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 	return db
 }
 
-// ResetDB closes a cached handle and drops it, so the next GetDB opens a fresh
-// one. Closing without dropping leaves callers holding a closed handle.
-// containersMeta lives beside the containers directory rather than inside it, so
-// it needs its own accessor. Two copies of this block used to open it with no
-// lock, which raced and panicked on the flock conflict.
 // GetDBIfExists is the read path: it never creates. GetDB opens-or-creates and
-// caches forever, so a read route taking a raw container name was a way to make
-// the process allocate a LevelDB tree and pin its file descriptors per request.
+// caches forever.
 func GetDBIfExists(host string, container string, dbType string) *leveldb.DB {
 	if !IsSafeName(host) || !IsSafeName(container) {
 		return nil
@@ -255,8 +249,7 @@ func getExistingDB(host, container, dbType string) *leveldb.DB {
 	return nil
 }
 
-// AGENT is documented as a boolean, so "false" must mean off. Testing it with
-// != "" turned the documented default into agent mode.
+// AGENT is documented as a boolean, so "false" must mean off.
 func IsAgentMode() bool {
 	enabled, err := strconv.ParseBool(os.Getenv("AGENT"))
 	return err == nil && enabled

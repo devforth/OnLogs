@@ -1,8 +1,3 @@
-// The reported duplication bug, asserted against the real component.
-//
-// NewLogsV2 is conditionally rendered, so Svelte runs all three of its $: blocks
-// in the same flush at init. Each one calls getFullLogsSet(), which appends to
-// allLogs instead of owning it, so one page of rows renders three times.
 import assert from "node:assert/strict";
 import {
   bundleComponent,
@@ -60,8 +55,6 @@ function stubEmptyPageFetch(counter) {
   };
 }
 
-// One transient 502 used to leave a permanent spinner, infinite scroll dead in
-// both directions, and the websocket connected but every line silently dropped.
 function stubFailingFetch(counter) {
   return async (url) => {
     const target = String(url);
@@ -73,8 +66,6 @@ function stubFailingFetch(counter) {
   };
 }
 
-// A backend whose cursor does not advance re-serves the same rows on every page —
-// the exact shape of the cursor defect. One load then accumulates them all.
 function stubOverlappingFetch(counter) {
   const rows = [
     ["2026-02-10T12:44:03.560000000Z", "row-a", "2026-02-10T12:44:03.560000000Z +1-1"],
@@ -86,7 +77,6 @@ function stubOverlappingFetch(counter) {
       counter.getLogs += 1;
       return jsonResponse({
         logs: rows.map((r) => [...r]),
-        // The cursor never advances, so the same page comes back each round.
         last_processed_key: rows.at(-1)[2],
         is_end: false,
       });
@@ -109,8 +99,6 @@ async function mountView(bundle, fetchImpl, counter) {
   const { window } = installDom({ fetchImpl });
   const { NewLogsV2, lastChosenHost, lastChosenService, isPending } = bundle;
 
-  // A remount with the stores already populated — Logs -> Stats -> Logs. This is
-  // the trigger from the ticket, and it fires all three reactive blocks at once.
   lastChosenHost.set("testhost");
   lastChosenService.set("testservice");
   isPending.set(false);
@@ -144,8 +132,6 @@ async function run() {
       `(${(rows / PAGE.length).toFixed(1)}x duplication)`
   );
 
-  // Every rendered timestamp must be distinct: a duplicate is the same stored
-  // row drawn twice, which is exactly the screenshot on the ticket.
   assert.equal(
     new Set(timestamps).size,
     timestamps.length,
@@ -267,8 +253,7 @@ async function run() {
     return badge ? Number(badge.textContent.trim()) : 0;
   };
 
-  // A line the shared classifier calls "warn". The old check compared the filter
-  // against the first raw token, so this could never match.
+  // A line the shared classifier calls "warn", not a bare leading token.
   socket.onmessage({
     data: JSON.stringify([
       "2026-02-10T12:44:09.000000000Z",

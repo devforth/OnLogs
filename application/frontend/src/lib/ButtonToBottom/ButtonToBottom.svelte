@@ -1,13 +1,5 @@
 <script>
   import { onMount } from "svelte";
-  /**
-   * @typedef {Object} Props
-   * @property {string} [ico]
-   * @property {any} [callBack]
-   * @property {any} [number]
-   */
-
-  /** @type {Props} */
   let { ico = "", callBack = () => {}, number = null } = $props();
 </script>
 

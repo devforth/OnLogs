@@ -20,7 +20,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// The persisted key is only trusted when it is non-empty.
 func ensureJWTSecret() error {
 	if os.Getenv("JWT_SECRET") != "" {
 		return nil

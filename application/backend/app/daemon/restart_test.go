@@ -11,8 +11,6 @@ import (
 	"github.com/devforth/OnLogs/app/vars"
 )
 
-// One docker log line as the daemon receives it: RFC3339Nano timestamp, a space,
-// then the message.
 func corpusLine(index int) string {
 	ts := time.Date(2026, 2, 10, 12, 44, 3, index*1000000, time.UTC)
 	return ts.Format(time.RFC3339Nano) + fmt.Sprintf(" line-%03d", index)
@@ -54,7 +52,6 @@ func TestRestartMidStreamStoresEachLineExactlyOnce(t *testing.T) {
 
 	emitted := map[string]struct{}{}
 
-	// ---- first process ----
 	first := &DaemonService{}
 	first.ensureRuntimeState()
 	db := util.GetDB(host, container, "logs")
@@ -74,7 +71,6 @@ func TestRestartMidStreamStoresEachLineExactlyOnce(t *testing.T) {
 		t.Fatalf("first run stored %d rows, expected %d", got, restartAfter)
 	}
 
-	// ---- process dies and restarts: fresh service, empty in-memory ring ----
 	second := &DaemonService{}
 	second.ensureRuntimeState()
 
@@ -84,7 +80,6 @@ func TestRestartMidStreamStoresEachLineExactlyOnce(t *testing.T) {
 	}
 	second.seedBoundaryFingerprints(host, container, restartCursor)
 
-	// The rewound stream replays from an earlier point, then continues.
 	for i := replayFrom; i < totalLines; i++ {
 		line := corpusLine(i)
 		emitted[line] = struct{}{}
@@ -124,8 +119,6 @@ func assertNoDuplicateMessages(t *testing.T, host, container string) {
 	}
 }
 
-// Two genuinely distinct lines can share the cursor's exact nanosecond. The
-// replay guard must not silently discard the second one.
 func TestRestartKeepsADistinctLineSharingTheCursorTimestamp(t *testing.T) {
 	host := util.GetHost()
 	container := "SameNanosecondBoundary"
@@ -145,17 +138,14 @@ func TestRestartKeepsADistinctLineSharingTheCursorTimestamp(t *testing.T) {
 		t.Fatal("the first line was not stored")
 	}
 
-	// Restart: the cursor now sits exactly on that nanosecond.
 	second := &DaemonService{}
 	second.ensureRuntimeState()
 	cursor := second.storedThrough(host, container)
 	second.seedBoundaryFingerprints(host, container, cursor)
 
-	// The replay of the stored line must be dropped...
 	if second.ingestLine(host, container, db, "", false, cursor, ts+" first at this nanosecond") {
 		t.Error("a replayed line at the cursor timestamp was stored again")
 	}
-	// ...but a genuinely different line at the same nanosecond must be kept.
 	if !second.ingestLine(host, container, db, "", false, cursor, ts+" second at this nanosecond") {
 		t.Error("a distinct line sharing the cursor's nanosecond was silently discarded")
 	}

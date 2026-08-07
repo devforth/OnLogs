@@ -41,8 +41,6 @@ func rowKey(row []string) string {
 	return row[2]
 }
 
-// Pages through the whole container in one direction using the cursor the API
-// returns, and reports every message it saw.
 func pageEverything(t *testing.T, getPrev bool, host, container string, pageSize int) []string {
 	t.Helper()
 
@@ -122,8 +120,6 @@ func TestGetLogsReturnsAStableRowIdentity(t *testing.T) {
 	}
 }
 
-// A cursor newer than every stored row must return nothing, not teleport the
-// iterator back to the newest page.
 func TestGetLogsWithAStaleFutureCursorReturnsNothing(t *testing.T) {
 	host, container := "StaleCursorHost", "StaleCursorContainer"
 	seedSameMillisecondRows(t, host, container)

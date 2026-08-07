@@ -103,8 +103,6 @@ func isTLS(req *http.Request) bool {
 	return req.TLS != nil || strings.EqualFold(req.Header.Get("X-Forwarded-Proto"), "https")
 }
 
-// Bounds the body and, unlike the bare decoder it replaces, does not discard the
-// decode error.
 func decodeBody(w http.ResponseWriter, req *http.Request, target interface{}) bool {
 	req.Body = http.MaxBytesReader(w, req.Body, maxRequestBody)
 	if err := json.NewDecoder(req.Body).Decode(target); err != nil {
@@ -399,7 +397,6 @@ func (h *RouteController) UpdateGroup(w http.ResponseWriter, req *http.Request) 
 		groupError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// A missing group is a 404, never a silent create.
 	if !found {
 		groupError(w, http.StatusNotFound, "No such group")
 		return

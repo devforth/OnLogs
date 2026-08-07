@@ -68,13 +68,6 @@
     }
   }
 
-  /**
-   * @typedef {Object} Props
-   * @property {string} [host]
-   * @property {string} [service]
-   */
-
-  /** @type {Props} */
   let { host = "", service = "" } = $props();
 
   function closeModal() {

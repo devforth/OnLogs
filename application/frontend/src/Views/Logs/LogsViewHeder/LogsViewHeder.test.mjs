@@ -1,5 +1,3 @@
-// The search input must be debounced. LogsViewHeder defines a `debounce` helper
-// and never wires it up, so every keystroke starts a full reload.
 import assert from "node:assert/strict";
 import {
   bundleComponent,
@@ -29,7 +27,6 @@ async function run() {
   const input = target.querySelector("input[type=text]");
   assert.ok(input, "the search input should be rendered");
 
-  // Type a word one character at a time, as a user would.
   const word = "error";
   for (let i = 1; i <= word.length; i++) {
     type(window, input, word.slice(0, i));
@@ -46,7 +43,6 @@ async function run() {
       `so every character starts a full reload`
   );
 
-  // After the debounce window it must land exactly once, on the final value.
   await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS + 250));
   assert.equal(
     props.searchText,

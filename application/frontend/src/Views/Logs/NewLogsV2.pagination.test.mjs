@@ -1,9 +1,5 @@
-// Drives every scroll interceptor in the log view and asserts the invariants
-// that the duplication bug broke: the rendered window stays bounded, and no log
-// line is ever on screen twice.
-//
-// fetchedLogs' pagination loop had an inverted comparison and so had never run;
-// this exercises the newly-live path rather than shipping it unverified.
+// Drives every scroll interceptor in the log view: the rendered window must stay
+// bounded and no log line may ever be on screen twice.
 import assert from "node:assert/strict";
 import {
   bundleComponent,
@@ -36,7 +32,6 @@ function stubFetch(counter) {
     const target = String(url);
     if (target.includes("getLogs?")) {
       counter.getLogs += 1;
-      // Honour the requested limit, as a real backend does.
       const rows = makePage(limitFromUrl(target));
       return jsonResponse({
         logs: rows,
@@ -94,7 +89,6 @@ async function run() {
   console.log(`  initial load: ${initial.length} rows, ${counter.getLogs} request(s)`);
   assert.equal(initial.length, 3 * LIMIT, "expected three pages on screen");
 
-  // Fire every interceptor the view registered, one at a time.
   const observers = globalThis.__onlogsObservers || [];
   assert.ok(observers.length > 0, "no interceptors were registered");
 

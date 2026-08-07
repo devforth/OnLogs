@@ -136,7 +136,6 @@
   // The third element is the full storage key: the only unique row identity.
   const logKey = (logItem) => logItem?.at(2) ?? logItem?.at(0) ?? "";
 
-  // Every duplication mechanism this codebase has had ends here, at a merge.
   // Dropping repeats by key makes a recurrence visible as a missing row rather
   // than a doubled one, and lets the {#each} be keyed.
   function dedupeLogs(rows) {
@@ -420,9 +419,6 @@
             }
           }
 
-          // Use the shared classifier, not the first raw token: this compared
-          // against a value only getLogLineStatus ever produces, so warn and
-          // meta could never match and the tail silently froze.
           if (
             $chosenStatus &&
             $chosenStatus !== getLogLineStatus(logfromWS[1])
@@ -829,8 +825,8 @@
     isPending.set(false);
   });
 
-  // Was afterUpdate: reading allLogs makes this run once the new rows are in
-  // the DOM, which is what the scroll depends on.
+  // Reading allLogs makes this run once the new rows are in the DOM, which is
+  // what the scroll depends on.
   $effect(() => {
     allLogs;
     if (autoscroll) {
@@ -1039,8 +1035,8 @@
                   const timeStamp = logItem?.at(0);
                   const nextUrl = buildSharedLogUrl(location.href, timeStamp);
 
-                  // Copy only. Re-pointing the view at the link reset the
-                  // loaded logs and the websocket, which read as a page reload.
+                  // Copy only: re-pointing the view at the link resets the
+                  // loaded logs and the websocket.
                   copyCustomText(nextUrl, () => {
                     showCopiedUrlToast();
                   });

@@ -5,8 +5,7 @@ export { findSearchTextInLogs };
 
 const api = new FetchApi();
 
-// One classification rule, mirrored by containerdb.GetLogStatusKey in Go. The two
-// used to disagree, so the status filter hid exactly the lines the UI painted red.
+// One classification rule, mirrored by containerdb.GetLogStatusKey in Go.
 const LEVELS = [
   ["ERROR", "error"],
   ["ERR", "error"],

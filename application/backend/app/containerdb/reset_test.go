@@ -29,12 +29,10 @@ func TestDeleteContainerLeavesUsableHandlesBehind(t *testing.T) {
 
 	DeleteContainer(host, container, false)
 
-	// A stray "active" directory means writes went somewhere nothing reads.
 	if _, err := os.Stat(base + "/active"); err == nil {
 		t.Error("DeleteContainer created a stray active/ directory; later log writes go there and are never read back")
 	}
 
-	// The statuses slot must not be holding the statistics database.
 	vars.DBMutex.RLock()
 	statuses := vars.Statuses_DBs[location]
 	stats := vars.Stat_Containers_DBs[location]
@@ -43,7 +41,6 @@ func TestDeleteContainerLeavesUsableHandlesBehind(t *testing.T) {
 		t.Error("the statistics database was stored in the statuses slot")
 	}
 
-	// Ingestion must work again, and land in logs/.
 	reopened := util.GetDB(host, container, "logs")
 	if reopened == nil {
 		t.Fatal("the logs database could not be reopened after a delete")

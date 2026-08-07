@@ -50,7 +50,6 @@ function run() {
   assert.equal(transformLogStringForTimeBudget(row(lateEvening), true), "Jul 15 2026");
   assert.equal(transformLogStringForTimeBudget(row(lateEvening), false), "Jul 16 2026");
 
-  // Degenerate input must not throw.
   assert.equal(transformLogString(undefined, true), "");
   assert.equal(transformLogString(["not a date", "m"], true), "");
   assert.equal(transformLogStringForTimeBudget(undefined, true), "");

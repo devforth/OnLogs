@@ -1,11 +1,4 @@
 <script>
-  /**
-   * @typedef {Object} Props
-   * @property {string} [token]
-   * @property {string} [origin]
-   */
-
-  /** @type {Props} */
   let { token = "", origin = "" } = $props();
 </script>
 

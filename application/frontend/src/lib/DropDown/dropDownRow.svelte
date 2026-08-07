@@ -2,18 +2,6 @@
   import Checkbox from "../CheckBox/Checkbox.svelte";
   let checkBoxValue = $state(true);
   import { store } from "../../Stores/stores.js";
-  /**
-   * @typedef {Object} Props
-   * @property {string} [rowImage]
-   * @property {string} [rowTitle]
-   * @property {string} [iconHeight]
-   * @property {boolean} [isFirst]
-   * @property {string} [storeValue]
-   * @property {boolean} [disableCheckbox]
-   * @property {any} [titleCallBack]
-   */
-
-  /** @type {Props} */
   let {
     rowImage = "",
     rowTitle = "",

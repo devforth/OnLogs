@@ -17,19 +17,6 @@
   } from "../../Stores/stores.js";
   import FetchApi from "../../utils/fetch.js";
   import { changeKey } from "../../utils/changeKey.js";
-  /**
-   * @typedef {Object} Props
-   * @property {any} [listData]
-   * @property {any} [openHeaderIndexs]
-   * @property {string} [activeElementName]
-   * @property {string} [customListClass]
-   * @property {string} [customListElClass]
-   * @property {string} [customActiveElClass]
-   * @property {string} [headerButton]
-   * @property {string} [listElementButton]
-   */
-
-  /** @type {Props} */
   let {
     listData = $bindable([]),
     openHeaderIndexs = $bindable([0]),
@@ -143,8 +130,6 @@
     }
   }
 
-  // The one click path a service row runs, wherever it is rendered: under its
-  // host, under "stopped services", or inside a group.
   function choseService(host, serviceName, target) {
     if (target.id.includes("heart")) {
       return;
@@ -159,7 +144,6 @@
     initialVisitcounter = 1;
   }
 
-  // A member the host list no longer offers gets the stopped-service treatment.
   let groupSections = $derived(
     $groups.map((group) => ({
       name: group.name,
@@ -176,8 +160,6 @@
     }))
   );
 
-  // The modal owns renaming, membership and deletion, so the row needs one entry
-  // point rather than three.
   function editGroup(name) {
     groupBeingEdited.set($groups.find((g) => g.name === name) || null);
     groupModalIsVisible.set(true);

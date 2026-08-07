@@ -1,20 +1,4 @@
 <script>
-  /**
-   * @typedef {Object} Props
-   * @property {string} [title]
-   * @property {boolean} [border]
-   * @property {boolean} [highlighted]
-   * @property {number} [minWidth]
-   * @property {number} [minHeight]
-   * @property {string} [icon]
-   * @property {any} [CB]
-   * @property {number} [iconHeight]
-   * @property {string} [type]
-   * @property {boolean} [disabled]
-   * @property {string} [id]
-   */
-
-  /** @type {Props} */
   let {
     title = "",
     border = true,

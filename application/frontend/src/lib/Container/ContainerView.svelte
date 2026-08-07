@@ -1,11 +1,5 @@
 <script>
     import Container from "./Container.svelte";
-  /**
-   * @typedef {Object} Props
-   * @property {boolean} [newHighlighted]
-   */
-
-  /** @type {Props} */
   let { newHighlighted = false } = $props();
    
 </script>

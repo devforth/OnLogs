@@ -26,7 +26,6 @@ func TestInitConfigGeneratesAJWTSecretWhenNoneIsConfigured(t *testing.T) {
 		t.Fatalf("persisted secret %q does not match the active one %q", persisted, secret)
 	}
 
-	// A second boot must reuse the persisted key.
 	t.Setenv("JWT_SECRET", "")
 	init_config()
 	if os.Getenv("JWT_SECRET") != secret {

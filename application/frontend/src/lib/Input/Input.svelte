@@ -1,15 +1,4 @@
 <script>
-  /**
-   * @typedef {Object} Props
-   * @property {number} [width]
-   * @property {number} [height]
-   * @property {string} [value]
-   * @property {string} [customClass]
-   * @property {string} [thumbClass]
-   * @property {string} [placeholder]
-   */
-
-  /** @type {Props} */
   let {
     width = 200,
     height = 40,

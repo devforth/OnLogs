@@ -1,6 +1,3 @@
-// Opening a shared log link must land on the linked row, not on the newest page.
-// NewLogsV2 runs all three of its reactive blocks in one flush, so the deep-link
-// fetch and two full reloads start together and the last writer wins.
 import assert from "node:assert/strict";
 import {
   bundleComponent,

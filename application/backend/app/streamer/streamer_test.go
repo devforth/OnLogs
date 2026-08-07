@@ -8,7 +8,7 @@ import (
 	"github.com/devforth/OnLogs/app/statistics"
 )
 
-// The registry moved into the statistics package so the docker streamer and the
+// The registry lives in the statistics package so the docker streamer and the
 // agent ingestion route share one worker per host/container.
 func TestRegisterStatisticsWorkerNoDuplicates(t *testing.T) {
 	ctrl := &StreamController{}

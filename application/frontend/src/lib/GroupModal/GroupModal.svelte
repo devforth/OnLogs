@@ -10,12 +10,6 @@
     toastIsVisible,
   } from "../../Stores/stores.js";
 
-  /**
-   * @typedef {Object} Props
-   * @property {any[]} [hosts]
-   */
-
-  /** @type {Props} */
   let { hosts = [] } = $props();
 
   const api = new FetchApi();
@@ -26,7 +20,6 @@
   let selected = $state([]);
   let editing = $state(null);
 
-  // Reseeded every time the modal opens, so reopening never shows the last edit.
   $effect(() => {
     if ($groupModalIsVisible) {
       // Read from the store, never back from `editing`, or the write reruns the
@@ -117,7 +110,6 @@
       return;
     }
 
-    // The modal stays open on a rejection, so the input is not lost.
     if (!data || data.error) {
       notify("error", "Error", data?.error || "Could not save the group.");
       return;

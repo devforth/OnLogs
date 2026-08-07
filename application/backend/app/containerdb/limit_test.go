@@ -74,9 +74,6 @@ func TestGetLogsClampsAnEnormousLimit(t *testing.T) {
 	}
 }
 
-// A capped scan must hand back a cursor that advances. Reporting is_end would
-// make everything past the cap unreachable; an empty cursor would restart the
-// client at the newest row and loop forever.
 func TestGetLogsResumesPastTheScanCap(t *testing.T) {
 	seedLogs(t, "CapHost", "CapCont", 60)
 
@@ -118,9 +115,8 @@ func TestGetLogsResumesPastTheScanCap(t *testing.T) {
 	}
 }
 
-// GetDB opens-or-creates and caches forever, so a read route taking a raw
-// container name let any authenticated GET allocate a LevelDB tree and pin its
-// file descriptors — one per distinct name, unbounded.
+// GetDB opens-or-creates and caches forever, so an unknown container name must
+// not reach it: each one would allocate a LevelDB tree and pin its descriptors.
 func TestGetLogsDoesNotCreateADatabaseForAnUnknownContainer(t *testing.T) {
 	t.Chdir(t.TempDir())
 

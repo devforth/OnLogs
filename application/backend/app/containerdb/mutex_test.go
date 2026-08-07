@@ -30,8 +30,6 @@ func TestPutLogMessageHandlesAContainerWithNoStatCounterYet(t *testing.T) {
 	location := host + "/" + container
 	_ = os.RemoveAll("leveldb/hosts/" + host + "/containers/" + container)
 
-	// The first log line from a host/container the process has not seen: no
-	// counter has been created for it yet.
 	vars.Mutex.Lock()
 	delete(vars.Container_Stat_Counter, location)
 	vars.Mutex.Unlock()

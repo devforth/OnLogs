@@ -88,11 +88,8 @@ func TestGetLogs(t *testing.T) {
 		t.Error("Invalid last logItem datetime: ", logs[4][0])
 	}
 
-	// Rewritten: this used to pass a BARE TIMESTAMP as the cursor and assert that
-	// 4 of the 5 rows came back. That only held because GetLogs also skipped any
-	// row whose timestamp merely equalled the cursor, which silently drops every
-	// other row written in the same instant. Page with the cursor the API returns
-	// -- the full key -- which identifies exactly one row.
+	// Page with the cursor the API returns -- the full key -- which identifies
+	// exactly one row; a bare timestamp would drop every row sharing that instant.
 	oldest := GetLogs(true, false, "Test", "TestGetLogsCont", "", 1, "", false, nil)
 	oldestRows := oldest["logs"].([][]string)
 	if len(oldestRows) != 1 {

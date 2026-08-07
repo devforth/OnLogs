@@ -10,10 +10,6 @@ import (
 	"github.com/devforth/OnLogs/app/vars"
 )
 
-// Statistics are keyed by time and read back with time.Parse. Writing a full log
-// key (which carries a " +<nano>-<counter>" suffix) makes every point unparseable,
-// and both readers break out of their loop on the first key that will not parse —
-// discarding every valid older point behind it.
 func TestSavedStatisticsKeysParseAsTimestamps(t *testing.T) {
 	host, container := "StatKeyHost", "StatKeyContainer"
 	_ = os.RemoveAll("leveldb/hosts/" + host)
@@ -66,8 +62,7 @@ func TestSavedStatisticsKeysParseAsTimestamps(t *testing.T) {
 }
 
 // The scan cursor is deliberately a full log key, so that paging can identify one
-// row among several in the same instant. saveStats must reduce it to a timestamp
-// rather than storing it verbatim.
+// row among several in the same instant.
 func TestSaveStatsAlwaysWritesAParseableKey(t *testing.T) {
 	host, container := "StatCursorHost", "StatCursorContainer"
 	_ = os.RemoveAll("leveldb/hosts/" + host)

@@ -302,7 +302,6 @@ func TestAddLogLineDoesNotSpawnAWorkerPerLogLine(t *testing.T) {
 	ingest(25)
 	settled := runtime.NumGoroutine()
 
-	// A second, identical batch must cost nothing: the worker already exists.
 	ingest(25)
 	growth := runtime.NumGoroutine() - settled
 

@@ -1,8 +1,5 @@
 // A sentinel that stays in view must cost at most one request per endpoint once
-// the backend has nothing left to give. Reading `interceptorsWait` inside the
-// interceptor effects made clearing it re-run those effects, so the view
-// re-issued the identical request every macrotask for as long as the sentinel
-// intersected.
+// the backend has nothing left to give.
 //
 // The backend models the established contract: getLogs pages toward OLDER rows
 // and returns them newest-first, getPrevLogs pages toward NEWER rows. The corpus

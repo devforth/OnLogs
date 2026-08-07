@@ -11,13 +11,6 @@
   import FetchApi from "../../utils/fetch.js";
   import Button from "../Button/Button.svelte";
   const fetchApi = new FetchApi();
-  /**
-   * @typedef {Object} Props
-   * @property {string} [discribeText]
-   * @property {boolean} [isAllLogs]
-   */
-
-  /** @type {Props} */
   let { discribeText = "", isAllLogs = false } = $props();
   let logsSize = $state(0);
   let fetchCount = 0;

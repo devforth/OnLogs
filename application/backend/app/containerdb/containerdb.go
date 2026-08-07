@@ -18,8 +18,7 @@ import (
 )
 
 // One classification rule, mirrored by classifyLogLine in
-// frontend/src/Views/Logs/functions.js. The two used to disagree, so the status
-// filter hid exactly the lines the UI painted red.
+// frontend/src/Views/Logs/functions.js.
 var logLevels = []struct {
 	needle string
 	level  string
@@ -460,9 +459,8 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		keyStr := string(key)
 		last_visited_key = keyStr
 		timeStr := getDateTimeFromKey(keyStr)
-		// Only the cursor row is skipped; comparing the bare timestamp skipped
-		// every row sharing that millisecond. Statistics cursors arrive without
-		// the " +<nanos>-<counter>" suffix, which no full key can ever equal, so
+		// Only the cursor row is skipped. Statistics cursors arrive without the
+		// " +<nanos>-<counter>" suffix, which no full key can ever equal, so
 		// they are matched on that boundary instead.
 		if !include && (keyStr == startWith || strings.HasPrefix(keyStr, startWith+" +")) {
 			move_direction()

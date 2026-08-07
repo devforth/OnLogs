@@ -245,8 +245,6 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 		} else {
 			datetime = strings.Split(string(iter.Key()), sep)[0] + formatting
 		}
-		// A bucket spans several records; resetting it here kept only the oldest,
-		// since the iteration runs newest first.
 		if to_return[datetime] == nil {
 			to_return[datetime] = emptyStats()
 		}

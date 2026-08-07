@@ -1,5 +1,3 @@
-// The sidebar renders groups above the host tree, and a group member has to open
-// its logs through the same click path a service row under its host uses.
 import assert from "node:assert/strict";
 import {
   bundleComponent,
@@ -25,7 +23,6 @@ const GROUPS = [
     members: [
       { host: "host1", service: "api" },
       { host: "host1", service: "web" },
-      // Listed in the group but gone from every host.
       { host: "host1", service: "removed" },
     ],
   },
@@ -67,7 +64,6 @@ async function run() {
     "every member should render as a row under the group heading"
   );
 
-  // A member whose service is gone gets the stopped-service treatment.
   assert.ok(
     !rows[0].querySelector("p").className.includes("disabled"),
     "a live member should not render disabled"
@@ -77,7 +73,6 @@ async function run() {
     "a member that no longer exists on any host should render disabled"
   );
 
-  // Clicking a member has to run the same path a host's service row runs.
   rows[1].querySelector("p").click();
   await settle();
 
@@ -94,7 +89,6 @@ async function run() {
     `clicking a group member did not navigate: ${window.location.pathname}`
   );
 
-  // The group section is a folder in the sidebar, not a replacement for it.
   assert.ok(
     textOf(target).includes("host1"),
     "the host tree should still render below the groups"

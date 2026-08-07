@@ -17,12 +17,6 @@
   let availibleRoutes = ["view", "login", "users", "servicesettings"];
   import { changeKey } from "./utils/changeKey";
   import { navigate } from "svelte-routing";
-  /**
-   * @typedef {Object} Props
-   * @property {string} [url]
-   */
-
-  /** @type {Props} */
   let { url = "" } = $props();
 
   function checkTheme(t) {

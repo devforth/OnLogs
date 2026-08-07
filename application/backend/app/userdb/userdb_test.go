@@ -35,8 +35,6 @@ func TestGetUsers(t *testing.T) {
 	}
 }
 
-// Rewritten: this used to assert the stored value was literally "sus?", which
-// only held while passwords were kept in cleartext.
 func TestEditUser(t *testing.T) {
 	CreateUser("testtest", "testtest")
 	EditUser("testtest", "sus?")

@@ -6,13 +6,6 @@
   import { clickOutside } from "../../../lib/OutsideClicker/OutsideClicker.js";
   import { hasSearchResetRequest } from "../shareLinkViewState.js";
   import { onDestroy, untrack } from "svelte";
-  /**
-   * @typedef {Object} Props
-   * @property {string} [searchText]
-   * @property {number} [searchResetVersion]
-   */
-
-  /** @type {Props} */
   let { searchText = $bindable(""), searchResetVersion = 0 } = $props();
   let dropDownIsVisible = $state(false);
   let isSearchVIsible = $state(false);

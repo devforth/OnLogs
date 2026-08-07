@@ -36,7 +36,6 @@ func TestEditUserActuallyChangesThePassword(t *testing.T) {
 		t.Fatalf("editUser reported an error: %v", response["error"])
 	}
 
-	// The UI shows "Password was changed" on this response, so it had better be true.
 	if !userdb.CheckUserPassword("rotateme", "the-new-password") {
 		t.Error("editUser reported success but the new password does not work")
 	}
@@ -66,9 +65,6 @@ func TestEditUserRejectsAnEmptyPassword(t *testing.T) {
 	}
 }
 
-// Favourites are stored as "<host>/<service>", but GetHosts looked every one up
-// under the LOCAL hostname, so stars vanished on remote hosts and appeared on
-// containers that were never starred.
 func TestGetHostsReadsFavouritesPerHost(t *testing.T) {
 	ctrl := initTestConfig()
 
@@ -76,7 +72,6 @@ func TestGetHostsReadsFavouritesPerHost(t *testing.T) {
 	os.MkdirAll("leveldb/hosts/FavHostA/containers/shared", 0o700)
 	os.MkdirAll("leveldb/hosts/FavHostB/containers/shared", 0o700)
 
-	// Favourites are per user, so the key carries the viewer's name.
 	starred := favouriteKey("someuser", "FavHostB", "shared")
 	t.Cleanup(func() {
 		vars.FavsDB.Delete(starred, nil)
@@ -118,8 +113,6 @@ func TestGetHostsReadsFavouritesPerHost(t *testing.T) {
 	}
 }
 
-// One user's star used to flip everyone's: favourites were keyed by
-// host/service only, while the user settings stored beside them are per user.
 func TestFavouritesAreScopedToTheUserWhoSetThem(t *testing.T) {
 	ctrl := initTestConfig()
 	userdb.CreateUser("favuser", "favpass")

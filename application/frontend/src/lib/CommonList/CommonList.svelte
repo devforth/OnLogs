@@ -1,14 +1,6 @@
 <script>
   import { untrack } from "svelte";
 
-  /**
-   * @typedef {Object} Props
-   * @property {any} [listData]
-   * @property {boolean} [isRowClickable]
-   * @property {any} [storeProp]
-   */
-
-  /** @type {Props} */
   let { listData = [], isRowClickable = false, storeProp = null } = $props();
   let initialActive = $state(untrack(() => listData?.[0]?.name));
 </script>

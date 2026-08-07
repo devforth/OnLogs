@@ -81,11 +81,7 @@ func runFlushes(t *testing.T, name string, arrivals []int) (uint64, uint64) {
 	return written, persistedMeta(t, host, container)
 }
 
-// A line arriving in the flush interval right after another one freezes the
-// recount of the boundary line into a record that is never revisited.
 func TestStatsDoNotOverCountAcrossFlushes(t *testing.T) {
-	// Fourteen isolated lines, then two stream-drop pairs: stopped, then
-	// started one interval later. That is the live container's shape.
 	arrivals := []int{}
 	for i := 0; i < 14; i++ {
 		arrivals = append(arrivals, 1, 0)
@@ -101,8 +97,6 @@ func TestStatsDoNotOverCountAcrossFlushes(t *testing.T) {
 	}
 }
 
-// The same overwrite in the other direction: several lines inside one interval
-// are rewritten down by the next idle flush.
 func TestStatsDoNotUnderCountAfterIdleFlush(t *testing.T) {
 	lines, persisted := runFlushes(t, "Burst", []int{1, 0, 3, 0, 0})
 	if persisted != lines {
@@ -110,9 +104,6 @@ func TestStatsDoNotUnderCountAfterIdleFlush(t *testing.T) {
 	}
 }
 
-// A container's first lines are ingested after the statistics worker has already
-// run once, and they carry the timestamp docker gave them, which is older than
-// that first run. Anchoring the first record to the clock hides them forever.
 func TestStatsCountLinesOlderThanTheFirstFlush(t *testing.T) {
 	host, container := "LateIngest", "svc"
 	os.RemoveAll("leveldb/hosts/" + host)
@@ -132,7 +123,6 @@ func TestStatsCountLinesOlderThanTheFirstFlush(t *testing.T) {
 		t.Fatal("no logs database")
 	}
 
-	// The worker's first run, before docker has replayed anything.
 	restartStats(host, container)
 
 	at := time.Now().UTC().Add(-time.Hour)
@@ -150,8 +140,6 @@ func TestStatsCountLinesOlderThanTheFirstFlush(t *testing.T) {
 	}
 }
 
-// A flush runs every minute, so a chart bucket almost always spans several
-// records. They have to add up, not replace each other.
 func TestChartBucketsSumEveryRecordInThem(t *testing.T) {
 	host, container := "ChartBucket", "svc"
 	os.RemoveAll("leveldb/hosts/" + host)

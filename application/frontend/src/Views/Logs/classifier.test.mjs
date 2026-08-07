@@ -1,6 +1,5 @@
 // Shared with backend/app/containerdb/classifier_test.go: both implementations
-// must agree on every one of these, or the status filter hides lines the UI
-// paints red.
+// must agree on every one of these.
 import assert from "node:assert/strict";
 import {
   bundleComponent,
@@ -44,7 +43,6 @@ function run() {
     );
   }
 
-  // The badge stays hidden for unclassified lines, as before.
   assert.equal(getLogLineStatus("plain application output"), "");
   assert.equal(getLogLineStatus("ERROR boom"), "error");
 

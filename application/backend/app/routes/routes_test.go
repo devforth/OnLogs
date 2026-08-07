@@ -21,7 +21,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-// These tests used to pass with JWT_SECRET unset, which verifies any forged token.
 func TestMain(m *testing.M) {
 	if os.Getenv("JWT_SECRET") == "" {
 		os.Setenv("JWT_SECRET", "routes-package-test-signing-key")

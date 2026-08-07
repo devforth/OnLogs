@@ -1,15 +1,6 @@
 <script>
   import { clickOutside } from "../../lib/OutsideClicker/OutsideClicker.js";
 
-  /**
-   * @typedef {Object} Props
-   * @property {boolean} [modalIsOpen]
-   * @property {any} [storeProp]
-   * @property {any} [closeFunction]
-   * @property {import('svelte').Snippet} [children]
-   */
-
-  /** @type {Props} */
   let {
     modalIsOpen = false,
     storeProp = {},

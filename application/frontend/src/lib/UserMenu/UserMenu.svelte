@@ -19,12 +19,6 @@
   let editModalIsOpen = $state(false);
   let userPasswordValue = $state("");
 
-  /**
-   * @typedef {Object} Props
-   * @property {string} [userForAdding]
-   */
-
-  /** @type {Props} */
   let { userForAdding = "" } = $props();
 
 

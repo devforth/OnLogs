@@ -113,7 +113,6 @@ func TestLoginLockoutCannotBeInflictedOnAnotherUser(t *testing.T) {
 		t.Errorf("the attacker was not throttled: status %d", code)
 	}
 
-	// The real owner, from their own address, must still be able to log in.
 	if code := attempt("198.51.100.7", "the-real-password"); code != http.StatusOK {
 		t.Fatalf("an attacker guessing at the account locked its real owner out: status %d", code)
 	}

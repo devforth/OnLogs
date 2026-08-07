@@ -5,18 +5,6 @@
   import fetchApi from "../../utils/fetch";
 
   import { store } from "../../Stores/stores.js";
-  /**
-   * @typedef {Object} Props
-   * @property {string} [status]
-   * @property {string} [time]
-   * @property {string} [message]
-   * @property {string} [width]
-   * @property {boolean} [isHiglighted]
-   * @property {any} [sharedLinkCallBack]
-   * @property {any} [getLogsByTagOptions]
-   */
-
-  /** @type {Props} */
   let {
     status = "",
     time = "",

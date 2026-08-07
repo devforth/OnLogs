@@ -2,13 +2,6 @@
   import { onMount, onDestroy } from "svelte";
   let initialValue = true;
   import { store } from "../../Stores/stores.js";
-  /**
-   * @typedef {Object} Props
-   * @property {boolean} [active]
-   * @property {string} [storeValue]
-   */
-
-  /** @type {Props} */
   let { active = $bindable(true), storeValue = "" } = $props();
   let unsubscribe = () => {};
 

@@ -1,5 +1,3 @@
-// The dropdown row has advertised "Create services group" since the first
-// commit; these pin what it now does.
 import assert from "node:assert/strict";
 import {
   bundleComponent,
@@ -204,7 +202,7 @@ async function run() {
   assert.equal(closed, false, "a successful delete should close the modal");
   bundle.unmount(app);
 
-  // --- the dropdown row that has never done anything ---------------------
+  // --- the dropdown row ---------------------------------------------------
   bundle.groupModalIsVisible.set(false);
   bundle.addHostMenuIsVisible.set(true);
   const dropdown = bundle.mount(bundle.DropDownAddHost, { target });

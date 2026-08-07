@@ -68,8 +68,6 @@ func contains(values []string, wanted string) bool {
 	return false
 }
 
-// The important half of the feature: one user's groups are unreachable from
-// another's session, for reads and for both kinds of write.
 func TestGroupsAreIsolatedPerUser(t *testing.T) {
 	ctrl := initTestConfig()
 	t.Cleanup(func() { groups.Delete("testuser", "isolated") })
@@ -128,7 +126,6 @@ func TestGroupCRUDRoundTrip(t *testing.T) {
 		t.Fatalf("getGroups returned %d without the new group: %s", status, body)
 	}
 
-	// Rename and drop a member in one call, which is what the edit form does.
 	status, body = callGroupRoute(t, ctrl.UpdateGroup, groupRequest(t, "testuser", "POST", map[string]interface{}{
 		"name":    "backend",
 		"newName": "backend renamed",
@@ -324,13 +321,11 @@ func TestDisableAuthSharesOneGroupBucket(t *testing.T) {
 		t.Fatalf("createGroup under DISABLE_AUTH returned %d: %s", status, body)
 	}
 
-	// A second, entirely unrelated anonymous session reads the same group.
 	status, body = callGroupRoute(t, ctrl.GetGroups, groupRequest(t, "", "GET", nil))
 	if status != http.StatusOK || !contains(groupNames(t, body), "shared bucket") {
 		t.Fatalf("a second anonymous session did not see the group: %d %s", status, body)
 	}
 
-	// And cannot create its own group under that name, because it is one bucket.
 	status, body = callGroupRoute(t, ctrl.CreateGroup, groupRequest(t, "", "POST", map[string]interface{}{
 		"name":    "shared bucket",
 		"members": []map[string]string{},

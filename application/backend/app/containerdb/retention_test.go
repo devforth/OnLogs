@@ -8,9 +8,6 @@ import (
 	"github.com/devforth/OnLogs/app/vars"
 )
 
-// Retention measured the whole container directory but deleted from only two of
-// its six sub-databases, so data it cannot touch pushed it into stripping the
-// data it can down to nothing.
 func TestRetentionMeasuresOnlyWhatItCanPrune(t *testing.T) {
 	host, container := "RetentionHost", "RetentionContainer"
 	base := "leveldb/hosts/" + host + "/containers/" + container
@@ -51,8 +48,6 @@ func TestRetentionMeasuresOnlyWhatItCanPrune(t *testing.T) {
 			withLogsOnly, afterBallast)
 	}
 
-	// The whole-directory measure does see it, which is what made the quota
-	// unreachable when retention used it.
 	if util.GetDirSize(host, container) <= afterBallast {
 		t.Error("GetDirSize should still report the full directory, for the size display")
 	}

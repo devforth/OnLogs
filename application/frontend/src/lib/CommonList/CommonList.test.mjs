@@ -1,5 +1,3 @@
-// listData defaults to [], and the initial-active lookup indexed [0] with no
-// guard, so rendering the component with an empty list threw.
 import assert from "node:assert/strict";
 import { bundleComponent, installDom, importBundle, settle } from "../../../test/harness.mjs";
 

@@ -11,8 +11,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-// Reads the shared maps under the same locks the production writers hold; this
-// test read them bare, which is why the suite could not run under -race.
+// Reads the shared maps under the same locks the production writers hold.
 func TestRunStatisticForContainer(t *testing.T) {
 	go RunStatisticForContainer("Test", "TestContainer")
 	time.Sleep(1 * time.Second)
@@ -50,9 +49,8 @@ func TestGetStatisticsByService(t *testing.T) {
 }
 
 func TestGetChartData(t *testing.T) {
-	// Every run appended another record to this database, and they all land in
-	// the same hour bucket. That only went unnoticed while the bucket kept just
-	// one record instead of summing them.
+	// Every run appends another record to this database, and they all land in
+	// the same hour bucket.
 	os.RemoveAll("leveldb/hosts/test/statistics")
 	cur_db, _ := leveldb.OpenFile("leveldb/hosts/test/statistics", nil)
 	vars.Container_Stat_Counter["test/test"] = map[string]uint64{"error": 2, "debug": 1, "info": 3, "warn": 5, "meta": 0, "other": 4}

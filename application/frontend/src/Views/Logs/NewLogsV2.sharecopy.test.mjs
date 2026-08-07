@@ -1,6 +1,3 @@
-// The share button copies a link. It used to also rebuild the whole view --
-// resetting the loaded logs, reopening the websocket and refetching -- which
-// looked like the page reloading under you.
 import assert from "node:assert/strict";
 import {
   bundleComponent,

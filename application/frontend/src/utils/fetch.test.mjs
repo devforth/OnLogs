@@ -1,5 +1,3 @@
-// Pagination cursors contain " +", and in a query string "+" means space. Built
-// by interpolation, the cursor never survived the round trip.
 import assert from "node:assert/strict";
 import {
   bundleComponent,

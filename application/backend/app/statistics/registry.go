@@ -6,8 +6,7 @@ import (
 )
 
 // One statistics worker per host/container, shared by the docker streamer and
-// the agent ingestion route. Without a single registry each ingested log line
-// spawned another immortal worker, and every new worker zeroes the live counter.
+// the agent ingestion route.
 type workerHandle struct {
 	cancel context.CancelFunc
 	id     uint64
