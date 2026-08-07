@@ -36,6 +36,7 @@ var (
 	connectionsMutex sync.RWMutex
 
 	FavsDB, FavsDBErr         = leveldb.OpenFile("leveldb/favourites", nil)
+	GroupsDB, GroupsDBErr     = leveldb.OpenFile("leveldb/groups", nil)
 	StateDB, StateDBErr       = leveldb.OpenFile("leveldb/state", nil)
 	UsersDB, UsersDBErr       = leveldb.OpenFile("leveldb/users", nil)
 	TokensDB, TokensDBErr     = leveldb.OpenFile("leveldb/tokens", nil)
