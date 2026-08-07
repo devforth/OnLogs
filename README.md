@@ -29,10 +29,10 @@
 - 🔎 Search through logs (configurable case sensitivity)
 - 👁 View parameters (parsing JSON, showing local/UTC time for every logline)
 - 🔴 Realtime logs updating
+- 🗂 Group services into named folders in the sidebar, per user
 
 ### Roadmap
 
-- 🗂 Grouping hosts
 - 🏷 Search and filter by tags (log status, time)
 - 🔌Plugins and internal ability to notify about some event (e.g. notify when Error happens)
 - 📊 Improved statistics
@@ -111,9 +111,15 @@ Three changes affect existing deployments:
 username, so one person starring a container starred it for everyone. Existing
 stars are not migrated — they need setting again once, per user.
 
+**Service groups are per user, except under `DISABLE_AUTH`.** A group is keyed
+by the username in the session cookie. With `DISABLE_AUTH=true` there is no
+cookie and the username is empty, so every anonymous user shares one group
+bucket and can read, rename and delete the others' groups. Favourites already
+behave this way. Run with authentication if groups have to be private.
+
 Agent tokens issued before the upgrade continue to work.
 
-### Docket socket URL
+### Docker socket URL
 By default the app will connect using the raw unix socket. But this can be overriden via the ENV variable `DOCKER_HOST`. That way you can specify fully qualified URL to the socket or URL of an docker socket proxy.
 
 In `compose-socket-proxy.yml` you can see a sample compose file for starting the socket proxy. To use it in the app set `DOCKER_HOST=http://localhost:2375` in the ENV.

@@ -19,6 +19,7 @@ import (
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/docker"
+	"github.com/devforth/OnLogs/app/groups"
 	"github.com/devforth/OnLogs/app/statistics"
 	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/util"
@@ -274,6 +275,183 @@ func (h *RouteController) ChangeFavourite(w http.ResponseWriter, req *http.Reque
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+}
+
+func groupError(w http.ResponseWriter, status int, message string) {
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+func (h *RouteController) GetGroups(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	username, _ := util.GetUserFromJWT(*req)
+	list, err := groups.List(username)
+
+	w.Header().Add("Content-Type", "application/json")
+	if err != nil {
+		groupError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	json.NewEncoder(w).Encode(list)
+}
+
+func (h *RouteController) CreateGroup(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	if req.Method != "POST" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	var body struct {
+		Name    string          `json:"name"`
+		Members []groups.Member `json:"members"`
+	}
+	if !decodeBody(w, req, &body) {
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	if err := groups.ValidateGroupName(body.Name); err != nil {
+		groupError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := groups.ValidateMembers(body.Members); err != nil {
+		groupError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	username, _ := util.GetUserFromJWT(*req)
+	existing, err := groups.List(username)
+	if err != nil {
+		groupError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for _, group := range existing {
+		if group.Name == body.Name {
+			groupError(w, http.StatusConflict, "Group \""+body.Name+"\" already exists")
+			return
+		}
+	}
+	// An authenticated user must not be able to write unbounded data to LevelDB.
+	if len(existing) >= groups.MaxGroupsPerUser {
+		groupError(w, http.StatusBadRequest,
+			fmt.Sprintf("You can not have more than %d groups", groups.MaxGroupsPerUser))
+		return
+	}
+
+	if err := groups.Store(username, body.Name, body.Members); err != nil {
+		groupError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+}
+
+func (h *RouteController) UpdateGroup(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	if req.Method != "POST" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	var body struct {
+		Name    string          `json:"name"`
+		NewName string          `json:"newName"`
+		Members []groups.Member `json:"members"`
+	}
+	if !decodeBody(w, req, &body) {
+		return
+	}
+
+	newName := body.NewName
+	if newName == "" {
+		newName = body.Name
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	if err := groups.ValidateGroupName(body.Name); err != nil {
+		groupError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := groups.ValidateGroupName(newName); err != nil {
+		groupError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := groups.ValidateMembers(body.Members); err != nil {
+		groupError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	username, _ := util.GetUserFromJWT(*req)
+	_, found, err := groups.Load(username, body.Name)
+	if err != nil {
+		groupError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// A missing group is a 404, never a silent create.
+	if !found {
+		groupError(w, http.StatusNotFound, "No such group")
+		return
+	}
+
+	if newName != body.Name {
+		if _, taken, _ := groups.Load(username, newName); taken {
+			groupError(w, http.StatusConflict, "Group \""+newName+"\" already exists")
+			return
+		}
+	}
+
+	if err := groups.Store(username, newName, body.Members); err != nil {
+		groupError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if newName != body.Name {
+		if err := groups.Delete(username, body.Name); err != nil {
+			groupError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+}
+
+func (h *RouteController) DeleteGroup(w http.ResponseWriter, req *http.Request) {
+	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+		return
+	}
+
+	if req.Method != "POST" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	var body struct {
+		Name string `json:"name"`
+	}
+	if !decodeBody(w, req, &body) {
+		return
+	}
+
+	w.Header().Add("Content-Type", "application/json")
+	if err := groups.ValidateGroupName(body.Name); err != nil {
+		groupError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	username, _ := util.GetUserFromJWT(*req)
+	// Deleting what is not there is a success, because the UI may double-fire.
+	if err := groups.Delete(username, body.Name); err != nil {
+		groupError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})

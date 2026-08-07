@@ -37,6 +37,12 @@ class fetchApi {
       return null;
     }
     if (!response.ok) {
+      // Rejections carry {"error": "..."} and the caller has to be able to show
+      // it; only a body that says nothing is worth throwing over.
+      const rejected = await response.json().catch(() => null);
+      if (rejected && typeof rejected === "object" && "error" in rejected) {
+        return rejected;
+      }
       throw new Error(`${method} ${path} failed with ${response.status}`);
     }
     return await response.json();
@@ -165,6 +171,25 @@ class fetchApi {
       host,
       service,
     });
+  }
+  async getGroups() {
+    return await this.doFetch("GET", `${this.url}getGroups`);
+  }
+  async createGroup(name, members) {
+    return await this.doFetch("POST", `${this.url}createGroup`, {
+      name,
+      members,
+    });
+  }
+  async updateGroup(name, newName, members) {
+    return await this.doFetch("POST", `${this.url}updateGroup`, {
+      name,
+      newName,
+      members,
+    });
+  }
+  async deleteGroup(name) {
+    return await this.doFetch("POST", `${this.url}deleteGroup`, { name });
   }
   async getStats(options) {
     return await this.doFetch("POST", `${this.url}getStats`, options);

@@ -3,6 +3,8 @@
   import {
     snipetModalIsVisible,
     addHostMenuIsVisible,
+    groupModalIsVisible,
+    groupBeingEdited,
   } from "../../Stores/stores.js";
 </script>
 
@@ -15,7 +17,11 @@
         storeValue={""}
         isFirst={true}
         disableCheckbox={true}
-        titleCallBack={() => {}}
+        titleCallBack={() => {
+          groupBeingEdited.set(null);
+          groupModalIsVisible.set(true);
+          addHostMenuIsVisible.set(false);
+        }}
       />
       <DropDownRow
         rowTitle={"Connect new host"}

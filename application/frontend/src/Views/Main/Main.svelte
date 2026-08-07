@@ -20,7 +20,10 @@
     toastIsVisible,
     chosenLogsString,
     store,
+    groupModalIsVisible,
   } from "../../Stores/stores.js";
+  import GroupModal from "../../lib/GroupModal/GroupModal.svelte";
+  import { reloadGroups } from "../../utils/groups.js";
   import UserMenu from "../../lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
@@ -113,6 +116,9 @@
     return Array.isArray(data) ? data : [];
   }
   onMount(async () => {
+    // Groups only change when this user changes them, so they are loaded once
+    // rather than folded into the host polling.
+    reloadGroups();
     const data = await getHosts();
     intervalId = setInterval(async () => {
       await getHosts();
@@ -255,6 +261,9 @@
   </div>
   {#if $snipetModalIsVisible}
     <SecretModal />
+  {/if}
+  {#if $groupModalIsVisible}
+    <GroupModal hosts={hostList} />
   {/if}
   <div
     class="subContainerRight  subContainer {withoutRightPanel

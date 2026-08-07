@@ -25,6 +25,12 @@ export const theme = writable("light");
 export const lastChosenHost = writable("");
 export const lastChosenService = writable("");
 
+// service groups, loaded from /api/v1/getGroups
+export const groups = writable([]);
+export const groupModalIsVisible = writable(false);
+// The group being edited, or null when the modal is creating a new one.
+export const groupBeingEdited = writable(null);
+
 // toast state
 
 export const toast = writable({

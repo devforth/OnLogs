@@ -8,6 +8,9 @@
   let chosenElSettings = $state("");
   import {
     activeMenuOption,
+    groups,
+    groupBeingEdited,
+    groupModalIsVisible,
     lastChosenHost,
     lastChosenService,
     listScrollIsVisible,
@@ -140,6 +143,54 @@
     }
   }
 
+  // The one click path a service row runs, wherever it is rendered: under its
+  // host, under "stopped services", or inside a group.
+  function choseService(host, serviceName, target) {
+    if (target.id.includes("heart")) {
+      return;
+    }
+    choseSublistEl(host, serviceName);
+    lastChosenHost.set(host);
+    lastChosenService.set(serviceName);
+
+    if (!target.className.includes("log")) {
+      activeMenuOption.set("home");
+    }
+    initialVisitcounter = 1;
+  }
+
+  // A member the host list no longer offers gets the stopped-service treatment.
+  let groupSections = $derived(
+    $groups.map((group) => ({
+      name: group.name,
+      members: (group.members || []).map((member) => {
+        const service = listData
+          .find((h) => h.host === member.host)
+          ?.services?.find((s) => s.serviceName === member.service);
+        return {
+          host: member.host,
+          serviceName: member.service,
+          isDisabled: !service || service.isDisabled,
+        };
+      }),
+    }))
+  );
+
+  // The modal owns renaming, membership and deletion, so the row needs one entry
+  // point rather than three.
+  function editGroup(name) {
+    groupBeingEdited.set($groups.find((g) => g.name === name) || null);
+    groupModalIsVisible.set(true);
+  }
+
+  // Keyed by name, so a refetch that reorders groups does not flip which is open.
+  let closedGroups = $state([]);
+  function toggleGroupVisible(name) {
+    closedGroups = closedGroups.includes(name)
+      ? closedGroups.filter((e) => e !== name)
+      : [...closedGroups, name];
+  }
+
   function choseSublistEl(firstEl, secondEl) {
     activeElementName = `${firstEl.trim()}-${secondEl.trim()}`;
 
@@ -166,6 +217,67 @@
 </script>
 
 <div class="listWithChoise {$listScrollIsVisible ? 'active' : ''}">
+  {#if groupSections.length}
+    <ul class="groupSection {customListClass}">
+      {#each groupSections as group}
+        <li class="listElement">
+          <div
+            class="hostHeader clickable"
+            onclick={() => toggleGroupVisible(group.name)}
+          >
+            <div>
+              <i class="log log-Group"></i>
+            </div>
+            <p class="hostName">
+              {group.name}
+            </p>
+            <div
+              class="headerButton groupEditButton"
+              onclick={(e) => {
+                e.stopPropagation();
+                editGroup(group.name);
+              }}
+            >
+              <i class="log log-Pencil"></i>
+            </div>
+          </div>
+          <div
+            class="dropDownList {closedGroups.includes(group.name)
+              ? 'visuallyHidden'
+              : ''}"
+          >
+            <ul class="activeServices">
+              {#each group.members as member}
+                <li
+                  class="serviceListItem"
+                  id={member.host}
+                  onclick={({ target }) =>
+                    choseService(member.host, member.serviceName, target)}
+                >
+                  <div class="hostRow {customListElClass}">
+                    <p
+                      class={member.isDisabled ? "disabled" : ""}
+                      title={`${member.host}/${member.serviceName}`}
+                    >
+                      {member.serviceName}
+                    </p>
+                  </div>
+                  <div
+                    class={`highlightedOverlay ${
+                      `${activeElementName}` ===
+                      `${member.host.trim()}-${member.serviceName.trim()}`
+                        ? "active"
+                        : ``
+                    }`}
+                  ></div>
+                </li>
+              {/each}
+            </ul>
+          </div>
+        </li>
+      {/each}
+    </ul>
+  {/if}
   <ul class={customListClass}>
     {#each sortedData as listEl, index}
       <li class="listElement">
@@ -203,19 +315,8 @@
               {#if !service.isDisabled}<li
                   class="serviceListItem  "
                   id={listEl.host}
-                  onclick={({ target }) => {
-                    if (!target.id.includes("heart")) {
-                      choseSublistEl(listEl.host, service.serviceName);
-                      lastChosenHost.set(listEl.host);
-                      lastChosenService.set(service.serviceName);
-
-                      if (!target.className.includes("log")) {
-                        activeMenuOption.set("home");
-                      }
-
-                      initialVisitcounter = 1;
-                    }
-                  }}
+                  onclick={({ target }) =>
+                    choseService(listEl.host, service.serviceName, target)}
                 >
                   <div class="hostRow {customListElClass}">
                     <p
@@ -300,18 +401,8 @@
               {#if service.isDisabled}<li
                   class="serviceListItem  "
                   id={listEl.host}
-                  onclick={({ target }) => {
-                    if (!target.id.includes("heart")) {
-                      choseSublistEl(listEl.host, service.serviceName);
-                      lastChosenHost.set(listEl.host);
-                      lastChosenService.set(service.serviceName);
-                      if (!target.className.includes("log")) {
-                        activeMenuOption.set("home");
-                      }
-
-                      initialVisitcounter = 1;
-                    }
-                  }}
+                  onclick={({ target }) =>
+                    choseService(listEl.host, service.serviceName, target)}
                 >
                   <div class="hostRow {customListElClass}">
                     <p
