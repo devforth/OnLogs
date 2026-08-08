@@ -74,3 +74,17 @@ func ConnectionCount(key string) int {
 	defer connectionsMutex.RUnlock()
 	return len(connections[key])
 }
+
+// Total only. Per-key counts are not exported for metrics because the key is a
+// bare container name locally and host/container for agent-forwarded streams,
+// so the two forms would not label consistently.
+func TotalConnections() int {
+	connectionsMutex.RLock()
+	defer connectionsMutex.RUnlock()
+
+	total := 0
+	for _, viewers := range connections {
+		total += len(viewers)
+	}
+	return total
+}

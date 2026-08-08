@@ -43,6 +43,12 @@ type DaemonService struct {
 	recentFingerprints map[string][]string
 	recentSet          map[string]map[string]struct{}
 	droppedReplays     map[string]int
+
+	// droppedReplays is cleared when a stream ends; these two are for /metrics,
+	// which needs a total that survives a restart and a cursor readable without
+	// touching LevelDB.
+	droppedReplayTotals map[string]uint64
+	cursorTimestamps    map[string]time.Time
 }
 
 func (h *DaemonService) ensureRuntimeState() {
@@ -63,6 +69,12 @@ func (h *DaemonService) ensureRuntimeState() {
 	}
 	if h.droppedReplays == nil {
 		h.droppedReplays = map[string]int{}
+	}
+	if h.droppedReplayTotals == nil {
+		h.droppedReplayTotals = map[string]uint64{}
+	}
+	if h.cursorTimestamps == nil {
+		h.cursorTimestamps = map[string]time.Time{}
 	}
 }
 
@@ -153,9 +165,12 @@ func (h *DaemonService) seedBoundaryFingerprints(host, containerName string, cur
 }
 
 func (h *DaemonService) countDroppedReplay(containerName string) {
+	h.ensureRuntimeState()
+
 	h.streamsMu.Lock()
 	defer h.streamsMu.Unlock()
 	h.droppedReplays[containerName]++
+	h.droppedReplayTotals[util.GetHost()+"/"+containerName]++
 	if count := h.droppedReplays[containerName]; count == 1 || count%100 == 0 {
 		fmt.Printf("INFO: dropped %d replayed log line(s) for %s\n", count, containerName)
 	}
@@ -165,6 +180,31 @@ func (h *DaemonService) DroppedReplays(containerName string) int {
 	h.streamsMu.Lock()
 	defer h.streamsMu.Unlock()
 	return h.droppedReplays[containerName]
+}
+
+// Keyed host/container, and survives a stream restart so the counter does not
+// reset every time a container bounces.
+func (h *DaemonService) DroppedReplayTotals() map[string]uint64 {
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+
+	totals := make(map[string]uint64, len(h.droppedReplayTotals))
+	for location, count := range h.droppedReplayTotals {
+		totals[location] = count
+	}
+	return totals
+}
+
+// Mirrors what saveCursor persisted, so a scrape needs no LevelDB.
+func (h *DaemonService) CursorTimestamps() map[string]time.Time {
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+
+	cursors := make(map[string]time.Time, len(h.cursorTimestamps))
+	for location, ts := range h.cursorTimestamps {
+		cursors[location] = ts
+	}
+	return cursors
 }
 
 func (h *DaemonService) isRecentDuplicate(containerName, fingerprint string) bool {
@@ -260,6 +300,12 @@ func (h *DaemonService) getResumeSince(host, containerName string) time.Time {
 }
 
 func (h *DaemonService) saveCursor(host, containerName string, ts time.Time) {
+	h.ensureRuntimeState()
+
+	h.streamsMu.Lock()
+	h.cursorTimestamps[host+"/"+containerName] = ts.UTC()
+	h.streamsMu.Unlock()
+
 	db := util.GetDB(host, containerName, "streamstate")
 	if db == nil {
 		return
@@ -355,6 +401,9 @@ func (h *DaemonService) finalizeStream(containerName string, streamID uint64) bo
 	delete(h.recentSet, containerName)
 	delete(h.recentFingerprints, containerName)
 	delete(h.droppedReplays, containerName)
+	// droppedReplayTotals deliberately survives; the cursor does not, since a
+	// stopped stream has no progress to fall behind on.
+	delete(h.cursorTimestamps, util.GetHost()+"/"+containerName)
 	return true
 }
 

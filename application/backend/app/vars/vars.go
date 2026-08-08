@@ -3,6 +3,7 @@ package vars
 import (
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -43,6 +44,10 @@ var (
 	SettingsDB, SettingsDBErr = leveldb.OpenFile("leveldb/usersSettings", nil)
 
 	Year = strconv.Itoa(time.Now().UTC().Year())
+
+	// Here rather than in routes so app/metrics need not import the HTTP layer.
+	LoginFailures atomic.Uint64
+	LoginBlocked  atomic.Uint64
 )
 
 const (

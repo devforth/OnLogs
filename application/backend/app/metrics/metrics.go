@@ -10,9 +10,9 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/devforth/OnLogs/app/containerdb"
-	"github.com/devforth/OnLogs/app/daemon"
 )
 
 // Set at link time with -ldflags "-X .../app/metrics.Version=x.y.z".
@@ -20,12 +20,17 @@ var Version = "dev"
 
 const contentType = "text/plain; version=0.0.4; charset=utf-8"
 
-// Handler serves the exposition. It takes the DaemonService because the daemon
-// owns per-container ingestion counters that exist nowhere else.
-func Handler(ds *daemon.DaemonService) http.HandlerFunc {
+// Satisfied by *daemon.DaemonService. An interface so this package does not
+// import app/daemon, and so rendering is testable without a docker stream.
+type daemonState interface {
+	DroppedReplayTotals() map[string]uint64
+	CursorTimestamps() map[string]time.Time
+}
+
+// A nil ds is valid and omits the per-container ingestion series.
+func Handler(ds daemonState) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		// Before the method check, so an unauthorized caller cannot discover
-		// which verbs the endpoint accepts.
+		// Before the method check: an unauthorized caller learns nothing.
 		if !authorized(req) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
@@ -35,8 +40,10 @@ func Handler(ds *daemon.DaemonService) http.HandlerFunc {
 			return
 		}
 
+		started := time.Now()
 		w.Header().Set("Content-Type", contentType)
 		write(w, ds)
+		recordScrapeDuration(time.Since(started))
 	}
 }
 
@@ -54,11 +61,22 @@ func authorized(req *http.Request) bool {
 	return subtle.ConstantTimeCompare([]byte(offered), []byte(token)) == 1
 }
 
-func write(w io.Writer, ds *daemon.DaemonService) {
+func write(w io.Writer, ds daemonState) {
 	writeLogLines(w)
+	writeStreamUp(w)
+	writeCursors(w, ds)
+	writeDroppedReplays(w, ds)
+	writeProcess(w)
+	writeFilesystem(w)
 
 	writeHeader(w, "onlogs_build_info", "gauge", "Build information, always 1.")
 	fmt.Fprintf(w, "onlogs_build_info{version=\"%s\"} 1\n", escapeLabelValue(Version))
+}
+
+func sortedStrings(values []string) []string {
+	sorted := append([]string{}, values...)
+	sort.Strings(sorted)
+	return sorted
 }
 
 func writeLogLines(w io.Writer) {

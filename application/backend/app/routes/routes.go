@@ -782,6 +782,7 @@ func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 	ipKey := "ip:" + addr
 	pairKey := "pair:" + loginKey(addr, loginData.Login)
 	if !loginLimiter.allow(ipKey, pairKey) {
+		vars.LoginBlocked.Add(1)
 		w.Header().Add("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Too many failed login attempts. Try again later."})
@@ -790,6 +791,8 @@ func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 
 	isCorrect := userdb.CheckUserPassword(loginData.Login, loginData.Password)
 	if !isCorrect {
+		// Once per request, not once per key: fail() takes two.
+		vars.LoginFailures.Add(1)
 		loginLimiter.fail(ipKey, pairKey)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Wrong login or password!"})
 		return
