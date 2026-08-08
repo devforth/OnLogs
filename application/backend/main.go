@@ -12,6 +12,7 @@ import (
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/docker"
+	"github.com/devforth/OnLogs/app/metrics"
 	"github.com/devforth/OnLogs/app/routes"
 	"github.com/devforth/OnLogs/app/streamer"
 	"github.com/devforth/OnLogs/app/util"
@@ -180,6 +181,9 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/getUsers", routerCtrl.GetUsers)
 	http.HandleFunc(pathPrefix+"/api/v1/login", routerCtrl.Login)
 	http.HandleFunc(pathPrefix+"/api/v1/logout", routerCtrl.Logout)
+	// Registered even when METRICS_TOKEN is unset: the pathPrefix+"/" catch-all
+	// below answers anything unregistered with index.html and a 200.
+	http.HandleFunc(pathPrefix+"/api/v1/metrics", metrics.Handler(daemonService))
 	http.HandleFunc(pathPrefix+"/api/v1/updateGroup", routerCtrl.UpdateGroup)
 	http.HandleFunc(pathPrefix+"/api/v1/updateUserSettings", routerCtrl.UpdateUserSettings)
 
