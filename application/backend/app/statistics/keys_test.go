@@ -74,8 +74,8 @@ func TestSaveStatsAlwaysWritesAParseableKey(t *testing.T) {
 	}
 
 	fullLogKey := "2026-02-10T12:44:02.123456789Z +1786097928311912188-9"
-	saveStats(db, emptyStats(), fullLogKey)
-	saveStats(db, emptyStats(), "not a timestamp at all")
+	saveStats(db, containerdb.NewStatCounter(), fullLogKey)
+	saveStats(db, containerdb.NewStatCounter(), "not a timestamp at all")
 
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()

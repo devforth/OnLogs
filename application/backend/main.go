@@ -116,9 +116,7 @@ func main() {
 		Client: cli,
 	}
 
-	daemonService := &daemon.DaemonService{
-		DockerClient: dockerService,
-	}
+	daemonService := daemon.NewDaemonService(dockerService)
 
 	streamController := &streamer.StreamController{
 		DaemonService: daemonService,

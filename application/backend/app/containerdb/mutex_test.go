@@ -43,7 +43,7 @@ func TestPutLogMessageHandlesAContainerWithNoStatCounterYet(t *testing.T) {
 	panicked := make(chan interface{}, 1)
 	go func() {
 		defer func() { panicked <- recover() }()
-		PutLogMessage(db, host, container, []string{vars.Year + "-02-10T12:56:09.230421754Z", "first line"})
+		PutLogMessage(db, host, container, []string{testYear + "-02-10T12:56:09.230421754Z", "first line"})
 	}()
 
 	if r := <-panicked; r != nil {
@@ -92,7 +92,7 @@ func TestPutLogMessageCountsConcurrentlyWithoutRacing(t *testing.T) {
 				done <- failure
 			}()
 			for n := 0; n < 25; n++ {
-				PutLogMessage(db, host, container, []string{vars.Year + "-02-10T12:56:09.230421754Z", "concurrent line"})
+				PutLogMessage(db, host, container, []string{testYear + "-02-10T12:56:09.230421754Z", "concurrent line"})
 			}
 		}()
 	}

@@ -88,7 +88,6 @@ func TestLoginLimiterStillThrottlesRepeatedFailures(t *testing.T) {
 // The lockout lived in which key the handler chose, so it has to be exercised
 // through the handler.
 func TestLoginLockoutCannotBeInflictedOnAnotherUser(t *testing.T) {
-	ctrl := initTestConfig()
 	userdb.CreateUser("victimaccount", "the-real-password")
 	t.Cleanup(func() { userdb.DeleteUser("victimaccount") })
 
@@ -101,7 +100,7 @@ func TestLoginLockoutCannotBeInflictedOnAnotherUser(t *testing.T) {
 		req, _ := http.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(body))
 		req.RemoteAddr = addr + ":40000"
 		rr := httptest.NewRecorder()
-		http.HandlerFunc(ctrl.Login).ServeHTTP(rr, req)
+		http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
 		return rr.Result().StatusCode
 	}
 

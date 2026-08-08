@@ -18,22 +18,10 @@ type StreamController struct {
 	DaemonService *daemon.DaemonService
 }
 
-func (ctrl *StreamController) ensureStatisticsWorker(ctx context.Context, host, container string) {
-	statistics.EnsureWorker(ctx, host, container)
-}
-
-func (ctrl *StreamController) stopStatisticsWorker(host, container string) {
-	statistics.StopWorker(host, container)
-}
-
-func (ctrl *StreamController) statisticsWorkersCount() int {
-	return statistics.WorkerCount()
-}
-
 func (ctrl *StreamController) ensureStreams(ctx context.Context, containers []string) {
 	host := util.GetHost()
 	for _, container := range containers {
-		ctrl.ensureStatisticsWorker(ctx, host, container)
+		statistics.EnsureWorker(ctx, host, container)
 		ctrl.DaemonService.EnsureStream(ctx, container)
 	}
 }
@@ -50,7 +38,7 @@ func (ctrl *StreamController) reconcileStreams(ctx context.Context) {
 	for _, active := range vars.ActiveStreams() {
 		if _, exists := current[active]; !exists {
 			ctrl.DaemonService.StopStream(active)
-			ctrl.stopStatisticsWorker(util.GetHost(), active)
+			statistics.StopWorker(util.GetHost(), active)
 		}
 	}
 }
@@ -64,13 +52,13 @@ func (ctrl *StreamController) handleContainerEvent(ctx context.Context, msg even
 	switch msg.Action {
 	case "start", "restart", "unpause":
 		vars.AddDockerContainer(containerName)
-		ctrl.ensureStatisticsWorker(ctx, util.GetHost(), containerName)
+		statistics.EnsureWorker(ctx, util.GetHost(), containerName)
 		ctrl.DaemonService.EnsureStream(ctx, containerName)
 	case "die", "stop", "pause":
 		ctrl.DaemonService.StopStream(containerName)
 	case "destroy":
 		ctrl.DaemonService.StopStream(containerName)
-		ctrl.stopStatisticsWorker(util.GetHost(), containerName)
+		statistics.StopWorker(util.GetHost(), containerName)
 	}
 }
 
@@ -112,8 +100,8 @@ func (ctrl *StreamController) startEventsLoop(ctx context.Context) {
 }
 
 func (ctrl *StreamController) StreamLogs(ctx context.Context) {
-	if vars.FavsDBErr != nil || vars.StateDBErr != nil || vars.UsersDBErr != nil {
-		fmt.Println("ERROR: unable to open leveldb", vars.FavsDBErr, vars.StateDBErr, vars.UsersDBErr)
+	if vars.FavsDBErr != nil || vars.UsersDBErr != nil {
+		fmt.Println("ERROR: unable to open leveldb", vars.FavsDBErr, vars.UsersDBErr)
 		return
 	}
 

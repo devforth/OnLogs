@@ -1,7 +1,6 @@
 package vars
 
 import (
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,7 +11,6 @@ import (
 var (
 	ActiveDBs           = map[string]*leveldb.DB{}
 	Stat_Containers_DBs = map[string]*leveldb.DB{}
-	Stat_Hosts_DBs      = map[string]*leveldb.DB{}
 	Statuses_DBs        = map[string]*leveldb.DB{}
 	BrokenLogs_DBs      = map[string]*leveldb.DB{}
 	ContainersMeta_DBs  = map[string]*leveldb.DB{}
@@ -37,12 +35,9 @@ var (
 
 	FavsDB, FavsDBErr         = leveldb.OpenFile("leveldb/favourites", nil)
 	GroupsDB, GroupsDBErr     = leveldb.OpenFile("leveldb/groups", nil)
-	StateDB, StateDBErr       = leveldb.OpenFile("leveldb/state", nil)
 	UsersDB, UsersDBErr       = leveldb.OpenFile("leveldb/users", nil)
 	TokensDB, TokensDBErr     = leveldb.OpenFile("leveldb/tokens", nil)
 	SettingsDB, SettingsDBErr = leveldb.OpenFile("leveldb/usersSettings", nil)
-
-	Year = strconv.Itoa(time.Now().UTC().Year())
 
 	// Here rather than in routes so app/metrics need not import the HTTP layer.
 	LoginFailures atomic.Uint64

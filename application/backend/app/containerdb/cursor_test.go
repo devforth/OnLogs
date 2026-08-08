@@ -27,7 +27,7 @@ func seedSameMillisecondRows(t *testing.T, host, container string) []string {
 
 	messages := []string{"first in the millisecond", "second in the millisecond", "third in the millisecond"}
 	for _, message := range messages {
-		if err := PutLogMessage(db, host, container, []string{vars.Year + sameMillisecond, message}); err != nil {
+		if err := PutLogMessage(db, host, container, []string{testYear + sameMillisecond, message}); err != nil {
 			t.Fatal(err)
 		}
 	}

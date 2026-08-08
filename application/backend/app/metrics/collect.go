@@ -46,42 +46,39 @@ func writeStreamUp(w io.Writer) {
 	}
 }
 
+// An empty map omits the family rather than exporting a zero, so a series only
+// appears once there is something real behind it.
+func writePerContainer[V any](w io.Writer, name, metricType, help string, values map[string]V, value func(V) int64) {
+	if len(values) == 0 {
+		return
+	}
+
+	writeHeader(w, name, metricType, help)
+	for _, location := range sortedKeys(values) {
+		host, container := splitLocation(location)
+		fmt.Fprintf(w, "%s{host=\"%s\",container=\"%s\"} %d\n",
+			name, escapeLabelValue(host), escapeLabelValue(container), value(values[location]))
+	}
+}
+
 // Raw timestamp, not a derived lag: a quiet container's lag grows forever and
 // means nothing. The alert pairs this with a log-line rate.
 func writeCursors(w io.Writer, ds daemonState) {
 	if ds == nil {
 		return
 	}
-	cursors := ds.CursorTimestamps()
-	if len(cursors) == 0 {
-		return
-	}
-
-	writeHeader(w, "onlogs_stream_cursor_timestamp_seconds", "gauge",
-		"Timestamp of the newest log line ingested for a container.")
-	for _, location := range sortedKeys(cursors) {
-		host, container := splitLocation(location)
-		fmt.Fprintf(w, "onlogs_stream_cursor_timestamp_seconds{host=\"%s\",container=\"%s\"} %d\n",
-			escapeLabelValue(host), escapeLabelValue(container), cursors[location].Unix())
-	}
+	writePerContainer(w, "onlogs_stream_cursor_timestamp_seconds", "gauge",
+		"Timestamp of the newest log line ingested for a container.",
+		ds.CursorTimestamps(), func(ts time.Time) int64 { return ts.Unix() })
 }
 
 func writeDroppedReplays(w io.Writer, ds daemonState) {
 	if ds == nil {
 		return
 	}
-	totals := ds.DroppedReplayTotals()
-	if len(totals) == 0 {
-		return
-	}
-
-	writeHeader(w, "onlogs_dropped_replay_lines_total", "counter",
-		"Log lines dropped because a stream replayed something already stored.")
-	for _, location := range sortedKeys(totals) {
-		host, container := splitLocation(location)
-		fmt.Fprintf(w, "onlogs_dropped_replay_lines_total{host=\"%s\",container=\"%s\"} %d\n",
-			escapeLabelValue(host), escapeLabelValue(container), totals[location])
-	}
+	writePerContainer(w, "onlogs_dropped_replay_lines_total", "counter",
+		"Log lines dropped because a stream replayed something already stored.",
+		ds.DroppedReplayTotals(), func(n uint64) int64 { return int64(n) })
 }
 
 func writeProcess(w io.Writer) {

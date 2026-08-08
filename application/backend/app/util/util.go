@@ -37,15 +37,6 @@ func replaceVarForAllFilesInDir(dirName string, dir_files []fs.DirEntry) {
 	}
 }
 
-func Contains(a string, list []string) bool {
-	for _, b := range list {
-		if strings.Compare(b, a) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
 func CreateInitUser() error {
 	admin_username := os.Getenv("ADMIN_USERNAME")
 	if admin_username == "" {
@@ -138,23 +129,10 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 		return nil
 	}
 
-	switch dbType {
-	case "logs":
-		vars.ActiveDBs[host+"/"+container] = db
-	case "statistics":
-		vars.Stat_Containers_DBs[host+"/"+container] = db
-	case "hosts_statistics":
-		vars.Stat_Hosts_DBs[host] = db
-	case "statuses":
-		vars.Statuses_DBs[host+"/"+container] = db
-	case "brokenlogs":
-		vars.BrokenLogs_DBs[host+"/"+container] = db
-	case "containersmeta":
-		vars.ContainersMeta_DBs[host+"/"+container] = db
-	case "streamstate":
-		vars.StreamState_DBs[host+"/"+container] = db
+	// Assigning into a nil map panics, unlike reading or deleting.
+	if cache := dbCaches[dbType]; cache != nil {
+		cache[host+"/"+container] = db
 	}
-
 	return db
 }
 
@@ -209,43 +187,20 @@ func ResetDB(host string, container string, dbType string) {
 	if db := getExistingDB(host, container, dbType); db != nil {
 		db.Close()
 	}
+	delete(dbCaches[dbType], host+"/"+container)
+}
 
-	switch dbType {
-	case "logs":
-		delete(vars.ActiveDBs, host+"/"+container)
-	case "statistics":
-		delete(vars.Stat_Containers_DBs, host+"/"+container)
-	case "hosts_statistics":
-		delete(vars.Stat_Hosts_DBs, host)
-	case "statuses":
-		delete(vars.Statuses_DBs, host+"/"+container)
-	case "brokenlogs":
-		delete(vars.BrokenLogs_DBs, host+"/"+container)
-	case "containersmeta":
-		delete(vars.ContainersMeta_DBs, host+"/"+container)
-	case "streamstate":
-		delete(vars.StreamState_DBs, host+"/"+container)
-	}
+// ContainersMeta_DBs is absent: GetContainersMetaDB keys it by bare host.
+var dbCaches = map[string]map[string]*leveldb.DB{
+	"logs":        vars.ActiveDBs,
+	"statistics":  vars.Stat_Containers_DBs,
+	"statuses":    vars.Statuses_DBs,
+	"brokenlogs":  vars.BrokenLogs_DBs,
+	"streamstate": vars.StreamState_DBs,
 }
 
 func getExistingDB(host, container, dbType string) *leveldb.DB {
-	switch dbType {
-	case "logs":
-		return vars.ActiveDBs[host+"/"+container]
-	case "statistics":
-		return vars.Stat_Containers_DBs[host+"/"+container]
-	case "hosts_statistics":
-		return vars.Stat_Hosts_DBs[host]
-	case "statuses":
-		return vars.Statuses_DBs[host+"/"+container]
-	case "brokenlogs":
-		return vars.BrokenLogs_DBs[host+"/"+container]
-	case "containersmeta":
-		return vars.ContainersMeta_DBs[host+"/"+container]
-	case "streamstate":
-		return vars.StreamState_DBs[host+"/"+container]
-	}
-	return nil
+	return dbCaches[dbType][host+"/"+container]
 }
 
 // AGENT is documented as a boolean, so "false" must mean off.

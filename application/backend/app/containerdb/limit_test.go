@@ -25,7 +25,7 @@ func seedLogs(t *testing.T, host, container string, n int) {
 	vars.Statuses_DBs[host+"/"+container] = statusDB
 
 	for i := 0; i < n; i++ {
-		ts := vars.Year + "-02-10T12:" + pad(i/60) + ":" + pad(i%60) + ".230421754Z"
+		ts := testYear + "-02-10T12:" + pad(i/60) + ":" + pad(i%60) + ".230421754Z"
 		if err := PutLogMessage(db, host, container, []string{ts, "line " + strconv.Itoa(i)}); err != nil {
 			t.Fatal(err)
 		}

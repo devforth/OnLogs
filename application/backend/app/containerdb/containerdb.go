@@ -44,6 +44,52 @@ func GetLogStatusKey(message string) string {
 	return "other"
 }
 
+func forEachContainer(visit func(host, container string)) error {
+	hosts, err := os.ReadDir("leveldb/hosts/")
+	if err != nil {
+		return fmt.Errorf("failed to read hosts directory: %v", err)
+	}
+	for _, h := range hosts {
+		containers, _ := os.ReadDir("leveldb/hosts/" + h.Name() + "/containers")
+		for _, c := range containers {
+			visit(h.Name(), c.Name())
+		}
+	}
+	return nil
+}
+
+// scanLimit 0 means scan every row.
+func pruneUpTo(db *leveldb.DB, cutoff time.Time, scanLimit int) int {
+	batch := new(leveldb.Batch)
+	deleted := 0
+
+	iter := db.NewIterator(nil, nil)
+	scanned := 0
+	for ok := iter.First(); ok && (scanLimit == 0 || scanned < scanLimit); ok = iter.Next() {
+		scanned++
+		keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(iter.Key())))
+		if err != nil {
+			fmt.Println("Error parsing key time:", err)
+			continue
+		}
+		if !keyTime.After(cutoff) {
+			batch.Delete(iter.Key())
+			deleted++
+		}
+	}
+	iter.Release()
+
+	if deleted == 0 {
+		return 0
+	}
+	if err := db.Write(batch, nil); err != nil {
+		fmt.Println("Failed to delete batch:", err)
+		return 0
+	}
+	db.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
+	return deleted
+}
+
 func checkAndManageLogSize(host string, container string) error {
 	maxSize, err := util.ParseHumanReadableSize(os.Getenv("MAX_LOGS_SIZE"))
 	if err != nil {
@@ -51,138 +97,63 @@ func checkAndManageLogSize(host string, container string) error {
 	}
 
 	for {
-		hosts, err := os.ReadDir("leveldb/hosts/")
-		if err != nil {
-			return fmt.Errorf("failed to read hosts directory: %v", err)
-		}
-
 		var totalSize int64
-		for _, h := range hosts {
-			hostName := h.Name()
-			containers, _ := os.ReadDir("leveldb/hosts/" + hostName + "/containers")
-			for _, c := range containers {
-				containerName := c.Name()
-				size := util.GetDirSize(hostName, containerName)
-				totalSize += int64(size * 1024 * 1024)
-			}
+		if err := forEachContainer(func(h, c string) {
+			totalSize += int64(util.GetDirSize(h, c) * 1024 * 1024)
+		}); err != nil {
+			return err
 		}
-
-		// fmt.Printf("Max size: %d, current dir size: %d\n", maxSize, totalSize)
 		if totalSize <= maxSize {
-			break
+			return nil
 		}
 
 		var cutoffKeys [][]byte
-		for _, h := range hosts {
-			hostName := h.Name()
-			containers, _ := os.ReadDir("leveldb/hosts/" + hostName + "/containers")
-			for _, c := range containers {
-				containerName := c.Name()
-				logsDB := util.GetDB(hostName, containerName, "logs")
-				if logsDB == nil {
-					continue
-				}
-
-				cutoffKeysForContainer, err := getCutoffKeysForContainer(logsDB, 200)
-				if err != nil || len(cutoffKeysForContainer) == 0 {
-					continue
-				}
-				cutoffKeys = append(cutoffKeys, cutoffKeysForContainer)
+		if err := forEachContainer(func(h, c string) {
+			logsDB := util.GetDB(h, c, "logs")
+			if logsDB == nil {
+				return
 			}
+			if key, err := getCutoffKeysForContainer(logsDB, 200); err == nil && len(key) > 0 {
+				cutoffKeys = append(cutoffKeys, key)
+			}
+		}); err != nil {
+			return err
 		}
 
 		if len(cutoffKeys) == 0 {
 			fmt.Println("Nothing to delete, cutoff keys not found.")
-			break
+			return nil
 		}
 
-		oldestCutoffKey := findOldestCutoffKey(cutoffKeys)
-		oldestTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(oldestCutoffKey)))
+		oldestTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(findOldestCutoffKey(cutoffKeys))))
 		if err != nil {
 			fmt.Println("Error parsing oldest time:", err)
-			break
+			return nil
 		}
 		fmt.Println("Oldest time for deletion cutoff:", oldestTime)
 
-		for _, h := range hosts {
-			hostName := h.Name()
-			containers, _ := os.ReadDir("leveldb/hosts/" + hostName + "/containers")
-			for _, c := range containers {
-				containerName := c.Name()
-				logsDB := util.GetDB(hostName, containerName, "logs")
-				if logsDB == nil {
+		if err := forEachContainer(func(h, c string) {
+			// Everything the quota measures, or it can never come down.
+			for _, dbType := range util.PrunableDBs() {
+				db := util.GetDB(h, c, dbType)
+				if db == nil {
 					continue
 				}
-
-				batch := new(leveldb.Batch)
-				deletedCount := 0
-				iter := logsDB.NewIterator(nil, nil)
-
-				count := 0
-				for ok := iter.First(); ok && count < 200; ok = iter.Next() {
-					count++
-					keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(iter.Key())))
-					if err != nil {
-						fmt.Println("Error parsing key time:", err)
-						continue
-					}
-					if keyTime.Before(oldestTime) || keyTime.Equal(oldestTime) {
-						batch.Delete(iter.Key())
-						deletedCount++
-					}
+				scanLimit := 0
+				if dbType == "logs" {
+					scanLimit = 200
 				}
-				iter.Release()
-
-				if deletedCount > 0 {
-					err = logsDB.Write(batch, nil)
-					if err != nil {
-						fmt.Printf("Failed to delete batch in %s/%s: %v\n", hostName, containerName, err)
-					} else {
-						CountRetentionDeleted(deletedCount)
-						fmt.Printf("Deleted %d logs from %s/%s\n", deletedCount, hostName, containerName)
-					}
-					logsDB.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
-				}
-
-				// Prune everything the quota measures, or the measurement can
-				// never come down.
-				for _, dbType := range []string{"statuses", "statistics"} {
-					statusesDB := util.GetDB(hostName, containerName, dbType)
-					if statusesDB == nil {
-						continue
-					}
-					batch := new(leveldb.Batch)
-					deletedCountStatuses := 0
-					iter := statusesDB.NewIterator(nil, nil)
-
-					for ok := iter.First(); ok; ok = iter.Next() {
-						keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(iter.Key())))
-						if err != nil {
-							fmt.Println("Error parsing key time:", err)
-							continue
-						}
-						if keyTime.Before(oldestTime) || keyTime.Equal(oldestTime) {
-							batch.Delete(iter.Key())
-							deletedCountStatuses++
-						}
-					}
-					iter.Release()
-
-					if deletedCountStatuses > 0 {
-						err := statusesDB.Write(batch, nil)
-						if err != nil {
-							fmt.Printf("Failed to delete batch in %s for %s/%s: %v\n", dbType, hostName, containerName, err)
-						}
-						statusesDB.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
-					}
+				if deleted := pruneUpTo(db, oldestTime, scanLimit); deleted > 0 && dbType == "logs" {
+					CountRetentionDeleted(deleted)
+					fmt.Printf("Deleted %d logs from %s/%s\n", deleted, h, c)
 				}
 			}
+		}); err != nil {
+			return err
 		}
 
 		time.Sleep(100 * time.Millisecond)
 	}
-
-	return nil
 }
 
 func getCutoffKeysForContainer(db *leveldb.DB, limit int) ([]byte, error) {
@@ -273,7 +244,7 @@ func MaybeScheduleCleanup(host string, container string) {
 	}()
 }
 
-func newStatCounter() map[string]uint64 {
+func NewStatCounter() map[string]uint64 {
 	return map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 }
 
@@ -293,7 +264,7 @@ func countLogStatus(location string, statusKey string) {
 	defer vars.Mutex.Unlock()
 
 	if vars.Container_Stat_Counter[location] == nil {
-		vars.Container_Stat_Counter[location] = newStatCounter()
+		vars.Container_Stat_Counter[location] = NewStatCounter()
 	}
 	vars.Container_Stat_Counter[location][statusKey]++
 
@@ -306,7 +277,7 @@ func countLogStatus(location string, statusKey string) {
 			}
 			return
 		}
-		total = newStatCounter()
+		total = NewStatCounter()
 		logLineCounts[location] = total
 	}
 	total[statusKey]++
@@ -398,20 +369,11 @@ func normalizeForSearch(s string, caseSensetivity bool) string {
 	return s
 }
 
-func fitsForSearch(logLine string, message string, caseSensetivity bool) bool {
-	return fitsNormalizedSearch(logLine, normalizeForSearch(message, caseSensetivity), caseSensetivity)
-}
-
 func fitsNormalizedSearch(logLine string, normalizedMessage string, caseSensetivity bool) bool {
 	if normalizedMessage == "" {
 		return true
 	}
 	return strings.Contains(normalizeForSearch(logLine, caseSensetivity), normalizedMessage)
-}
-
-func increaseAndMove(counter *int, move_direction func() bool) {
-	*counter++
-	move_direction()
 }
 
 func getMoveDirection(getPrev bool, iter iterator.Iterator) func() bool {
@@ -504,7 +466,8 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		key := iter.Key()
 		if len(key) == 0 {
 			to_return["is_end"] = true
-			increaseAndMove(&counter, move_direction)
+			counter++
+			move_direction()
 			continue
 		} else {
 			to_return["is_end"] = false
@@ -536,7 +499,8 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		}
 
 		logs = append(logs, []string{timeStr, value, keyStr})
-		increaseAndMove(&counter, move_direction)
+		counter++
+		move_direction()
 		last_processed_key = keyStr
 	}
 
@@ -582,7 +546,7 @@ func DeleteContainer(host string, container string, fullDelete bool) {
 	}
 
 	vars.Mutex.Lock()
-	vars.Container_Stat_Counter[host+"/"+container] = newStatCounter()
+	vars.Container_Stat_Counter[host+"/"+container] = NewStatCounter()
 	// Dropped, not zeroed: frees a slot against maxTrackedContainers.
 	delete(logLineCounts, host+"/"+container)
 	vars.Mutex.Unlock()

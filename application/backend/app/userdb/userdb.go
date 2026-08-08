@@ -25,22 +25,14 @@ func CreateUser(login string, password string) error {
 func GetUsers() []map[string]interface{} {
 	var users []map[string]interface{}
 	iter := vars.UsersDB.NewIterator(nil, nil)
-	for iter.Next() {
-		var editable bool
-		if string(iter.Key()) == os.Getenv("ADMIN_USERNAME") {
-			editable = false
-		} else {
-			editable = true
-		}
-
-		user := map[string]interface{}{
-			"username": string(iter.Key()),
-			"editable": editable,
-		}
-		users = append(users, user)
-	}
 	defer iter.Release()
 
+	for iter.Next() {
+		users = append(users, map[string]interface{}{
+			"username": string(iter.Key()),
+			"editable": string(iter.Key()) != os.Getenv("ADMIN_USERNAME"),
+		})
+	}
 	return users
 }
 

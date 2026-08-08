@@ -1,49 +1,13 @@
 package routes
 
 import (
-	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
-	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/devforth/OnLogs/app/groups"
-	"github.com/devforth/OnLogs/app/util"
 )
-
-// An empty user means no cookie at all, which is what an unauthenticated request
-// and a DISABLE_AUTH request both look like.
-func groupRequest(t *testing.T, user string, method string, body interface{}) *http.Request {
-	t.Helper()
-
-	var reader io.Reader
-	if body != nil {
-		raw, err := json.Marshal(body)
-		if err != nil {
-			t.Fatalf("marshalling the request body: %v", err)
-		}
-		reader = bytes.NewReader(raw)
-	}
-
-	req, err := http.NewRequest(method, "/", reader)
-	if err != nil {
-		t.Fatalf("building the request: %v", err)
-	}
-	if user != "" {
-		req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT(user)})
-	}
-	return req
-}
-
-func callGroupRoute(t *testing.T, handler http.HandlerFunc, req *http.Request) (int, []byte) {
-	t.Helper()
-
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
-	body, _ := io.ReadAll(rr.Result().Body)
-	return rr.Result().StatusCode, body
-}
 
 func groupNames(t *testing.T, body []byte) []string {
 	t.Helper()
@@ -59,20 +23,10 @@ func groupNames(t *testing.T, body []byte) []string {
 	return names
 }
 
-func contains(values []string, wanted string) bool {
-	for _, value := range values {
-		if value == wanted {
-			return true
-		}
-	}
-	return false
-}
-
 func TestGroupsAreIsolatedPerUser(t *testing.T) {
-	ctrl := initTestConfig()
 	t.Cleanup(func() { groups.Delete("testuser", "isolated") })
 
-	status, body := callGroupRoute(t, ctrl.CreateGroup, groupRequest(t, "testuser", "POST", map[string]interface{}{
+	status, body := call(t, testCtrl.CreateGroup, authedRequest(t, "testuser", "POST", "/", map[string]interface{}{
 		"name":    "isolated",
 		"members": []map[string]string{{"host": "Test1", "service": "containerTest1"}},
 	}))
@@ -80,20 +34,20 @@ func TestGroupsAreIsolatedPerUser(t *testing.T) {
 		t.Fatalf("creating the group returned %d: %s", status, body)
 	}
 
-	status, body = callGroupRoute(t, ctrl.GetGroups, groupRequest(t, "viewer", "GET", nil))
+	status, body = call(t, testCtrl.GetGroups, authedRequest(t, "viewer", "GET", "/", nil))
 	if status != http.StatusOK {
 		t.Fatalf("viewer's getGroups returned %d: %s", status, body)
 	}
-	if contains(groupNames(t, body), "isolated") {
+	if slices.Contains(groupNames(t, body), "isolated") {
 		t.Fatalf("viewer can read testuser's group: %s", body)
 	}
 
-	callGroupRoute(t, ctrl.DeleteGroup, groupRequest(t, "viewer", "POST", map[string]string{"name": "isolated"}))
+	call(t, testCtrl.DeleteGroup, authedRequest(t, "viewer", "POST", "/", map[string]string{"name": "isolated"}))
 	if _, found, _ := groups.Load("testuser", "isolated"); !found {
 		t.Fatal("viewer's deleteGroup removed testuser's group")
 	}
 
-	callGroupRoute(t, ctrl.UpdateGroup, groupRequest(t, "viewer", "POST", map[string]interface{}{
+	call(t, testCtrl.UpdateGroup, authedRequest(t, "viewer", "POST", "/", map[string]interface{}{
 		"name":    "isolated",
 		"members": []map[string]string{},
 	}))
@@ -104,13 +58,12 @@ func TestGroupsAreIsolatedPerUser(t *testing.T) {
 }
 
 func TestGroupCRUDRoundTrip(t *testing.T) {
-	ctrl := initTestConfig()
 	t.Cleanup(func() {
 		groups.Delete("testuser", "backend")
 		groups.Delete("testuser", "backend renamed")
 	})
 
-	status, body := callGroupRoute(t, ctrl.CreateGroup, groupRequest(t, "testuser", "POST", map[string]interface{}{
+	status, body := call(t, testCtrl.CreateGroup, authedRequest(t, "testuser", "POST", "/", map[string]interface{}{
 		"name": "backend",
 		"members": []map[string]string{
 			{"host": "Test1", "service": "containerTest1"},
@@ -121,12 +74,12 @@ func TestGroupCRUDRoundTrip(t *testing.T) {
 		t.Fatalf("createGroup returned %d: %s", status, body)
 	}
 
-	status, body = callGroupRoute(t, ctrl.GetGroups, groupRequest(t, "testuser", "GET", nil))
-	if status != http.StatusOK || !contains(groupNames(t, body), "backend") {
+	status, body = call(t, testCtrl.GetGroups, authedRequest(t, "testuser", "GET", "/", nil))
+	if status != http.StatusOK || !slices.Contains(groupNames(t, body), "backend") {
 		t.Fatalf("getGroups returned %d without the new group: %s", status, body)
 	}
 
-	status, body = callGroupRoute(t, ctrl.UpdateGroup, groupRequest(t, "testuser", "POST", map[string]interface{}{
+	status, body = call(t, testCtrl.UpdateGroup, authedRequest(t, "testuser", "POST", "/", map[string]interface{}{
 		"name":    "backend",
 		"newName": "backend renamed",
 		"members": []map[string]string{{"host": "Test1", "service": "containerTest1"}},
@@ -143,7 +96,7 @@ func TestGroupCRUDRoundTrip(t *testing.T) {
 		t.Fatalf("after the update the group holds %v", members)
 	}
 
-	status, body = callGroupRoute(t, ctrl.DeleteGroup, groupRequest(t, "testuser", "POST", map[string]string{
+	status, body = call(t, testCtrl.DeleteGroup, authedRequest(t, "testuser", "POST", "/", map[string]string{
 		"name": "backend renamed",
 	}))
 	if status != http.StatusOK {
@@ -155,7 +108,6 @@ func TestGroupCRUDRoundTrip(t *testing.T) {
 }
 
 func TestGroupRoutesRejectUnauthenticated(t *testing.T) {
-	ctrl := initTestConfig()
 
 	for _, route := range []struct {
 		name    string
@@ -163,13 +115,13 @@ func TestGroupRoutesRejectUnauthenticated(t *testing.T) {
 		method  string
 		body    interface{}
 	}{
-		{"getGroups", ctrl.GetGroups, "GET", nil},
-		{"createGroup", ctrl.CreateGroup, "POST", map[string]interface{}{"name": "nope", "members": []string{}}},
-		{"updateGroup", ctrl.UpdateGroup, "POST", map[string]interface{}{"name": "nope", "members": []string{}}},
-		{"deleteGroup", ctrl.DeleteGroup, "POST", map[string]string{"name": "nope"}},
+		{"getGroups", testCtrl.GetGroups, "GET", nil},
+		{"createGroup", testCtrl.CreateGroup, "POST", map[string]interface{}{"name": "nope", "members": []string{}}},
+		{"updateGroup", testCtrl.UpdateGroup, "POST", map[string]interface{}{"name": "nope", "members": []string{}}},
+		{"deleteGroup", testCtrl.DeleteGroup, "POST", map[string]string{"name": "nope"}},
 	} {
 		t.Run(route.name, func(t *testing.T) {
-			status, body := callGroupRoute(t, route.handler, groupRequest(t, "", route.method, route.body))
+			status, body := call(t, route.handler, authedRequest(t, "", route.method, "/", route.body))
 			if status != http.StatusUnauthorized {
 				t.Fatalf("%s returned %d for an unauthenticated request: %s", route.name, status, body)
 			}
@@ -183,11 +135,10 @@ func TestGroupRoutesRejectUnauthenticated(t *testing.T) {
 }
 
 func TestCreateGroupRejectsDuplicateName(t *testing.T) {
-	ctrl := initTestConfig()
 	t.Cleanup(func() { groups.Delete("testuser", "duplicated") })
 
 	create := func() (int, []byte) {
-		return callGroupRoute(t, ctrl.CreateGroup, groupRequest(t, "testuser", "POST", map[string]interface{}{
+		return call(t, testCtrl.CreateGroup, authedRequest(t, "testuser", "POST", "/", map[string]interface{}{
 			"name":    "duplicated",
 			"members": []map[string]string{{"host": "Test1", "service": "containerTest1"}},
 		}))
@@ -202,9 +153,8 @@ func TestCreateGroupRejectsDuplicateName(t *testing.T) {
 }
 
 func TestUpdateGroupOnMissingGroupIsNotFound(t *testing.T) {
-	ctrl := initTestConfig()
 
-	status, body := callGroupRoute(t, ctrl.UpdateGroup, groupRequest(t, "testuser", "POST", map[string]interface{}{
+	status, body := call(t, testCtrl.UpdateGroup, authedRequest(t, "testuser", "POST", "/", map[string]interface{}{
 		"name":    "never created",
 		"members": []map[string]string{{"host": "Test1", "service": "containerTest1"}},
 	}))
@@ -219,10 +169,9 @@ func TestUpdateGroupOnMissingGroupIsNotFound(t *testing.T) {
 
 // The UI can double-fire delete, so the second one is not an error.
 func TestDeleteGroupIsIdempotent(t *testing.T) {
-	ctrl := initTestConfig()
 
 	for attempt := 0; attempt < 2; attempt++ {
-		status, body := callGroupRoute(t, ctrl.DeleteGroup, groupRequest(t, "testuser", "POST", map[string]string{
+		status, body := call(t, testCtrl.DeleteGroup, authedRequest(t, "testuser", "POST", "/", map[string]string{
 			"name": "was never there",
 		}))
 		if status != http.StatusOK {
@@ -232,41 +181,40 @@ func TestDeleteGroupIsIdempotent(t *testing.T) {
 }
 
 func TestGroupRoutesRejectMalformedInput(t *testing.T) {
-	ctrl := initTestConfig()
 
 	cases := []struct {
 		label   string
 		handler http.HandlerFunc
 		body    interface{}
 	}{
-		{"name carrying the key separator", ctrl.CreateGroup, map[string]interface{}{
+		{"name carrying the key separator", testCtrl.CreateGroup, map[string]interface{}{
 			"name": "web\x00admin", "members": []map[string]string{},
 		}},
-		{"empty name", ctrl.CreateGroup, map[string]interface{}{
+		{"empty name", testCtrl.CreateGroup, map[string]interface{}{
 			"name": "", "members": []map[string]string{},
 		}},
-		{"oversized name", ctrl.CreateGroup, map[string]interface{}{
+		{"oversized name", testCtrl.CreateGroup, map[string]interface{}{
 			"name":    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 			"members": []map[string]string{},
 		}},
-		{"member escaping its directory", ctrl.CreateGroup, map[string]interface{}{
+		{"member escaping its directory", testCtrl.CreateGroup, map[string]interface{}{
 			"name": "traversal", "members": []map[string]string{{"host": "..", "service": "api"}},
 		}},
-		{"member with a path separator", ctrl.CreateGroup, map[string]interface{}{
+		{"member with a path separator", testCtrl.CreateGroup, map[string]interface{}{
 			"name": "separator", "members": []map[string]string{{"host": "Test1", "service": "a/b"}},
 		}},
-		{"member with an empty service", ctrl.CreateGroup, map[string]interface{}{
+		{"member with an empty service", testCtrl.CreateGroup, map[string]interface{}{
 			"name": "empty member", "members": []map[string]string{{"host": "Test1", "service": ""}},
 		}},
-		{"delete with a forged name", ctrl.DeleteGroup, map[string]string{"name": "web\x00admin"}},
-		{"update with a forged new name", ctrl.UpdateGroup, map[string]interface{}{
+		{"delete with a forged name", testCtrl.DeleteGroup, map[string]string{"name": "web\x00admin"}},
+		{"update with a forged new name", testCtrl.UpdateGroup, map[string]interface{}{
 			"name": "backend", "newName": "web\x00admin", "members": []map[string]string{},
 		}},
 	}
 
 	for _, c := range cases {
 		t.Run(c.label, func(t *testing.T) {
-			status, body := callGroupRoute(t, c.handler, groupRequest(t, "testuser", "POST", c.body))
+			status, body := call(t, c.handler, authedRequest(t, "testuser", "POST", "/", c.body))
 			if status != http.StatusBadRequest {
 				t.Fatalf("returned %d, want 400: %s", status, body)
 			}
@@ -275,7 +223,6 @@ func TestGroupRoutesRejectMalformedInput(t *testing.T) {
 }
 
 func TestCreateGroupCapsGroupsPerUser(t *testing.T) {
-	ctrl := initTestConfig()
 
 	names := []string{}
 	t.Cleanup(func() {
@@ -293,7 +240,7 @@ func TestCreateGroupCapsGroupsPerUser(t *testing.T) {
 	}
 
 	names = append(names, "one too many")
-	status, body := callGroupRoute(t, ctrl.CreateGroup, groupRequest(t, "someuser", "POST", map[string]interface{}{
+	status, body := call(t, testCtrl.CreateGroup, authedRequest(t, "someuser", "POST", "/", map[string]interface{}{
 		"name":    "one too many",
 		"members": []map[string]string{},
 	}))
@@ -309,11 +256,10 @@ func TestCreateGroupCapsGroupsPerUser(t *testing.T) {
 // returns "" for a cookie-less request, so every such user shares one bucket.
 // Favourites already behave this way. This pins it as a decision.
 func TestDisableAuthSharesOneGroupBucket(t *testing.T) {
-	ctrl := initTestConfig()
 	t.Setenv("DISABLE_AUTH", "true")
 	t.Cleanup(func() { groups.Delete("", "shared bucket") })
 
-	status, body := callGroupRoute(t, ctrl.CreateGroup, groupRequest(t, "", "POST", map[string]interface{}{
+	status, body := call(t, testCtrl.CreateGroup, authedRequest(t, "", "POST", "/", map[string]interface{}{
 		"name":    "shared bucket",
 		"members": []map[string]string{{"host": "Test1", "service": "containerTest1"}},
 	}))
@@ -321,12 +267,12 @@ func TestDisableAuthSharesOneGroupBucket(t *testing.T) {
 		t.Fatalf("createGroup under DISABLE_AUTH returned %d: %s", status, body)
 	}
 
-	status, body = callGroupRoute(t, ctrl.GetGroups, groupRequest(t, "", "GET", nil))
-	if status != http.StatusOK || !contains(groupNames(t, body), "shared bucket") {
+	status, body = call(t, testCtrl.GetGroups, authedRequest(t, "", "GET", "/", nil))
+	if status != http.StatusOK || !slices.Contains(groupNames(t, body), "shared bucket") {
 		t.Fatalf("a second anonymous session did not see the group: %d %s", status, body)
 	}
 
-	status, body = callGroupRoute(t, ctrl.CreateGroup, groupRequest(t, "", "POST", map[string]interface{}{
+	status, body = call(t, testCtrl.CreateGroup, authedRequest(t, "", "POST", "/", map[string]interface{}{
 		"name":    "shared bucket",
 		"members": []map[string]string{},
 	}))

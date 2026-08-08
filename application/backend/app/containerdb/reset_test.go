@@ -23,7 +23,7 @@ func TestDeleteContainerLeavesUsableHandlesBehind(t *testing.T) {
 	util.GetDB(host, container, "statuses")
 	util.GetDB(host, container, "statistics")
 
-	if err := PutLogMessage(logsDB, host, container, []string{vars.Year + "-02-10T12:56:09.230421754Z", "before delete"}); err != nil {
+	if err := PutLogMessage(logsDB, host, container, []string{testYear + "-02-10T12:56:09.230421754Z", "before delete"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -45,7 +45,7 @@ func TestDeleteContainerLeavesUsableHandlesBehind(t *testing.T) {
 	if reopened == nil {
 		t.Fatal("the logs database could not be reopened after a delete")
 	}
-	if err := PutLogMessage(reopened, host, container, []string{vars.Year + "-02-10T12:57:09.230421754Z", "after delete"}); err != nil {
+	if err := PutLogMessage(reopened, host, container, []string{testYear + "-02-10T12:57:09.230421754Z", "after delete"}); err != nil {
 		t.Fatalf("ingestion failed after a delete: %v", err)
 	}
 
@@ -71,7 +71,7 @@ func TestLogsOfSameNamedContainersOnDifferentHostsStaySeparate(t *testing.T) {
 		if db == nil {
 			t.Fatalf("could not open the logs database for %s", host)
 		}
-		if err := PutLogMessage(db, host, container, []string{vars.Year + "-02-10T12:56:09.230421754Z", "line from " + host}); err != nil {
+		if err := PutLogMessage(db, host, container, []string{testYear + "-02-10T12:56:09.230421754Z", "line from " + host}); err != nil {
 			t.Fatal(err)
 		}
 	}

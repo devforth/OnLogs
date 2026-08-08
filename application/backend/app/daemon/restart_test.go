@@ -52,8 +52,7 @@ func TestRestartMidStreamStoresEachLineExactlyOnce(t *testing.T) {
 
 	emitted := map[string]struct{}{}
 
-	first := &DaemonService{}
-	first.ensureRuntimeState()
+	first := NewDaemonService(nil)
 	db := util.GetDB(host, container, "logs")
 	if db == nil {
 		t.Fatal("could not open the logs database")
@@ -71,8 +70,7 @@ func TestRestartMidStreamStoresEachLineExactlyOnce(t *testing.T) {
 		t.Fatalf("first run stored %d rows, expected %d", got, restartAfter)
 	}
 
-	second := &DaemonService{}
-	second.ensureRuntimeState()
+	second := NewDaemonService(nil)
 
 	restartCursor := second.storedThrough(host, container)
 	if restartCursor.IsZero() {
@@ -131,15 +129,13 @@ func TestRestartKeepsADistinctLineSharingTheCursorTimestamp(t *testing.T) {
 	}
 
 	ts := time.Date(2026, 2, 10, 12, 44, 3, 123456789, time.UTC).Format(time.RFC3339Nano)
-	first := &DaemonService{}
-	first.ensureRuntimeState()
+	first := NewDaemonService(nil)
 
 	if !first.ingestLine(host, container, db, "", false, time.Time{}, ts+" first at this nanosecond") {
 		t.Fatal("the first line was not stored")
 	}
 
-	second := &DaemonService{}
-	second.ensureRuntimeState()
+	second := NewDaemonService(nil)
 	cursor := second.storedThrough(host, container)
 	second.seedBoundaryFingerprints(host, container, cursor)
 

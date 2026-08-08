@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/vars"
 )
 
@@ -30,9 +31,7 @@ func TestGetStatisticsByServiceDoesNotHandOutTheLiveCounter(t *testing.T) {
 	location := host + "/" + service
 	_ = os.RemoveAll("leveldb/hosts/" + host)
 
-	vars.Mutex.Lock()
-	vars.Container_Stat_Counter[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-	vars.Mutex.Unlock()
+	seedCounter(location, containerdb.NewStatCounter())
 
 	stop := make(chan struct{})
 	done := make(chan struct{})
@@ -56,9 +55,7 @@ func TestGetChartDataDoesNotHandOutTheLiveCounter(t *testing.T) {
 	location := host + "/" + service
 	_ = os.RemoveAll("leveldb/hosts/" + host)
 
-	vars.Mutex.Lock()
-	vars.Container_Stat_Counter[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-	vars.Mutex.Unlock()
+	seedCounter(location, containerdb.NewStatCounter())
 
 	stop := make(chan struct{})
 	done := make(chan struct{})

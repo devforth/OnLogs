@@ -23,7 +23,7 @@ func TestRetentionMeasuresOnlyWhatItCanPrune(t *testing.T) {
 		t.Fatal("could not open the logs database")
 	}
 	for i := 0; i < 5; i++ {
-		ts := vars.Year + "-02-10T12:5" + string(rune('0'+i)) + ":09.230421754Z"
+		ts := testYear + "-02-10T12:5" + string(rune('0'+i)) + ":09.230421754Z"
 		if err := PutLogMessage(logsDB, host, container, []string{ts, "a log line"}); err != nil {
 			t.Fatal(err)
 		}

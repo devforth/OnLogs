@@ -10,18 +10,27 @@ import (
 	"github.com/devforth/OnLogs/app/util"
 )
 
-func SendInitRequest(containers []string) {
-	postBody, _ := json.Marshal(map[string]interface{}{
+func post(path string, body map[string]any) (*http.Response, error) {
+	payload, _ := json.Marshal(body)
+	return http.Post(os.Getenv("HOST")+path, "application/json", bytes.NewBuffer(payload))
+}
+
+func identity() map[string]any {
+	return map[string]any{
 		"Hostname": util.GetHost(),
 		"Token":    os.Getenv("ONLOGS_TOKEN"),
-		"Services": containers,
-	})
-	responseBody := bytes.NewBuffer(postBody)
+	}
+}
 
-	resp, err := http.Post(os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
+func SendInitRequest(containers []string) {
+	body := identity()
+	body["Services"] = containers
+
+	resp, err := post("/api/v1/addHost", body)
 	if err != nil {
 		panic("ERROR: Can't send request to host: " + err.Error())
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -30,13 +39,12 @@ func SendInitRequest(containers []string) {
 }
 
 func SendLogMessage(token string, container string, message_item []string) bool {
-	postBody, _ := json.Marshal(map[string]interface{}{
+	resp, err := post("/api/v1/addLogLine", map[string]any{
 		"Host":      util.GetHost(),
 		"Token":     token,
 		"LogLine":   []string{message_item[0], message_item[1]},
 		"Container": container,
 	})
-	resp, err := http.Post(os.Getenv("HOST")+"/api/v1/addLogLine", "application/json", bytes.NewBuffer(postBody))
 	if err == nil {
 		defer resp.Body.Close()
 	}
@@ -81,25 +89,17 @@ func resendContainerBuffer(token string, container string) bool {
 }
 
 func SendUpdate(containers []string) {
-	postBody, _ := json.Marshal(map[string]interface{}{
-		"Hostname": util.GetHost(),
-		"Token":    os.Getenv("ONLOGS_TOKEN"),
-		"Services": containers,
-	})
-	responseBody := bytes.NewBuffer(postBody)
+	body := identity()
+	body["Services"] = containers
 
-	http.Post(os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
+	if resp, err := post("/api/v1/addHost", body); err == nil {
+		resp.Body.Close()
+	}
 	AskForDelete()
 }
 
 func AskForDelete() {
-	postBody, _ := json.Marshal(map[string]interface{}{
-		"Hostname": util.GetHost(),
-		"Token":    os.Getenv("ONLOGS_TOKEN"),
-	})
-	responseBody := bytes.NewBuffer(postBody)
-
-	resp, err := http.Post(os.Getenv("HOST")+"/api/v1/askForDelete", "application/json", responseBody)
+	resp, err := post("/api/v1/askForDelete", identity())
 	if err != nil {
 		return
 	}

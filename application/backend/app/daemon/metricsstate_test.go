@@ -10,8 +10,7 @@ import (
 // finalizeStream clears droppedReplays; the /metrics total must not follow it
 // down, or every stream restart looks like a counter reset.
 func TestDroppedReplayTotalsSurviveFinalize(t *testing.T) {
-	h := &DaemonService{}
-	h.ensureRuntimeState()
+	h := NewDaemonService(nil)
 
 	h.streamsMu.Lock()
 	h.streamIDs["c"] = 7
@@ -43,8 +42,7 @@ func TestDroppedReplayTotalsSurviveFinalize(t *testing.T) {
 }
 
 func TestCursorTimestampsRecorded(t *testing.T) {
-	h := &DaemonService{}
-	h.ensureRuntimeState()
+	h := NewDaemonService(nil)
 
 	if len(h.CursorTimestamps()) != 0 {
 		t.Fatal("expected no cursors before ingestion")
@@ -69,8 +67,7 @@ func TestCursorTimestampsRecorded(t *testing.T) {
 }
 
 func TestCursorTimestampsDroppedOnFinalize(t *testing.T) {
-	h := &DaemonService{}
-	h.ensureRuntimeState()
+	h := NewDaemonService(nil)
 
 	h.streamsMu.Lock()
 	h.streamIDs["gone"] = 1

@@ -102,7 +102,6 @@ func CheckDatabases() error {
 	for name, err := range map[string]error{
 		"leveldb/favourites":    FavsDBErr,
 		"leveldb/groups":        GroupsDBErr,
-		"leveldb/state":         StateDBErr,
 		"leveldb/users":         UsersDBErr,
 		"leveldb/tokens":        TokensDBErr,
 		"leveldb/usersSettings": SettingsDBErr,

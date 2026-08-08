@@ -22,7 +22,6 @@ import (
 )
 
 func TestFrontendDoesNotServeFilesOutsideDist(t *testing.T) {
-	ctrl := initTestConfig()
 	os.MkdirAll("dist", 0o700)
 	os.WriteFile("dist/index.html", []byte("text"), 0o600)
 
@@ -37,7 +36,7 @@ func TestFrontendDoesNotServeFilesOutsideDist(t *testing.T) {
 	} {
 		req, _ := http.NewRequest("GET", target, nil)
 		rr := httptest.NewRecorder()
-		http.HandlerFunc(ctrl.Frontend).ServeHTTP(rr, req)
+		http.HandlerFunc(testCtrl.Frontend).ServeHTTP(rr, req)
 		body, _ := io.ReadAll(rr.Result().Body)
 		if strings.Contains(string(body), "REAL-ONLOGS-JWT-SECRET") {
 			t.Fatalf("arbitrary file read through %q: %s", target, string(body))
@@ -46,7 +45,6 @@ func TestFrontendDoesNotServeFilesOutsideDist(t *testing.T) {
 }
 
 func TestFrontendStripsPathPrefixOnlyAtTheFront(t *testing.T) {
-	ctrl := initTestConfig()
 	t.Setenv("ONLOGS_PATH_PREFIX", "/logs")
 
 	os.MkdirAll("dist/assets", 0o700)
@@ -56,7 +54,7 @@ func TestFrontendStripsPathPrefixOnlyAtTheFront(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/logs/assets/logs-panel.js", nil)
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(ctrl.Frontend).ServeHTTP(rr, req)
+	http.HandlerFunc(testCtrl.Frontend).ServeHTTP(rr, req)
 	body, _ := io.ReadAll(rr.Result().Body)
 	if string(body) != "PANEL_ASSET" {
 		t.Fatalf("expected the asset, got %q", string(body))
@@ -75,21 +73,18 @@ func adminOnlyRequest(t *testing.T, handler http.HandlerFunc, method, target str
 }
 
 func TestGetSecretIsAdminOnly(t *testing.T) {
-	ctrl := initTestConfig()
-	if code := adminOnlyRequest(t, ctrl.GetSecret, "GET", "/api/v1/getSecret"); code != http.StatusForbidden {
+	if code := adminOnlyRequest(t, testCtrl.GetSecret, "GET", "/api/v1/getSecret"); code != http.StatusForbidden {
 		t.Fatalf("a non-admin account minted an agent token: status %d", code)
 	}
 }
 
 func TestGetUsersIsAdminOnly(t *testing.T) {
-	ctrl := initTestConfig()
-	if code := adminOnlyRequest(t, ctrl.GetUsers, "GET", "/api/v1/getUsers"); code != http.StatusForbidden {
+	if code := adminOnlyRequest(t, testCtrl.GetUsers, "GET", "/api/v1/getUsers"); code != http.StatusForbidden {
 		t.Fatalf("a non-admin account enumerated every username: status %d", code)
 	}
 }
 
 func TestAddHostRejectsNamesThatLeaveTheTree(t *testing.T) {
-	ctrl := initTestConfig()
 	token := db.CreateOnLogsToken()
 
 	for _, payload := range []map[string]interface{}{
@@ -99,7 +94,7 @@ func TestAddHostRejectsNamesThatLeaveTheTree(t *testing.T) {
 		body, _ := json.Marshal(payload)
 		req, _ := http.NewRequest("POST", "/api/v1/addHost", bytes.NewBuffer(body))
 		rr := httptest.NewRecorder()
-		http.HandlerFunc(ctrl.AddHost).ServeHTTP(rr, req)
+		http.HandlerFunc(testCtrl.AddHost).ServeHTTP(rr, req)
 
 		if code := rr.Result().StatusCode; code != http.StatusBadRequest {
 			t.Errorf("addHost accepted %v: status %d", payload["Hostname"], code)
@@ -126,7 +121,6 @@ func TestAddHostRejectsNamesThatLeaveTheTree(t *testing.T) {
 }
 
 func TestAddLogLineRejectsNamesThatLeaveTheTree(t *testing.T) {
-	ctrl := initTestConfig()
 	token := db.CreateOnLogsToken()
 
 	body, _ := json.Marshal(map[string]interface{}{
@@ -137,7 +131,7 @@ func TestAddLogLineRejectsNamesThatLeaveTheTree(t *testing.T) {
 	})
 	req, _ := http.NewRequest("POST", "/api/v1/addLogLine", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(ctrl.AddLogLine).ServeHTTP(rr, req)
+	http.HandlerFunc(testCtrl.AddLogLine).ServeHTTP(rr, req)
 
 	if code := rr.Result().StatusCode; code != http.StatusBadRequest {
 		t.Errorf("addLogLine accepted a traversing host: status %d", code)
@@ -157,17 +151,16 @@ func oversizedJSONBody() []byte {
 }
 
 func TestHandlersRejectOversizedRequestBodies(t *testing.T) {
-	ctrl := initTestConfig()
 	os.Setenv("ADMIN_USERNAME", "admin")
 
 	cases := []struct {
 		name    string
 		handler http.HandlerFunc
 	}{
-		{"updateUserSettings", ctrl.UpdateUserSettings},
-		{"login", ctrl.Login},
-		{"changeFavorite", ctrl.ChangeFavourite},
-		{"addLogLine", ctrl.AddLogLine},
+		{"updateUserSettings", testCtrl.UpdateUserSettings},
+		{"login", testCtrl.Login},
+		{"changeFavorite", testCtrl.ChangeFavourite},
+		{"addLogLine", testCtrl.AddLogLine},
 	}
 
 	for _, c := range cases {
@@ -183,13 +176,12 @@ func TestHandlersRejectOversizedRequestBodies(t *testing.T) {
 }
 
 func TestLoginCookieIsHttpOnlyAndUsesARelativeMaxAge(t *testing.T) {
-	ctrl := initTestConfig()
 	userdb.CreateUser("cookieuser", "cookiepass")
 
 	body, _ := json.Marshal(map[string]string{"Login": "cookieuser", "Password": "cookiepass"})
 	req, _ := http.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(body))
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(ctrl.Login).ServeHTTP(rr, req)
+	http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
 
 	cookies := rr.Result().Cookies()
 	if len(cookies) == 0 {
@@ -210,14 +202,13 @@ func TestLoginCookieIsHttpOnlyAndUsesARelativeMaxAge(t *testing.T) {
 }
 
 func TestLoginCookieIsSecureOverTLS(t *testing.T) {
-	ctrl := initTestConfig()
 	userdb.CreateUser("cookieuser", "cookiepass")
 
 	body, _ := json.Marshal(map[string]string{"Login": "cookieuser", "Password": "cookiepass"})
 	req, _ := http.NewRequest("POST", "https://onlogs.example/api/v1/login", bytes.NewBuffer(body))
 	req.TLS = &tls.ConnectionState{}
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(ctrl.Login).ServeHTTP(rr, req)
+	http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
 
 	cookies := rr.Result().Cookies()
 	if len(cookies) == 0 {
@@ -229,7 +220,6 @@ func TestLoginCookieIsSecureOverTLS(t *testing.T) {
 }
 
 func TestGetLogsStreamRejectsAForeignOrigin(t *testing.T) {
-	ctrl := initTestConfig()
 
 	req, _ := http.NewRequest("GET", "/api/v1/getLogsStream?host="+util.GetHost()+"&id=somecontainer", nil)
 	req.Host = "onlogs.example"
@@ -241,7 +231,7 @@ func TestGetLogsStreamRejectsAForeignOrigin(t *testing.T) {
 	req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT("admin")})
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(ctrl.GetLogsStream).ServeHTTP(rr, req)
+	http.HandlerFunc(testCtrl.GetLogsStream).ServeHTTP(rr, req)
 
 	if code := rr.Result().StatusCode; code != http.StatusForbidden {
 		t.Errorf("a cross-origin websocket handshake was not rejected: status %d", code)
@@ -252,7 +242,6 @@ func TestGetLogsStreamRejectsAForeignOrigin(t *testing.T) {
 }
 
 func TestLoginRateLimitsRepeatedFailures(t *testing.T) {
-	ctrl := initTestConfig()
 	userdb.CreateUser("ratelimited", "correct-horse")
 
 	post := func(password string) int {
@@ -260,7 +249,7 @@ func TestLoginRateLimitsRepeatedFailures(t *testing.T) {
 		req, _ := http.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(body))
 		req.RemoteAddr = "203.0.113.9:34567"
 		rr := httptest.NewRecorder()
-		http.HandlerFunc(ctrl.Login).ServeHTTP(rr, req)
+		http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
 		return rr.Result().StatusCode
 	}
 
@@ -274,7 +263,6 @@ func TestLoginRateLimitsRepeatedFailures(t *testing.T) {
 }
 
 func TestAddLogLineDoesNotSpawnAWorkerPerLogLine(t *testing.T) {
-	ctrl := initTestConfig()
 	token := db.CreateOnLogsToken()
 	before := statistics.WorkerCount()
 	t.Cleanup(func() { statistics.StopWorker("statsprobehost", "statsprobecontainer") })
@@ -289,7 +277,7 @@ func TestAddLogLineDoesNotSpawnAWorkerPerLogLine(t *testing.T) {
 			})
 			req, _ := http.NewRequest("POST", "/api/v1/addLogLine", bytes.NewBuffer(body))
 			rr := httptest.NewRecorder()
-			http.HandlerFunc(ctrl.AddLogLine).ServeHTTP(rr, req)
+			http.HandlerFunc(testCtrl.AddLogLine).ServeHTTP(rr, req)
 			if code := rr.Result().StatusCode; code != http.StatusOK {
 				t.Fatalf("ingestion failed: status %d", code)
 			}
@@ -310,5 +298,50 @@ func TestAddLogLineDoesNotSpawnAWorkerPerLogLine(t *testing.T) {
 	}
 	if growth > 5 {
 		t.Fatalf("a further 25 log lines started %d more goroutines; the leak scales with ingestion and each worker zeroes the live counter", growth)
+	}
+}
+
+// The Content-Type was previously set per handler; a helper now owns it, so one
+// endpoint of each shape has to prove the header survives.
+func TestJSONEndpointsSetTheirContentType(t *testing.T) {
+	os.Setenv("ADMIN_USERNAME", "admin")
+
+	cases := []struct {
+		name    string
+		handler http.HandlerFunc
+		user    string
+	}{
+		{"checkCookie", testCtrl.CheckCookie, "testuser"},
+		{"getHosts", testCtrl.GetHosts, "testuser"},
+		{"getUsers", testCtrl.GetUsers, "admin"},
+		{"getSizeByAll", testCtrl.GetSizeByAll, "testuser"},
+		{"getGroups", testCtrl.GetGroups, "testuser"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			req, _ := http.NewRequest("GET", "/", nil)
+			req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT(c.user)})
+			rr := httptest.NewRecorder()
+			c.handler.ServeHTTP(rr, req)
+
+			if got := rr.Header().Get("Content-Type"); !strings.HasPrefix(got, "application/json") {
+				t.Errorf("%s replied with Content-Type %q, want application/json", c.name, got)
+			}
+		})
+	}
+}
+
+func TestRejectedRequestsStillSetContentType(t *testing.T) {
+
+	req, _ := http.NewRequest("GET", "/", nil)
+	rr := httptest.NewRecorder()
+	testCtrl.CheckCookie(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rr.Code)
+	}
+	if got := rr.Header().Get("Content-Type"); !strings.HasPrefix(got, "application/json") {
+		t.Errorf("a 401 replied with Content-Type %q, want application/json", got)
 	}
 }

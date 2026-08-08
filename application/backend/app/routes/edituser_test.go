@@ -14,7 +14,6 @@ import (
 )
 
 func TestEditUserActuallyChangesThePassword(t *testing.T) {
-	ctrl := initTestConfig()
 	os.Setenv("ADMIN_USERNAME", "admin")
 
 	userdb.CreateUser("rotateme", "the-old-password")
@@ -24,7 +23,7 @@ func TestEditUserActuallyChangesThePassword(t *testing.T) {
 	req, _ := http.NewRequest("POST", "/api/v1/editUser", bytes.NewBuffer(body))
 	req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT("admin")})
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(ctrl.EditUser).ServeHTTP(rr, req)
+	http.HandlerFunc(testCtrl.EditUser).ServeHTTP(rr, req)
 
 	if code := rr.Result().StatusCode; code != http.StatusOK {
 		t.Fatalf("editUser returned %d: %s", code, rr.Body.String())
@@ -45,7 +44,6 @@ func TestEditUserActuallyChangesThePassword(t *testing.T) {
 }
 
 func TestEditUserRejectsAnEmptyPassword(t *testing.T) {
-	ctrl := initTestConfig()
 	os.Setenv("ADMIN_USERNAME", "admin")
 
 	userdb.CreateUser("emptyrotate", "a-real-password")
@@ -55,7 +53,7 @@ func TestEditUserRejectsAnEmptyPassword(t *testing.T) {
 	req, _ := http.NewRequest("POST", "/api/v1/editUser", bytes.NewBuffer(body))
 	req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT("admin")})
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(ctrl.EditUser).ServeHTTP(rr, req)
+	http.HandlerFunc(testCtrl.EditUser).ServeHTTP(rr, req)
 
 	if userdb.CheckUserPassword("emptyrotate", "") {
 		t.Fatal("an empty password was accepted")
@@ -66,7 +64,6 @@ func TestEditUserRejectsAnEmptyPassword(t *testing.T) {
 }
 
 func TestGetHostsReadsFavouritesPerHost(t *testing.T) {
-	ctrl := initTestConfig()
 
 	os.RemoveAll("leveldb/hosts")
 	os.MkdirAll("leveldb/hosts/FavHostA/containers/shared", 0o700)
@@ -85,7 +82,7 @@ func TestGetHostsReadsFavouritesPerHost(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/api/v1/getHosts", nil)
 	req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT("someuser")})
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(ctrl.GetHosts).ServeHTTP(rr, req)
+	http.HandlerFunc(testCtrl.GetHosts).ServeHTTP(rr, req)
 
 	var hosts []struct {
 		Host     string `json:"host"`
@@ -114,7 +111,6 @@ func TestGetHostsReadsFavouritesPerHost(t *testing.T) {
 }
 
 func TestFavouritesAreScopedToTheUserWhoSetThem(t *testing.T) {
-	ctrl := initTestConfig()
 	userdb.CreateUser("favuser", "favpass")
 	userdb.CreateUser("otheruser", "otherpass")
 	t.Cleanup(func() {
@@ -128,7 +124,7 @@ func TestFavouritesAreScopedToTheUserWhoSetThem(t *testing.T) {
 	req, _ := http.NewRequest("POST", "/api/v1/changeFavorite", bytes.NewBuffer(body))
 	req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT("favuser")})
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(ctrl.ChangeFavourite).ServeHTTP(rr, req)
+	http.HandlerFunc(testCtrl.ChangeFavourite).ServeHTTP(rr, req)
 
 	if code := rr.Result().StatusCode; code != http.StatusOK {
 		t.Fatalf("changeFavorite returned %d: %s", code, rr.Body.String())
