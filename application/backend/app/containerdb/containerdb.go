@@ -276,6 +276,17 @@ func newStatCounter() map[string]uint64 {
 	return map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
 }
 
+// Bounded because a CI pipeline that mints a container name per release would
+// otherwise grow this without limit.
+const maxTrackedContainers = 1000
+
+// Process-lifetime counts, unlike vars.Container_Stat_Counter which the
+// statistics worker zeroes every minute.
+var (
+	logLineCounts      = map[string]map[string]uint64{}
+	logLineCapReported bool
+)
+
 func countLogStatus(location string, statusKey string) {
 	vars.Mutex.Lock()
 	defer vars.Mutex.Unlock()
@@ -284,6 +295,36 @@ func countLogStatus(location string, statusKey string) {
 		vars.Container_Stat_Counter[location] = newStatCounter()
 	}
 	vars.Container_Stat_Counter[location][statusKey]++
+
+	total := logLineCounts[location]
+	if total == nil {
+		if len(logLineCounts) >= maxTrackedContainers {
+			if !logLineCapReported {
+				logLineCapReported = true
+				fmt.Printf("WARNING: tracking log line counts for %d containers; %s and later ones are not counted in /metrics\n", maxTrackedContainers, location)
+			}
+			return
+		}
+		total = newStatCounter()
+		logLineCounts[location] = total
+	}
+	total[statusKey]++
+}
+
+// LogLineCounts returns a deep copy: the live maps are written on every log line.
+func LogLineCounts() map[string]map[string]uint64 {
+	vars.Mutex.Lock()
+	defer vars.Mutex.Unlock()
+
+	snapshot := make(map[string]map[string]uint64, len(logLineCounts))
+	for location, levels := range logLineCounts {
+		counts := make(map[string]uint64, len(levels))
+		for level, value := range levels {
+			counts[level] = value
+		}
+		snapshot[location] = counts
+	}
+	return snapshot
 }
 
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
@@ -529,5 +570,7 @@ func DeleteContainer(host string, container string, fullDelete bool) {
 
 	vars.Mutex.Lock()
 	vars.Container_Stat_Counter[host+"/"+container] = newStatCounter()
+	// Dropped, not zeroed: frees a slot against maxTrackedContainers.
+	delete(logLineCounts, host+"/"+container)
 	vars.Mutex.Unlock()
 }
