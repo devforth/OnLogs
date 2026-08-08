@@ -100,6 +100,7 @@ func TakeQueuedDeletes(host string) []string {
 func CheckDatabases() error {
 	failures := []string{}
 	for name, err := range map[string]error{
+		"leveldb/hostaliases":   AliasDBErr,
 		"leveldb/favourites":    FavsDBErr,
 		"leveldb/groups":        GroupsDBErr,
 		"leveldb/users":         UsersDBErr,

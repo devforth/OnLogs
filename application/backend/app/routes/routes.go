@@ -21,6 +21,7 @@ import (
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/docker"
 	"github.com/devforth/OnLogs/app/groups"
+	"github.com/devforth/OnLogs/app/hostalias"
 	"github.com/devforth/OnLogs/app/statistics"
 	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/util"
@@ -452,6 +453,39 @@ func (h *RouteController) DeleteGroup(w http.ResponseWriter, req *http.Request) 
 	// Deleting what is not there is a success, because the UI may double-fire.
 	if err := groups.Delete(username, body.Name); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ok(w)
+}
+
+func (h *RouteController) GetHostAliases(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
+		return
+	}
+
+	aliases, err := hostalias.All()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, aliases)
+}
+
+func (h *RouteController) SetHostAlias(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authAdmin, "POST") {
+		return
+	}
+
+	var body struct {
+		Host  string `json:"host"`
+		Alias string `json:"alias"`
+	}
+	if !decodeBody(w, req, &body) {
+		return
+	}
+
+	if err := hostalias.Set(body.Host, body.Alias); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	ok(w)

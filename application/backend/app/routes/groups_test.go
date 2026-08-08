@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/devforth/OnLogs/app/groups"
+	"github.com/devforth/OnLogs/app/hostalias"
 )
 
 func groupNames(t *testing.T, body []byte) []string {
@@ -278,5 +279,44 @@ func TestDisableAuthSharesOneGroupBucket(t *testing.T) {
 	}))
 	if status != http.StatusConflict {
 		t.Fatalf("a second anonymous createGroup returned %d, want 409: %s", status, body)
+	}
+}
+
+func TestHostAliasIsAdminOnlyToSet(t *testing.T) {
+	t.Cleanup(func() { hostalias.Set("aliashost", "") })
+
+	status, body := call(t, testCtrl.SetHostAlias,
+		authedRequest(t, "viewer", "POST", "/", map[string]string{"host": "aliashost", "alias": "prod"}))
+	if status != http.StatusForbidden {
+		t.Fatalf("a non-admin set a host alias: status %d, %s", status, body)
+	}
+	if aliases, _ := hostalias.All(); aliases["aliashost"] != "" {
+		t.Fatalf("a non-admin's alias was stored: %q", aliases["aliashost"])
+	}
+
+	status, body = call(t, testCtrl.SetHostAlias,
+		authedRequest(t, "admin", "POST", "/", map[string]string{"host": "aliashost", "alias": "prod"}))
+	if status != http.StatusOK {
+		t.Fatalf("admin could not set a host alias: status %d, %s", status, body)
+	}
+
+	status, body = call(t, testCtrl.GetHostAliases, authedRequest(t, "viewer", "GET", "/", nil))
+	if status != http.StatusOK {
+		t.Fatalf("a normal user could not read host aliases: status %d, %s", status, body)
+	}
+	var aliases map[string]string
+	if err := json.Unmarshal(body, &aliases); err != nil {
+		t.Fatalf("unmarshalling aliases: %v -- %s", err, body)
+	}
+	if aliases["aliashost"] != "prod" {
+		t.Errorf("getHostAliases returned %v, want aliashost=prod", aliases)
+	}
+}
+
+func TestHostAliasRejectsAnUnsafeHost(t *testing.T) {
+	status, _ := call(t, testCtrl.SetHostAlias,
+		authedRequest(t, "admin", "POST", "/", map[string]string{"host": "../../etc", "alias": "pwn"}))
+	if status != http.StatusBadRequest {
+		t.Fatalf("a traversing host was accepted: status %d", status)
 	}
 }

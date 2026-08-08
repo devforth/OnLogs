@@ -165,6 +165,7 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/getChartData", routerCtrl.GetChartData)
 	http.HandleFunc(pathPrefix+"/api/v1/getDockerSize", routerCtrl.GetDockerSize)
 	http.HandleFunc(pathPrefix+"/api/v1/getGroups", routerCtrl.GetGroups)
+	http.HandleFunc(pathPrefix+"/api/v1/getHostAliases", routerCtrl.GetHostAliases)
 	http.HandleFunc(pathPrefix+"/api/v1/getHosts", routerCtrl.GetHosts)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogWithPrev", routerCtrl.GetLogWithPrev)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogs", routerCtrl.GetLogs)
@@ -179,9 +180,8 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/getUsers", routerCtrl.GetUsers)
 	http.HandleFunc(pathPrefix+"/api/v1/login", routerCtrl.Login)
 	http.HandleFunc(pathPrefix+"/api/v1/logout", routerCtrl.Logout)
-	// Registered even when METRICS_TOKEN is unset: the pathPrefix+"/" catch-all
-	// below answers anything unregistered with index.html and a 200.
 	http.HandleFunc(pathPrefix+"/api/v1/metrics", metrics.Handler(daemonService))
+	http.HandleFunc(pathPrefix+"/api/v1/setHostAlias", routerCtrl.SetHostAlias)
 	http.HandleFunc(pathPrefix+"/api/v1/updateGroup", routerCtrl.UpdateGroup)
 	http.HandleFunc(pathPrefix+"/api/v1/updateUserSettings", routerCtrl.UpdateUserSettings)
 
