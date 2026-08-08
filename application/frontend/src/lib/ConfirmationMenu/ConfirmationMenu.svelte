@@ -9,7 +9,6 @@
     toast,
     toastIsVisible,
     toastTimeoutId,
-    theme,
   } from "../../Stores/stores.js";
   import Input from "../Input/Input.svelte";
   import Checkbox from "../CheckBox/Checkbox.svelte";

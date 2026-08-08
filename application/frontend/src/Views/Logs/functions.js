@@ -151,20 +151,6 @@ export const scrollToNewLogsEnd = (selector, alignToTop) => {
   }
 };
 
-export const checkLastLogTimeStamp = (lastTimeStamp, newTimestamp) => {
-  const timestamp = new Date(newTimestamp).getTime() - 1;
-  if (lastTimeStamp > timestamp) {
-    return timestamp;
-  }
-};
-
-export const forceToBottom = () => {
-  const logsContainerEl = document.querySelector("#logs");
-  if (logsContainerEl) {
-    logsContainerEl.scrollTop = logsContainerEl.scrollHeight;
-  }
-};
-
 export const scrollToSpecificLog = (selector, position) => {
   const el = document.querySelector(selector);
 

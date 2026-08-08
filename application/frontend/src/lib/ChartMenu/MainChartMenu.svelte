@@ -7,7 +7,6 @@
     lastChosenHost,
     lastChosenService,
   } from "../../Stores/stores";
-  import { tryToParseLogString } from "../../utils/functions";
   import fetchApi from "../../utils/fetch";
   import { onMount } from "svelte";
   const api = new fetchApi();

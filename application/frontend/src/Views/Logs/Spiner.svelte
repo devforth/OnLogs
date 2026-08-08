@@ -1,5 +1,5 @@
 <script>
-  import { Moon, Clock } from "svelte-loading-spinners";
+  import { Moon } from "svelte-loading-spinners";
   import { theme } from "../../Stores/stores";
   let spinnerColor = $derived($theme === "light" ? "#4e49da" : "#c244db");
 </script>

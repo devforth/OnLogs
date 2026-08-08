@@ -35,18 +35,6 @@ div .chosen {
     border-radius: $main-border-radius;
   }
 }
-.logStringHeaderContainer {
-  position: absolute;
-  top: 12px;
-  right: 8px;
-  z-index: 7;
-  opacity: 0.4;
-  &:hover {
-    opacity: 1;
-    cursor: pointer;
-  }
-}
-
 .logsTable {
   width: 100%;
   position: relative;
@@ -83,27 +71,6 @@ h2.noLogsMessage {
   color: #a3a3b9;
 }
 
-.show {
-  box-shadow: 1px 1px 10px rgba(0, 0, 0, 0.15);
-  border-radius: 10px;
-  background-color: rgba(0, 0, 0, 0);
-  height: 42px;
-  width: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-
-  .icon {
-    display: flex;
-    align-items: center;
-    vertical-align: bottom;
-
-    .log.log-Eye::before {
-      font-size: 25px;
-    }
-  }
-}
 .searchIcoContainer {
   position: absolute;
   left: 16px;
@@ -197,58 +164,3 @@ h2.noLogsMessage {
   }
 }
 
-.lds-ellipsis {
-  display: flex;
-  align-self: center;
-  justify-content: center;
-  position: relative;
-  height: 10px;
-}
-.lds-ellipsis div {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #4e49da;
-  animation-timing-function: cubic-bezier(0, 1, 1, 0);
-}
-.lds-ellipsis div:nth-child(1) {
-  left: 8px;
-  animation: lds-ellipsis1 0.6s infinite;
-}
-.lds-ellipsis div:nth-child(2) {
-  left: 8px;
-  animation: lds-ellipsis2 0.6s infinite;
-}
-.lds-ellipsis div:nth-child(3) {
-  left: 32px;
-  animation: lds-ellipsis2 0.6s infinite;
-}
-.lds-ellipsis div:nth-child(4) {
-  left: 56px;
-  animation: lds-ellipsis3 0.6s infinite;
-}
-@keyframes lds-ellipsis1 {
-  0% {
-    transform: scale(0);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-@keyframes lds-ellipsis3 {
-  0% {
-    transform: scale(1);
-  }
-  100% {
-    transform: scale(0);
-  }
-}
-@keyframes lds-ellipsis2 {
-  0% {
-    transform: translate(0, 0);
-  }
-  100% {
-    transform: translate(24px, 0);
-  }
-}

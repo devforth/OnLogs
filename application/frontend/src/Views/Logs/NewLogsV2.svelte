@@ -3,14 +3,12 @@
 
   import LogsString from "../../lib/LogsString/LogsString.svelte";
   import fetchApi from "../../utils/fetch";
-  import { navigate } from "svelte-routing";
   import { onDestroy, onMount, tick } from "svelte";
   import { get } from "svelte/store";
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
   import IntersectionObserver from "svelte-intersection-observer";
   import Spiner from "./Spiner.svelte";
   import Loader from "./Loader.svelte";
-  import LogStringHeader from "./LogStringHeader.svelte";
   import { fade } from "svelte/transition";
   import { handleKeydown, copyCustomText } from "../../utils/functions.js";
   import { findSearchTextInLogs } from "../../Views/Logs/functions.js";
@@ -990,9 +988,6 @@
                 ? 'chosen'
                 : ''}"
             >
-              {#if $chosenLogsString === logItem?.at(0)}
-                <LogStringHeader />
-              {/if}
               {#if i === limit / 2 - 1}
                 <IntersectionObserver
                   element={elements[0]}
@@ -1066,7 +1061,6 @@
         <div>
           <ButtonToBottom
             number={logsFromWS.length}
-            ico={"Down"}
             callBack={async () => {
               await flushBufferedLogs();
               scrollFromButton = true;

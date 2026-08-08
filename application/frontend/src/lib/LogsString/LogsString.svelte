@@ -2,8 +2,6 @@
   import { tryToParseLogString } from "../../utils/functions";
   import { toAnsiHtml } from "../../utils/ansi";
   import { chosenStatus } from "../../Stores/stores";
-  import fetchApi from "../../utils/fetch";
-
   import { store } from "../../Stores/stores.js";
   let {
     status = "",
@@ -14,7 +12,6 @@
     sharedLinkCallBack = () => {},
   } = $props();
 
-  let activeStatus = "";
   let parsedStr = $derived(tryToParseLogString(message));
   let messageHtml = $derived(toAnsiHtml(message));
 </script>

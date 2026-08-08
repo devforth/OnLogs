@@ -1,7 +1,6 @@
 <script>
   import Checkbox from "../CheckBox/Checkbox.svelte";
   let checkBoxValue = $state(true);
-  import { store } from "../../Stores/stores.js";
   let {
     rowImage = "",
     rowTitle = "",
@@ -11,10 +10,6 @@
     disableCheckbox = false,
     titleCallBack = null
   } = $props();
-
-  store.update((pv) => {
-    return { ...pv };
-  });
 </script>
 
 <tr

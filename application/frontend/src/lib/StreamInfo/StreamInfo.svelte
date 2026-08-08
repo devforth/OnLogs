@@ -4,7 +4,7 @@
   import { lastLogTime, WSisMuted, manuallyUnmuted } from "../../Stores/stores";
   import { getTimeDifference } from "../../utils/functions";
   let lastLogsCheckerInterval = null;
-  let componentLastLogTime = $state([] || "");
+  let componentLastLogTime = $state([]);
 
   // Not $derived: the interval below also refreshes this so the elapsed time
   // keeps counting up while $lastLogTime stays put.

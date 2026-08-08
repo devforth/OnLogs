@@ -15,15 +15,6 @@
   @include for-mobile {
     width: 80vw;
   }
-  .confirmationName {
-    margin: 20px 0 20px 0;
-  }
-
-  .buttonsBox {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 24px;
-  }
   .boldText {
     font-weight: 800;
   }
@@ -58,12 +49,6 @@
     justify-content: space-between;
     align-items: center;
     margin-top: 24px;
-  }
-
-  .confirmationText {
-    .boldText {
-      font-weight: 700;
-    }
   }
 
   .log-Tips {

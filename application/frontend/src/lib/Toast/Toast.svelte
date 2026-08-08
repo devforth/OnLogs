@@ -4,7 +4,6 @@
     toast,
     toastTimeoutId,
   } from "../../Stores/stores.js";
-  import ProgressBar from "../ProgressBar/ProgressBar.svelte";
   import Button from "../Button/Button.svelte";
   import { handleKeydown } from "../../utils/functions.js";
   import { onDestroy, onMount } from "svelte";
@@ -28,7 +27,6 @@
   <h4>{tittle}</h4>
   <p>{message}</p>
 
-  <!-- <ProgressBar /> -->
   <div class={additionButton?.isVisible ? "additionButtonContainer" : ""}>
     <div class="toastButtonContainer additionalButton">
       {#if additionButton?.isVisible}

@@ -1,6 +1,5 @@
 <script>
-  import { onMount } from "svelte";
-  let { ico = "", callBack = () => {}, number = null } = $props();
+  let { callBack = () => {}, number = null } = $props();
 </script>
 
 <div
