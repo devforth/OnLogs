@@ -30,12 +30,12 @@
 - 👁 View parameters (parsing JSON, showing local/UTC time for every logline)
 - 🔴 Realtime logs updating
 - 🗂 Group services into named folders in the sidebar, per user
+- 📈 Prometheus metrics endpoint for log volume and OnLogs' own health
 
 ### Roadmap
 
 - 🏷 Search and filter by tags (log status, time)
 - 🔌Plugins and internal ability to notify about some event (e.g. notify when Error happens)
-- 📊 Improved statistics
 
 ## Hello world & usage
 ### Docker Compose example with traefik
@@ -92,6 +92,81 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 | ONLOGS_TOKEN       | Token that will use an agent to authorize and connect to HOST | Generates with OnLogs interface   | if `AGENT=true`
 | MAX_LOGS_SIZE | Maximum allowed total logs size before cleanup triggers. Accepts human-readable formats like 5GB, 500MB, 1.5GB etc. When exceeded, 10% of logs (by count) will be removed proportionally across containers starting from oldest. Validated at startup: an unparseable value stops OnLogs rather than silently disabling retention | 10GB | -
 | DISABLE_AUTH | Option to completely disable built in authentication in the application. When this option is set to `true` the app will behave like if the Administrator is logged in. The option to manage users will be removed. | false | -
+| METRICS_TOKEN | Bearer token for the Prometheus endpoint at `/api/v1/metrics`. While it is unset the endpoint returns `401` and exposes nothing, so metrics are off by default. See [Metrics](#metrics) | | only for `/api/v1/metrics`
+
+## Metrics
+
+OnLogs exposes Prometheus metrics at `${ONLOGS_PATH_PREFIX}/api/v1/metrics`. Set
+`METRICS_TOKEN` to enable it; while it is unset every request gets a `401`. There is no
+unauthenticated mode — the endpoint reveals container names and log volumes.
+
+```yaml
+scrape_configs:
+  - job_name: onlogs
+    metrics_path: /api/v1/metrics
+    authorization:
+      credentials: <your METRICS_TOKEN>
+    static_configs:
+      - targets: ["onlogs:2874"]
+```
+
+| metric | type | labels | meaning |
+|---|---|---|---|
+| `onlogs_log_lines_total` | counter | host, container, level | Log lines stored, by severity (`error`, `warn`, `info`, `debug`, `meta`, `other`) |
+| `onlogs_stream_up` | gauge | host, container | 1 while a local container's log stream is attached |
+| `onlogs_stream_cursor_timestamp_seconds` | gauge | host, container | Timestamp of the newest line ingested |
+| `onlogs_dropped_replay_lines_total` | counter | host, container | Lines dropped as already-stored replays |
+| `onlogs_logs_size_bytes` | gauge | | Total stored log size, what the quota is compared against |
+| `onlogs_container_db_size_bytes` | gauge | host, container | Stored log size per container |
+| `onlogs_logs_size_limit_bytes` | gauge | | `MAX_LOGS_SIZE` in bytes |
+| `onlogs_retention_deleted_lines_total` | counter | | Lines deleted by the size quota |
+| `onlogs_filesystem_size_bytes` / `_avail_bytes` | gauge | | The filesystem holding the logs |
+| `onlogs_stats_workers` | gauge | | Statistics workers running |
+| `onlogs_websocket_connections` | gauge | | Live log viewers connected |
+| `onlogs_goroutines`, `onlogs_heap_bytes` | gauge | | Process health |
+| `onlogs_login_failures_total`, `onlogs_login_blocked_total` | counter | | Rejected and rate-limited logins |
+| `onlogs_metrics_scrape_duration_seconds` | gauge | | How long the previous scrape took to render |
+| `onlogs_build_info` | gauge | version | Always 1 |
+
+### Example alerts
+
+```yaml
+- alert: OnLogsContainerErrors
+  expr: sum by (host, container) (rate(onlogs_log_lines_total{level="error"}[5m])) > 1
+  for: 10m
+
+# Ingestion stalled: the cursor stopped moving while lines are still arriving.
+- alert: OnLogsIngestStalled
+  expr: |
+    (time() - onlogs_stream_cursor_timestamp_seconds > 300)
+      and on (host, container) (rate(onlogs_log_lines_total[10m]) > 0)
+  for: 5m
+
+- alert: OnLogsQuotaNearlyFull
+  expr: onlogs_logs_size_bytes / onlogs_logs_size_limit_bytes > 0.9
+```
+
+### Limitations
+
+- **`onlogs_stream_up` covers local containers only.** Containers whose logs arrive from a
+  remote agent are not included — the host knows the agent reported them, not that a stream
+  is attached. There is no gauge for those.
+- **`onlogs_logs_size_limit_bytes` is read once at startup.** Changing `MAX_LOGS_SIZE`
+  requires a restart before the gauge reflects it.
+- **Size gauges are up to 5 minutes stale.** Computing them walks every stored container, so
+  it runs on a timer rather than on the scrape.
+- **Counters reset when OnLogs restarts.** This is normal for a process-lifetime counter;
+  `rate()` and `increase()` handle it. `onlogs_log_lines_total` also drops a container's
+  series when that container's logs are deleted.
+- **`onlogs_stream_cursor_timestamp_seconds` is absent until the first line arrives** after a
+  restart, and disappears when a stream stops. Pair it with a log-line rate, as the
+  `OnLogsIngestStalled` example does, or a deliberately stopped container alerts forever.
+- **At most 1000 host/container pairs are counted.** Beyond that new containers are not
+  added to `onlogs_log_lines_total`, and a warning is logged once.
+- **`onlogs_log_lines_total` and `onlogs_container_db_size_bytes` cover different sets of
+  containers.** The size gauge reports every container with logs on disk, including ones that
+  no longer exist; the line counter only reports containers that have logged since OnLogs
+  last started. Do not join them and expect a match.
 
 ### Upgrading
 
