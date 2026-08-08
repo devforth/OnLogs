@@ -198,6 +198,53 @@
   });
 </script>
 
+{#snippet serviceRow(host, service, i, idSuffix)}
+  <li
+    class="serviceListItem  "
+    id={host}
+    onclick={({ target }) => choseService(host, service.serviceName, target)}
+  >
+    <div class="hostRow {customListElClass}">
+      <p class={service.isDisabled ? "disabled" : ""} title={service.serviceName}>
+        {service.serviceName}
+      </p>
+      {#if listElementButton}
+        <div class="buttonBox flex">
+          <div
+            class="listElementButton"
+            onclick={() => {
+              navigate(
+                `${changeKey}/servicesettings/${host.trim()}/${service.serviceName.trim()}`,
+                { replace: true }
+              );
+              chosenElSettings = `${host.trim()}-${service.serviceName.trim()}`;
+            }}
+          >
+            <i class="log log-Wheel"></i>
+          </div>
+          <div
+            id={`heartButtonCont${idSuffix}-${i}`}
+            class="listElementButton"
+            onclick={() => favoriteToggle(host, service.serviceName)}
+          >
+            <i
+              id={`heartButton${idSuffix}-${i}`}
+              class="log {service.isFavorite ? 'log-Heart' : 'log-EmptyHeart'}"
+            ></i>
+          </div>
+        </div>
+      {/if}
+    </div>
+    <div
+      class={`highlightedOverlay ${
+        `${activeElementName}` === `${host.trim()}-${service.serviceName.trim()}`
+          ? "active"
+          : ``
+      }`}
+    ></div>
+  </li>
+{/snippet}
+
 <div class="listWithChoise {$listScrollIsVisible ? 'active' : ''}">
   {#if groupSections.length}
     <ul class="groupSection {customListClass}">
@@ -294,61 +341,8 @@
         >
           <ul class="activeServices">
             {#each listEl.services as service, i}
-              {#if !service.isDisabled}<li
-                  class="serviceListItem  "
-                  id={listEl.host}
-                  onclick={({ target }) =>
-                    choseService(listEl.host, service.serviceName, target)}
-                >
-                  <div class="hostRow {customListElClass}">
-                    <p
-                      class={service.isDisabled ? "disabled" : ""}
-                      title={service.serviceName}
-                    >
-                      {service.serviceName}
-                    </p>
-                    {#if listElementButton}
-                      <div class="buttonBox flex">
-                        <div
-                          class="listElementButton"
-                          onclick={() => {
-                            navigate(
-                              `${changeKey}/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
-                              { replace: true }
-                            );
-
-                            chosenElSettings = `${listEl.host.trim()}-${service.serviceName.trim()}`;
-                          }}
-                        >
-                          <i class="log log-Wheel"></i>
-                        </div>
-                        <div
-                          id={`heartButtonCont-${i}`}
-                          class="listElementButton"
-                          onclick={() => {
-                            favoriteToggle(listEl.host, service.serviceName);
-                          }}
-                        >
-                          <i
-                            id={`heartButton-${i}`}
-                            class="log {service.isFavorite
-                              ? 'log-Heart'
-                              : 'log-EmptyHeart'}"
-></i>
-                        </div>
-                      </div>
-                    {/if}
-                  </div>
-                  <div
-                    class={`highlightedOverlay ${
-                      `${activeElementName}` ===
-                      `${listEl.host.trim()}-${service.serviceName.trim()}`
-                        ? "active"
-                        : ``
-                    }`}
-></div>
-                </li>
-              {/if}{/each}
+              {#if !service.isDisabled}{@render serviceRow(listEl.host, service, i, "")}{/if}
+            {/each}
           </ul>
           <div
             class="flex flex-start stopedServicesBox clickable inactiveServices {listEl.services.find(
@@ -380,60 +374,8 @@
               : ''}"
           >
             {#each listEl.services as service, i}
-              {#if service.isDisabled}<li
-                  class="serviceListItem  "
-                  id={listEl.host}
-                  onclick={({ target }) =>
-                    choseService(listEl.host, service.serviceName, target)}
-                >
-                  <div class="hostRow {customListElClass}">
-                    <p
-                      class={service.isDisabled ? "disabled" : ""}
-                      title={service.serviceName}
-                    >
-                      {service.serviceName}
-                    </p>
-                    {#if listElementButton}
-                      <div class="buttonBox flex">
-                        <div
-                          class="listElementButton"
-                          onclick={() => {
-                            navigate(
-                              `${changeKey}/servicesettings/${listEl.host.trim()}/${service.serviceName.trim()}`,
-                              { replace: true }
-                            );
-
-                            chosenElSettings = `${listEl.host.trim()}-${service.serviceName.trim()}`;
-                          }}
-                        >
-                          <i class="log log-Wheel"></i>
-                        </div>
-                        <div
-                          id={`heartButtonContDissabled-${i}`}
-                          class="listElementButton"
-                          onclick={() => {
-                            favoriteToggle(listEl.host, service.serviceName);
-                          }}
-                        >
-                          <i
-                            id={`heartButtonDissabled-${i}`}
-                            class="log {service.isFavorite
-                              ? 'log-Heart'
-                              : 'log-EmptyHeart'}"
-></i>
-                        </div>
-                      </div>
-                    {/if}
-                  </div>
-                  <div
-                    class={`highlightedOverlay ${
-                      `${activeElementName}` ===
-                      `${listEl.host.trim()}-${service.serviceName.trim()}`
-                        ? "active"
-                        : ``
-                    }`}
-></div>
-                </li>{/if}{/each}
+              {#if service.isDisabled}{@render serviceRow(listEl.host, service, i, "Dissabled")}{/if}
+            {/each}
           </ul>
         </div>
       </li>
