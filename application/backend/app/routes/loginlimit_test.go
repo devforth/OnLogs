@@ -90,7 +90,7 @@ func TestLoginLimiterStillThrottlesRepeatedFailures(t *testing.T) {
 func TestLoginLockoutCannotBeInflictedOnAnotherUser(t *testing.T) {
 	ctrl := initTestConfig()
 	userdb.CreateUser("victimaccount", "the-real-password")
-	t.Cleanup(func() { userdb.DeleteUser("victimaccount", "") })
+	t.Cleanup(func() { userdb.DeleteUser("victimaccount") })
 
 	loginLimiter.mu.Lock()
 	loginLimiter.entries = map[string]*loginAttempt{}

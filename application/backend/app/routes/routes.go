@@ -1029,7 +1029,7 @@ func (h *RouteController) DeleteUser(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err := userdb.DeleteUser(loginData.Login, loginData.Login)
+	err := userdb.DeleteUser(loginData.Login)
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return

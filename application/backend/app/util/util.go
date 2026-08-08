@@ -80,7 +80,6 @@ func CreateJWT(login string) string {
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
 	claims["exp"] = time.Now().AddDate(0, 0, 2).Unix()
-	claims["authorized"] = true
 	claims["user"] = login
 	tokenString, _ := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
@@ -462,15 +461,6 @@ func GetStorageData() map[string]float64 {
 		"free_space_percent": (free_space_GB / total_space_GB) * 100,
 	}
 }
-
-// func RunSpaceMonitoring() {
-// 	for {
-// 		to_put, _ := json.Marshal(GetStorageData())
-// 		vars.StateDB.Put([]byte("Storage data"), to_put, nil)
-
-// 		time.Sleep(time.Second * 30)
-// 	}
-// }
 
 var units = []struct {
 	Suffix     string

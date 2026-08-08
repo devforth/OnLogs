@@ -1,7 +1,6 @@
 <script>
   // @ts-ignore
   import Container from "@/lib/Container/Container.svelte";
-  import HostList from "../../lib/HostList/HostList.svelte";
   import NewLogsV2 from "../Logs/NewLogsV2.svelte";
   import Button from "../../lib/Button/Button.svelte";
   import fetchApi from "../../utils/fetch";

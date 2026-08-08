@@ -1041,7 +1041,6 @@
                     showCopiedUrlToast();
                   });
                 }}
-                getLogsByTagOptions={(limit, searchText)}
               />
             </div>
             <IntersectionObserver

@@ -86,17 +86,6 @@ func createLogMessage(db *leveldb.DB, host string, container string, message str
 	return datetime + " " + message
 }
 
-func validateMessage(message string) (string, bool) {
-	for !strings.HasPrefix(message, vars.Year) {
-		message = message[1:]
-		if len(message) < 31 {
-			return "", false
-		}
-	}
-
-	return message, true
-}
-
 func closeActiveStream(containerName string) {
 	vars.RemoveActiveStream(containerName)
 }
@@ -509,14 +498,6 @@ func (h *DaemonService) StopStream(containerName string) {
 	closeActiveStream(containerName)
 }
 
-func (h *DaemonService) CreateDaemonToHostStream(ctx context.Context, containerName string) {
-	h.runContainerStream(ctx, containerName, true, 0)
-}
-
-func (h *DaemonService) CreateDaemonToDBStream(ctx context.Context, containerName string) {
-	h.runContainerStream(ctx, containerName, false, 0)
-}
-
 // runningNames keeps only containers docker reports as running. Attaching to an
 // exited container writes a started/stopped META pair on every reconcile.
 func runningNames(result []docker.ContainerNamesResult) []string {
@@ -555,13 +536,4 @@ func (h *DaemonService) GetContainersList(ctx context.Context) []string {
 
 	names = runningNames(result)
 	return names
-}
-
-func (h *DaemonService) GetContainerImageNameByContainerID(ctx context.Context, containerID string) string {
-	result, err := h.DockerClient.GetContainerImageNameByContainerID(ctx, containerID)
-	if err != nil {
-		return ""
-	}
-
-	return result
 }

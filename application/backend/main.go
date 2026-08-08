@@ -133,7 +133,6 @@ func main() {
 	go db.DeleteUnusedTokens()
 	go metrics.StartSizeRefresher(bgContext)
 	go streamController.StreamLogs(bgContext)
-	// go util.RunSpaceMonitoring()
 	util.ReplacePrefixVariableForFrontend()
 	if err := util.CreateInitUser(); err != nil {
 		if os.Getenv("DISABLE_AUTH") == "true" {

@@ -48,7 +48,7 @@ func EditUser(login string, password string) error {
 	return vars.UsersDB.Put([]byte(login), []byte(HashPassword(password)), nil)
 }
 
-func DeleteUser(login string, password string) error {
+func DeleteUser(login string) error {
 	isExists, _ := vars.UsersDB.Has([]byte(login), nil)
 	if !isExists {
 		return errors.New("No such user")

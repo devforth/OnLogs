@@ -18,7 +18,7 @@ func TestEditUserActuallyChangesThePassword(t *testing.T) {
 	os.Setenv("ADMIN_USERNAME", "admin")
 
 	userdb.CreateUser("rotateme", "the-old-password")
-	t.Cleanup(func() { userdb.DeleteUser("rotateme", "") })
+	t.Cleanup(func() { userdb.DeleteUser("rotateme") })
 
 	body, _ := json.Marshal(map[string]string{"login": "rotateme", "password": "the-new-password"})
 	req, _ := http.NewRequest("POST", "/api/v1/editUser", bytes.NewBuffer(body))
@@ -49,7 +49,7 @@ func TestEditUserRejectsAnEmptyPassword(t *testing.T) {
 	os.Setenv("ADMIN_USERNAME", "admin")
 
 	userdb.CreateUser("emptyrotate", "a-real-password")
-	t.Cleanup(func() { userdb.DeleteUser("emptyrotate", "") })
+	t.Cleanup(func() { userdb.DeleteUser("emptyrotate") })
 
 	body, _ := json.Marshal(map[string]string{"login": "emptyrotate", "password": ""})
 	req, _ := http.NewRequest("POST", "/api/v1/editUser", bytes.NewBuffer(body))
@@ -118,8 +118,8 @@ func TestFavouritesAreScopedToTheUserWhoSetThem(t *testing.T) {
 	userdb.CreateUser("favuser", "favpass")
 	userdb.CreateUser("otheruser", "otherpass")
 	t.Cleanup(func() {
-		userdb.DeleteUser("favuser", "")
-		userdb.DeleteUser("otheruser", "")
+		userdb.DeleteUser("favuser")
+		userdb.DeleteUser("otheruser")
 		vars.FavsDB.Delete(favouriteKey("favuser", "h", "svc"), nil)
 		vars.FavsDB.Delete(favouriteKey("otheruser", "h", "svc"), nil)
 	})

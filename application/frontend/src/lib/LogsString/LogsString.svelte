@@ -12,7 +12,6 @@
     width = "",
     isHiglighted = false,
     sharedLinkCallBack = () => {},
-    getLogsByTagOptions = {}
   } = $props();
 
   let activeStatus = "";

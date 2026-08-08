@@ -3,7 +3,6 @@ package streamer
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -17,10 +16,6 @@ import (
 
 type StreamController struct {
 	DaemonService *daemon.DaemonService
-}
-
-func getStatsWorkerKey(host, container string) string {
-	return statistics.WorkerKey(host, container)
 }
 
 func (ctrl *StreamController) ensureStatisticsWorker(ctx context.Context, host, container string) {
@@ -138,7 +133,6 @@ func (ctrl *StreamController) StreamLogs(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-reconcileTicker.C:
-			vars.Year = strconv.Itoa(time.Now().UTC().Year())
 			vars.SetDockerContainers(ctrl.DaemonService.GetContainersList(ctx))
 			ctrl.reconcileStreams(ctx)
 			if util.IsAgentMode() {

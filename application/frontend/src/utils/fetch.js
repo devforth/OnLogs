@@ -235,17 +235,6 @@ class fetchApi {
   async getUserSettings() {
     return await this.doFetch("GET", `${this.url}getUserSettings`);
   }
-
-  async getLogsByTag({ host, containerName, limit, status, message }) {
-    const params = new URLSearchParams({
-      host,
-      id: containerName,
-      limit,
-      status,
-      message,
-    });
-    return await this.doFetch("GET", `${this.url}getUserSettings?${params}`);
-  }
 }
 
 export default fetchApi;

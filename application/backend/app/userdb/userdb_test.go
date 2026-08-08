@@ -49,12 +49,12 @@ func TestEditUser(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
-	err := DeleteUser("aaaaaaaaa????????", "123")
+	err := DeleteUser("aaaaaaaaa????????")
 	if err == nil {
 		t.Error("Error is nil")
 	}
 
-	DeleteUser("admin1", "admin")
+	DeleteUser("admin1")
 	if IsUserExists("admin1") {
 		t.Error("User should be deleted")
 	}

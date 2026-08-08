@@ -13,8 +13,6 @@
   import { onMount } from "svelte";
   import Toast from "./lib/Toast/Toast.svelte";
   import Notfound from "./lib/NotFound/Notfound.svelte";
-  let basePathname = "";
-  let availibleRoutes = ["view", "login", "users", "servicesettings"];
   import { changeKey } from "./utils/changeKey";
   import { navigate } from "svelte-routing";
   let { url = "" } = $props();
@@ -54,9 +52,6 @@
       activeMenuOption.set("users");
     } else {
       activeMenuOption.set("home");
-    }
-    if (!availibleRoutes.includes(location.pathname.split("/")?.at(1))) {
-      basePathname = location.pathname.split("/")?.at(1);
     }
   });
 
@@ -103,7 +98,6 @@
     <Route><Notfound /></Route>
 
     <Route path={`/`}><Main /></Route>
-    <Route path={`/path`}><Main /></Route>
   </div>
   {#if $toastIsVisible} <Toast />{/if}
 </Router>
