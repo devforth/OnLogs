@@ -5,6 +5,7 @@ import {
   importBundle,
   settle,
   jsonResponse,
+  main,
 } from "../../../test/harness.mjs";
 
 const HOSTS = [
@@ -32,7 +33,7 @@ function textOf(node) {
   return node.textContent.replace(/\s+/g, " ").trim();
 }
 
-async function run() {
+main(async () => {
   const outfile = await bundleComponent("test/entry.js");
   const { window } = installDom({ fetchImpl: async () => jsonResponse({ error: null }) });
   const bundle = await importBundle(outfile);
@@ -96,11 +97,53 @@ async function run() {
 
   bundle.unmount(app);
   bundle.groups.set([]);
-  console.log("ListWithChoise group rendering tests passed");
-  process.exit(0);
-}
 
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
+  // The active and stopped service lists render from one shared snippet; their
+  // rows differ only by an id suffix, so both lists have to be checked.
+  const MIXED = [
+    {
+      host: "host1",
+      services: [
+        { serviceName: "api", isDisabled: false, isFavorite: true },
+        { serviceName: "old", isDisabled: true, isFavorite: false },
+      ],
+    },
+  ];
+  const tree = bundle.mount(bundle.ListWithChoise, {
+    target,
+    props: { listData: MIXED, listElementButton: "true" },
+  });
+  await settle();
+
+  const lists = [...target.querySelectorAll("ul.activeServices")];
+  assert.equal(lists.length, 2, "expected an active list and a stopped list");
+
+  const active = [...lists[0].querySelectorAll(".serviceListItem")];
+  const stopped = [...lists[1].querySelectorAll(".serviceListItem")];
+  console.log(
+    `  active: ${active.map((r) => textOf(r.querySelector("p")))}, ` +
+      `stopped: ${stopped.map((r) => textOf(r.querySelector("p")))}`
+  );
+  assert.deepEqual(active.map((r) => textOf(r.querySelector("p"))), ["api"]);
+  assert.deepEqual(stopped.map((r) => textOf(r.querySelector("p"))), ["old"]);
+
+  assert.ok(
+    target.querySelector("#heartButton-0"),
+    "the active row lost its heart button id"
+  );
+  assert.ok(
+    target.querySelector("#heartButtonDissabled-1"),
+    "the stopped row lost its suffixed heart button id"
+  );
+  assert.ok(
+    target.querySelector("#heartButton-0").className.includes("log-Heart"),
+    "a favourited service should render a filled heart"
+  );
+  assert.ok(
+    stopped[0].querySelector("p").className.includes("disabled"),
+    "a stopped service should render disabled"
+  );
+
+  bundle.unmount(tree);
+  console.log("ListWithChoise rendering tests passed");
 });

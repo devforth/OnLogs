@@ -11,6 +11,7 @@ import {
   jsonResponse,
   settle,
   importBundle,
+  main,
 } from "../../../test/harness.mjs";
 
 const LIMIT = 60;
@@ -91,7 +92,7 @@ async function idleRequests(endpoint, rounds) {
   return counter[endpoint] - before;
 }
 
-async function run() {
+main(async () => {
   const { window } = installDom({ fetchImpl });
   const bundle = await importBundle(await bundleComponent("test/entry.js"));
 
@@ -153,10 +154,4 @@ async function run() {
   );
 
   console.log("NewLogsV2 request-storm tests passed");
-  process.exit(0);
-}
-
-run().catch((err) => {
-  console.error(String(err.message || err));
-  process.exit(1);
 });

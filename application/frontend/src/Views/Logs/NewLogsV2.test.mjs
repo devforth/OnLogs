@@ -5,6 +5,7 @@ import {
   jsonResponse,
   settle,
   importBundle,
+  main,
 } from "../../../test/harness.mjs";
 
 const PAGE = [
@@ -109,7 +110,7 @@ async function mountView(bundle, fetchImpl, counter) {
   return { component, target, counter };
 }
 
-async function run() {
+main(async () => {
   const bundlePath = await bundleComponent("test/entry.js");
 
   const counter = { getLogs: 0 };
@@ -273,10 +274,4 @@ async function run() {
   bundle.unmount(filtered);
 
   console.log("NewLogsV2 duplication tests passed");
-  process.exit(0);
-}
-
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
 });

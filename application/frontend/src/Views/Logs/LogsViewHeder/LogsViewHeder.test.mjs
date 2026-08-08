@@ -4,6 +4,7 @@ import {
   installDom,
   settle,
   importBundle,
+  main,
 } from "../../../../test/harness.mjs";
 
 const DEBOUNCE_MS = 750;
@@ -13,7 +14,7 @@ function type(window, input, value) {
   input.dispatchEvent(new window.Event("input", { bubbles: true }));
 }
 
-async function run() {
+main(async () => {
   const bundlePath = await bundleComponent("test/entry.js");
   const { window } = installDom({});
   const bundle = await importBundle(bundlePath);
@@ -65,10 +66,4 @@ async function run() {
 
   bundle.unmount(component);
   console.log("LogsViewHeder debounce tests passed");
-  process.exit(0);
-}
-
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
 });

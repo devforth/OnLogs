@@ -5,6 +5,7 @@ import {
   importBundle,
   settle,
   jsonResponse,
+  main,
 } from "../../../test/harness.mjs";
 
 const HOSTS = [
@@ -52,7 +53,7 @@ function check(window, host, service) {
   return box;
 }
 
-async function run() {
+main(async () => {
   const outfile = await bundleComponent("test/entry.js");
   const { window } = installDom({ fetchImpl: recordingFetch });
   const bundle = await importBundle(outfile);
@@ -227,10 +228,4 @@ async function run() {
   bundle.groupModalIsVisible.set(false);
   bundle.groupBeingEdited.set(null);
   console.log("GroupModal tests passed");
-  process.exit(0);
-}
-
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
 });

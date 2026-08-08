@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { bundleComponent, installDom, importBundle, settle } from "../../../test/harness.mjs";
+import { bundleComponent, installDom, importBundle, settle, main } from "../../../test/harness.mjs";
 
-async function run() {
+main(async () => {
   const outfile = await bundleComponent("test/entry.js");
   const { window } = installDom({});
   const bundle = await importBundle(outfile);
@@ -26,10 +26,4 @@ async function run() {
   bundle.unmount(filled);
 
   console.log("CommonList empty-list tests passed");
-  process.exit(0);
-}
-
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
 });

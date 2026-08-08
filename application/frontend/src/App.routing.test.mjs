@@ -8,6 +8,7 @@ import {
   jsonResponse,
   settle,
   importBundle,
+  main,
 } from "../test/harness.mjs";
 
 async function stubFetch(url) {
@@ -24,7 +25,7 @@ async function stubFetch(url) {
 
 const NOT_FOUND = "404 This is not the web page";
 
-async function run() {
+main(async () => {
   // changeKey.js reads `location` at module scope, so the DOM has to exist
   // before the bundle is imported.
   const outfile = await bundleComponent("test/entry.js");
@@ -63,10 +64,4 @@ async function run() {
   bundle.unmount(unmatched.app);
 
   console.log("App routing tests passed");
-  process.exit(0);
-}
-
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
 });

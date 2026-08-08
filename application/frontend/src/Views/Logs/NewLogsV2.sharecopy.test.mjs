@@ -5,6 +5,7 @@ import {
   jsonResponse,
   settle,
   importBundle,
+  main,
 } from "../../../test/harness.mjs";
 
 const ROWS = Array.from({ length: 90 }, (_, i) => {
@@ -44,7 +45,7 @@ function renderedMessages(target) {
     .filter((text) => text.startsWith("line-"));
 }
 
-async function run() {
+main(async () => {
   const counter = { getLogs: 0, getPrevLogs: 0, withPrev: 0 };
   const { window } = installDom({ fetchImpl: stubFetch(counter) });
 
@@ -111,10 +112,4 @@ async function run() {
 
   bundle.unmount(component);
   console.log("share-link copy tests passed");
-  process.exit(0);
-}
-
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
 });

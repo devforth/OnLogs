@@ -7,6 +7,7 @@ import {
   jsonResponse,
   settle,
   importBundle,
+  main,
 } from "../../../test/harness.mjs";
 
 const LIMIT = 60;
@@ -68,7 +69,7 @@ function assertInvariants(target, label) {
   return messages;
 }
 
-async function run() {
+main(async () => {
   const counter = { getLogs: 0 };
   const { window } = installDom({ fetchImpl: stubFetch(counter) });
   const bundle = await importBundle(await bundleComponent("test/entry.js"));
@@ -119,10 +120,4 @@ async function run() {
 
   bundle.unmount(component);
   console.log("NewLogsV2 pagination tests passed");
-  process.exit(0);
-}
-
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
 });

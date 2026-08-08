@@ -242,3 +242,14 @@ export async function settle(rounds = 30) {
 export async function importBundle(outfile) {
   return import(pathToFileURL(outfile).href);
 }
+
+// Each test file is its own process, so one place owns the exit codes.
+export function main(body) {
+  body().then(
+    () => process.exit(0),
+    (err) => {
+      console.error(err);
+      process.exit(1);
+    }
+  );
+}

@@ -5,6 +5,7 @@ import {
   jsonResponse,
   settle,
   importBundle,
+  main,
 } from "../../../test/harness.mjs";
 
 const LINKED = "2026-02-10T09:00:05.000000000Z";
@@ -72,7 +73,7 @@ function openDeepLink(latency) {
   return { component, target, counter };
 }
 
-async function run() {
+main(async () => {
   // The deep link must win regardless of how the three concurrent loads
   // interleave, so exercise a range of response latencies.
   for (const latency of [0, 5, 20]) {
@@ -101,10 +102,4 @@ async function run() {
   }
 
   console.log("shared link deep-link window tests passed");
-  process.exit(0);
-}
-
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
 });
