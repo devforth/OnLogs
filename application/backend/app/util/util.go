@@ -278,6 +278,26 @@ func GetHost() string {
 	return parseHostname(string(hostname), err)
 }
 
+// LogsSizes reports bytes per host/container plus the total. The only walk of
+// the logs tree, so the size a user sees and the size the quota compares against
+// cannot drift apart. One filepath.Walk per container: never call it on a
+// request that runs often.
+func LogsSizes() (map[string]int64, int64) {
+	perContainer := map[string]int64{}
+	var total int64
+
+	hosts, _ := os.ReadDir("leveldb/hosts/")
+	for _, host := range hosts {
+		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name() + "/containers")
+		for _, container := range containers {
+			bytes := int64(GetDirSize(host.Name(), container.Name()) * 1024 * 1024)
+			perContainer[host.Name()+"/"+container.Name()] = bytes
+			total += bytes
+		}
+	}
+	return perContainer, total
+}
+
 func GetDirSize(host string, container string) float64 {
 	if !IsSafeName(host) || !IsSafeName(container) {
 		return 0

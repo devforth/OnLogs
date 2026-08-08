@@ -538,14 +538,8 @@ func (h *RouteController) GetSizeByAll(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	var totalSize float64
-	hosts, _ := os.ReadDir("leveldb/hosts/")
-	for _, host := range hosts {
-		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name() + "/containers")
-		for _, container := range containers {
-			totalSize += util.GetDirSize(host.Name(), container.Name())
-		}
-	}
+	_, totalBytes := util.LogsSizes()
+	totalSize := float64(totalBytes) / (1024.0 * 1024.0)
 
 	if totalSize < 0.1 && totalSize != 0.0 {
 		totalSize = 0.1

@@ -138,6 +138,7 @@ func checkAndManageLogSize(host string, container string) error {
 					if err != nil {
 						fmt.Printf("Failed to delete batch in %s/%s: %v\n", hostName, containerName, err)
 					} else {
+						CountRetentionDeleted(deletedCount)
 						fmt.Printf("Deleted %d logs from %s/%s\n", deletedCount, hostName, containerName)
 					}
 					logsDB.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
@@ -309,6 +310,18 @@ func countLogStatus(location string, statusKey string) {
 		logLineCounts[location] = total
 	}
 	total[statusKey]++
+}
+
+var retentionDeleted atomic.Uint64
+
+func CountRetentionDeleted(lines int) {
+	if lines > 0 {
+		retentionDeleted.Add(uint64(lines))
+	}
+}
+
+func RetentionDeletedLines() uint64 {
+	return retentionDeleted.Load()
 }
 
 // LogLineCounts returns a deep copy: the live maps are written on every log line.

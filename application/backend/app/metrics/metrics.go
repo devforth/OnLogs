@@ -66,6 +66,7 @@ func write(w io.Writer, ds daemonState) {
 	writeStreamUp(w)
 	writeCursors(w, ds)
 	writeDroppedReplays(w, ds)
+	writeSizes(w)
 	writeProcess(w)
 	writeFilesystem(w)
 

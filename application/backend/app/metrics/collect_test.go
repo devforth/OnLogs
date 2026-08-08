@@ -195,3 +195,10 @@ func TestDroppedReplayExported(t *testing.T) {
 		t.Errorf("%s: got %v, want 1", series, value)
 	}
 }
+
+// Keeps testing.B out of the helpers that take *testing.T.
+func benchScrape() {
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/metrics", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken)
+	Handler(nil).ServeHTTP(httptest.NewRecorder(), req)
+}
