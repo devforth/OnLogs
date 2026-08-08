@@ -13,11 +13,13 @@ COPY . /code/
 
 FROM golang:1.26-alpine AS backendbuilder
 
+ARG VERSION=dev
+
 ADD backend/. /backend/
 WORKDIR /backend/
 
 RUN go mod download  \
-  && go build -o onlogs .
+  && go build -ldflags "-X github.com/devforth/OnLogs/app/metrics.Version=${VERSION}" -o onlogs .
 
 FROM alpine
 
