@@ -25,6 +25,9 @@ export const theme = writable("light");
 export const lastChosenHost = writable("");
 export const lastChosenService = writable("");
 
+export const hostAliases = writable({});
+export const hostBeingRenamed = writable(null);
+
 // service groups, loaded from /api/v1/getGroups
 export const groups = writable([]);
 export const groupModalIsVisible = writable(false);

@@ -1,16 +1,17 @@
 <script>
   // @ts-nocheck
 
-  import { onMount } from "svelte";
+  import { onMount, untrack } from "svelte";
 
   import { navigate } from "svelte-routing";
   let openStopedServIndexes = $state([]);
-  let chosenElSettings = $state("");
   import {
     activeMenuOption,
     groups,
     groupBeingEdited,
     groupModalIsVisible,
+    hostAliases,
+    hostBeingRenamed,
     lastChosenHost,
     lastChosenService,
     listScrollIsVisible,
@@ -24,8 +25,8 @@
     customListClass = "",
     customListElClass = "",
     customActiveElClass = "",
-    headerButton = "",
-    listElementButton = ""
+    listElementButton = "",
+    section = "logs"
   } = $props();
   let initialVisitcounter = $state(0);
 
@@ -185,20 +186,45 @@
       }
     );
   }
+  let autoOpenedHost = "";
+
   function choseInitialHost() {
-    listData.forEach((h, i) => {
-      if (h.host === $lastChosenHost && !openHeaderIndexs.includes(i)) {
-        openHeaderIndexs = [i, ...openHeaderIndexs];
-      }
-    });
+    const host = $lastChosenHost;
+    if (!host || autoOpenedHost === host) {
+      return;
+    }
+    const index = listData.findIndex((h) => h.host === host);
+    if (index === -1) {
+      return;
+    }
+
+    autoOpenedHost = host;
+    if (!openHeaderIndexs.includes(index)) {
+      openHeaderIndexs = [index, ...openHeaderIndexs];
+    }
+  }
+
+  function openSection(event, host, serviceName, section) {
+    event.stopPropagation();
+    initialVisitcounter = 1;
+    lastChosenHost.set(host);
+    lastChosenService.set(serviceName);
+    navigate(
+      `${changeKey}/${section}/${host.trim()}/${serviceName.trim()}`,
+      { replace: true }
+    );
   }
 
   $effect(() => {
-    listData && choseInitialHost();
+    listData;
+    $lastChosenHost;
+    untrack(() => choseInitialHost());
   });
 </script>
 
 {#snippet serviceRow(host, service, i, idSuffix)}
+  {@const isCurrent =
+    `${activeElementName}` === `${host.trim()}-${service.serviceName.trim()}`}
   <li
     class="serviceListItem  "
     id={host}
@@ -212,15 +238,41 @@
         <div class="buttonBox flex">
           <div
             class="listElementButton"
-            onclick={() => {
-              navigate(
-                `${changeKey}/servicesettings/${host.trim()}/${service.serviceName.trim()}`,
-                { replace: true }
-              );
-              chosenElSettings = `${host.trim()}-${service.serviceName.trim()}`;
-            }}
+            title={isCurrent && section === "stats"
+              ? "Back to logs"
+              : "Log statistics"}
+            onclick={(e) =>
+              openSection(
+                e,
+                host,
+                service.serviceName,
+                isCurrent && section === "stats" ? "view" : "stats"
+              )}
           >
-            <i class="log log-Wheel"></i>
+            <i
+              class="log {isCurrent && section === 'stats'
+                ? 'log-ChartFilled'
+                : 'log-Chart'}"
+            ></i>
+          </div>
+          <div
+            class="listElementButton"
+            title={isCurrent && section === "settings"
+              ? "Back to logs"
+              : "Service settings"}
+            onclick={(e) =>
+              openSection(
+                e,
+                host,
+                service.serviceName,
+                isCurrent && section === "settings" ? "view" : "servicesettings"
+              )}
+          >
+            <i
+              class="log {isCurrent && section === 'settings'
+                ? 'log-WheelFilled'
+                : 'log-Wheel'}"
+            ></i>
           </div>
           <div
             id={`heartButtonCont${idSuffix}-${i}`}
@@ -235,13 +287,7 @@
         </div>
       {/if}
     </div>
-    <div
-      class={`highlightedOverlay ${
-        `${activeElementName}` === `${host.trim()}-${service.serviceName.trim()}`
-          ? "active"
-          : ``
-      }`}
-    ></div>
+    <div class="highlightedOverlay {isCurrent ? 'active' : ''}"></div>
   </li>
 {/snippet}
 
@@ -310,29 +356,28 @@
   <ul class={customListClass}>
     {#each sortedData as listEl, index}
       <li class="listElement">
-        <div
-          class="hostHeader clickable"
-          onclick={({ target }) => {
-            if (target.id !== headerButton) {
-              toggleSublistVisible(index);
-            }
-          }}
-        >
+        <div class="hostHeader clickable" onclick={() => toggleSublistVisible(index)}>
           <div>
             <i class="log log-Server"></i>
           </div>
-          <p class="hostName">
-            {listEl.host}
+          <p class="hostName" title={listEl.host}>
+            {$hostAliases[listEl.host] || listEl.host}
           </p>
-          {#if headerButton}<div
-              class="headerButton "
-              id={headerButton}
-              onclick={() => {
-                console.log("clicable");
-              }}
-            >
-              <i class="log log-{headerButton}" id={headerButton}></i>
-            </div>{/if}
+          <div
+            class="headerButton"
+            title="Rename host"
+            onclick={(e) => {
+              e.stopPropagation();
+              hostBeingRenamed.set(listEl.host);
+            }}
+          >
+            <i class="log log-Pencil"></i>
+          </div>
+          <i
+            class="log log-Pointer hostToggle {openHeaderIndexs.includes(index)
+              ? ''
+              : 'rotated'}"
+          ></i>
         </div>
         <div
           class="dropDownList {openHeaderIndexs.includes(index)
@@ -344,6 +389,8 @@
               {#if !service.isDisabled}{@render serviceRow(listEl.host, service, i, "")}{/if}
             {/each}
           </ul>
+        </div>
+        <div>
           <div
             class="flex flex-start stopedServicesBox clickable inactiveServices {listEl.services.find(
               (e) => {

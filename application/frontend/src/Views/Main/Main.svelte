@@ -20,9 +20,12 @@
     chosenLogsString,
     store,
     groupModalIsVisible,
+    hostBeingRenamed,
   } from "../../Stores/stores.js";
   import GroupModal from "../../lib/GroupModal/GroupModal.svelte";
+  import HostAliasModal from "../../lib/HostAliasModal/HostAliasModal.svelte";
   import { reloadGroups } from "../../utils/groups.js";
+  import { reloadHostAliases } from "../../utils/hostAliases.js";
   import UserMenu from "../../lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
@@ -37,7 +40,6 @@
   import LogsSize from "../../lib/LogsSize/LogsSize.svelte";
   import ConfirmationMenu from "../../lib/ConfirmationMenu/ConfirmationMenu.svelte";
   import ServiceSettings from "../ServiceSettings/ServiceSettings.svelte";
-  import ServiceSettingsLeft from "../ServiceSettings/ServiceSettingsLeft.svelte";
   import { lastLogTimestamp } from "../../Stores/stores.js";
   import { changeKey } from "../../utils/changeKey.js";
   import Stats from "../../lib/Stats/Stats.svelte";
@@ -68,6 +70,12 @@
   }
 
   let { host = "", service = "" } = $props();
+
+  const section = location.pathname.includes("/stats")
+    ? "stats"
+    : location.pathname.includes("/servicesettings")
+      ? "settings"
+      : "logs";
 
   function closeModal() {
     addUserModalOpen.set(false);
@@ -111,6 +119,7 @@
     // Groups only change when this user changes them, so they are loaded once
     // rather than folded into the host polling.
     reloadGroups();
+    reloadHostAliases();
     const data = await getHosts();
     intervalId = setInterval(async () => {
       await getHosts();
@@ -148,6 +157,13 @@
     unsubscribeAddUserModal();
   });
 
+  $effect(() => {
+    if (host && service && service !== "undefined") {
+      lastChosenHost.set(host);
+      lastChosenService.set(service);
+    }
+  });
+
   // $: {
   //   if (withoutRightPanelRoutesArr.includes(location.pathname.split("/")[1])) {
   //     withoutRightPanel = true;
@@ -159,9 +175,7 @@
 <div class="contentContainer">
   <div class="subContainerLeft subContainer ">
     <div
-      class={$activeMenuOption === "burger" &&
-        !location.pathname.includes("/servicesettings") &&
-        "active"}
+      class={$activeMenuOption === "burger" && "active"}
       id="listContainer"
       onmouseenter={() => {
         listScrollIsVisible.set(true);
@@ -211,10 +225,10 @@
             </div>
           </div>
 
-          {#if location.pathname.includes("/view") || location.pathname === `${changeKey}` || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION/` || location.pathname === "/" || location.pathname.includes("/stats")}
+          {#if location.pathname.includes("/view") || location.pathname === `${changeKey}` || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION/` || location.pathname === "/" || location.pathname.includes("/stats") || location.pathname.includes("/servicesettings")}
             <ListWithChoise
+              {section}
               listData={hostList}
-              headerButton={"Pencil"}
               listElementButton={"true"}
               activeElementName={host && service && service !== "undefined"
                 ? `${host}-${service}`
@@ -223,8 +237,6 @@
               listData={[{ name: "Logout", ico: "Logout", callBack: logout }]}
               isRowClickable={true}
             />{/if}
-          {#if location.pathname.includes("/servicesettings")}
-            <ServiceSettingsLeft />{/if}
         </div>
       </Container>
     </div>
@@ -248,7 +260,7 @@
       {#if location.pathname.includes("/servicesettings")}
         <ServiceSettings />{/if}
       {#if location.pathname.includes("/stats")}
-        <MainChartMenu />{/if}
+        <MainChartMenu {host} {service} />{/if}
     </Container>
   </div>
   {#if $snipetModalIsVisible}
@@ -256,6 +268,9 @@
   {/if}
   {#if $groupModalIsVisible}
     <GroupModal hosts={hostList} />
+  {/if}
+  {#if $hostBeingRenamed}
+    <HostAliasModal />
   {/if}
   <div
     class="subContainerRight  subContainer {withoutRightPanel

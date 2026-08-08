@@ -172,6 +172,12 @@ class fetchApi {
       service,
     });
   }
+  async getHostAliases() {
+    return await this.doFetch("GET", `${this.url}getHostAliases`);
+  }
+  async setHostAlias(host, alias) {
+    return await this.doFetch("POST", `${this.url}setHostAlias`, { host, alias });
+  }
   async getGroups() {
     return await this.doFetch("GET", `${this.url}getGroups`);
   }

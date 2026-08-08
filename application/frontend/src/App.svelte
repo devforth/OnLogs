@@ -33,8 +33,10 @@
     if (LStheme) {
       theme.set(LStheme);
     }
+    const routeNamesContainer =
+      /\/(view|stats|servicesettings)\/[^/]+\/[^/]+/.test(location.pathname);
     const LSHostData = window.localStorage.getItem("lsthd");
-    if (LSHostData) {
+    if (LSHostData && !routeNamesContainer) {
       try {
         const data = JSON.parse(LSHostData);
         lastChosenHost.set(data.h);
