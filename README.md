@@ -85,7 +85,7 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 | ADMIN_USERNAME           | Username for initial user                        | `admin`                 | if `AGENT=false`
 | ADMIN_PASSWORD           | Password for initial user. Must not be empty — OnLogs refuses to start without it unless `DISABLE_AUTH=true` |                    | if `AGENT=false`
 | PORT               | Port to listen on                                | `2874`             | if `AGENT=false`
-| JWT_SECRET         | Secret for JWT tokens for users. Generated with `crypto/rand` on first start and persisted to `leveldb/JWT_secret`; OnLogs refuses to start if it is set to an empty value | Generates randomly | -
+| JWT_SECRET         | Secret for JWT tokens for users. Generated with `crypto/rand` on first start and persisted to `leveldb/JWT_secret`. Set it explicitly if you want sessions to survive the volume being recreated | Generates randomly | -
 | ONLOGS_PATH_PREFIX | Base path if you using OnLogs not on subdomain   |                    | only if using on path prefix
 | AGENT             | Toggles agent mode. If enabled, there will be no web interface available, and all logs will be sent  and stored on HOST. Parsed as a boolean, so `false`, `0` and an unset value all mean off | `false` | -
 | HOST               | Url to OnLogs host from protocol to domain name. |                    | if `AGENT=true`
@@ -96,9 +96,9 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 
 ## Metrics
 
-OnLogs exposes Prometheus metrics at `${ONLOGS_PATH_PREFIX}/api/v1/metrics`. Set
-`METRICS_TOKEN` to enable it; while it is unset every request gets a `401`. There is no
-unauthenticated mode — the endpoint reveals container names and log volumes.
+Prometheus metrics at `${ONLOGS_PATH_PREFIX}/api/v1/metrics`. Set `METRICS_TOKEN` to enable
+them — while it is unset every request gets a `401`, since the endpoint reveals container
+names and log volumes.
 
 ```yaml
 scrape_configs:
@@ -110,91 +110,61 @@ scrape_configs:
       - targets: ["onlogs:2874"]
 ```
 
-| metric | type | labels | meaning |
-|---|---|---|---|
-| `onlogs_log_lines_total` | counter | host, container, level | Log lines stored, by severity (`error`, `warn`, `info`, `debug`, `meta`, `other`) |
-| `onlogs_stream_up` | gauge | host, container | 1 while a local container's log stream is attached |
-| `onlogs_stream_cursor_timestamp_seconds` | gauge | host, container | Timestamp of the newest line ingested |
-| `onlogs_dropped_replay_lines_total` | counter | host, container | Lines dropped as already-stored replays |
-| `onlogs_logs_size_bytes` | gauge | | Total stored log size, what the quota is compared against |
-| `onlogs_container_db_size_bytes` | gauge | host, container | Stored log size per container |
-| `onlogs_logs_size_limit_bytes` | gauge | | `MAX_LOGS_SIZE` in bytes |
-| `onlogs_retention_deleted_lines_total` | counter | | Lines deleted by the size quota |
-| `onlogs_filesystem_size_bytes` / `_avail_bytes` | gauge | | The filesystem holding the logs |
-| `onlogs_stats_workers` | gauge | | Statistics workers running |
-| `onlogs_websocket_connections` | gauge | | Live log viewers connected |
-| `onlogs_goroutines`, `onlogs_heap_bytes` | gauge | | Process health |
-| `onlogs_login_failures_total`, `onlogs_login_blocked_total` | counter | | Rejected and rate-limited logins |
-| `onlogs_metrics_scrape_duration_seconds` | gauge | | How long the previous scrape took to render |
-| `onlogs_build_info` | gauge | version | Always 1 |
+| metric | labels | meaning |
+|---|---|---|
+| `onlogs_log_lines_total` | host, container, level | Log lines stored, by severity |
+| `onlogs_stream_up` | host, container | 1 while a container's stream is attached |
+| `onlogs_stream_cursor_timestamp_seconds` | host, container | Newest line ingested |
+| `onlogs_dropped_replay_lines_total` | host, container | Lines dropped as replays |
+| `onlogs_logs_size_bytes` / `_limit_bytes` | | Stored size, and `MAX_LOGS_SIZE` |
+| `onlogs_container_db_size_bytes` | host, container | Stored size per container |
+| `onlogs_retention_deleted_lines_total` | | Lines deleted by the quota |
+| `onlogs_filesystem_size_bytes` / `_avail_bytes` | | The filesystem holding the logs |
+| `onlogs_stats_workers`, `onlogs_websocket_connections` | | Workers and live viewers |
+| `onlogs_goroutines`, `onlogs_heap_bytes` | | Process health |
+| `onlogs_login_failures_total`, `onlogs_login_blocked_total` | | Rejected and blocked logins |
+| `onlogs_build_info` | version | Always 1 |
 
-### Example alerts
+Alert on error rate, and on ingestion stalling while lines are still arriving:
 
 ```yaml
 - alert: OnLogsContainerErrors
   expr: sum by (host, container) (rate(onlogs_log_lines_total{level="error"}[5m])) > 1
   for: 10m
 
-# Ingestion stalled: the cursor stopped moving while lines are still arriving.
 - alert: OnLogsIngestStalled
   expr: |
     (time() - onlogs_stream_cursor_timestamp_seconds > 300)
       and on (host, container) (rate(onlogs_log_lines_total[10m]) > 0)
   for: 5m
-
-- alert: OnLogsQuotaNearlyFull
-  expr: onlogs_logs_size_bytes / onlogs_logs_size_limit_bytes > 0.9
 ```
 
-### Limitations
+Worth knowing: `onlogs_stream_up` covers local containers only, not agent-forwarded ones;
+size gauges refresh every 5 minutes and the limit is read once at startup; counters reset
+on restart, as usual; and at most 1000 host/container pairs are counted.
 
-- **`onlogs_stream_up` covers local containers only.** Containers whose logs arrive from a
-  remote agent are not included — the host knows the agent reported them, not that a stream
-  is attached. There is no gauge for those.
-- **`onlogs_logs_size_limit_bytes` is read once at startup.** Changing `MAX_LOGS_SIZE`
-  requires a restart before the gauge reflects it.
-- **Size gauges are up to 5 minutes stale.** Computing them walks every stored container, so
-  it runs on a timer rather than on the scrape.
-- **Counters reset when OnLogs restarts.** This is normal for a process-lifetime counter;
-  `rate()` and `increase()` handle it. `onlogs_log_lines_total` also drops a container's
-  series when that container's logs are deleted.
-- **`onlogs_stream_cursor_timestamp_seconds` is absent until the first line arrives** after a
-  restart, and disappears when a stream stops. Pair it with a log-line rate, as the
-  `OnLogsIngestStalled` example does, or a deliberately stopped container alerts forever.
-- **At most 1000 host/container pairs are counted.** Beyond that new containers are not
-  added to `onlogs_log_lines_total`, and a warning is logged once.
-- **`onlogs_log_lines_total` and `onlogs_container_db_size_bytes` cover different sets of
-  containers.** The size gauge reports every container with logs on disk, including ones that
-  no longer exist; the line counter only reports containers that have logged since OnLogs
-  last started. Do not join them and expect a match.
+## Upgrading from 1.x
 
-### Upgrading
+Your logs are safe — nothing in the volume is migrated or deleted.
 
-Three changes affect existing deployments:
+**Check these three first, or the container will not start:**
 
-- **Passwords are hashed.** Accounts created before the upgrade keep working and
-  are converted to a hash the next time they log in successfully. Passwords
-  already on disk stay in cleartext until that happens, so rotate them if the
-  database may have been exposed.
-- **Sessions are checked against the user database.** Deleting a user now revokes
-  their session immediately instead of leaving it valid for 48 hours.
-- **A blank `ADMIN_PASSWORD` or `JWT_SECRET` stops the server.** Both previously
-  produced a deployment that anyone could log into as admin. Set them, or set
-  `DISABLE_AUTH=true` if you deliberately run without authentication.
+| Variable | What changed |
+|---|---|
+| `ADMIN_PASSWORD` | Must not be empty, unless `DISABLE_AUTH=true`. The 1.3.1 `docker run` example set `PASSWORD=` by mistake — if you copied it, fix the name. |
+| `MAX_LOGS_SIZE` | Must be a valid size if you set it. Leaving it unset is fine. |
+| `AGENT` | Now a real boolean. `AGENT=false` used to mean *on*, so you may have been running without a web interface by accident. `yes` and `on` no longer work. |
 
-**Favourites are now per user.** They were stored under `host/service` with no
-username, so one person starring a container starred it for everyone. Existing
-stars are not migrated — they need setting again once, per user.
+**Everyone is logged out once.** 1.3.1 signed sessions with an empty key, which anyone
+could forge. A real secret is generated on first start — set `JWT_SECRET` yourself if you
+want sessions to survive the volume being recreated.
 
-**Service groups are per user, except under `DISABLE_AUTH`.** A group is keyed
-by the username in the session cookie. With `DISABLE_AUTH=true` there is no
-cookie and the username is empty, so every anonymous user shares one group
-bucket and can read, rename and delete the others' groups. Favourites already
-behave this way. Run with authentication if groups have to be private.
+Smaller changes: passwords are now hashed (rotate them if the database may have been
+exposed); favourites are per user and need starring again; log levels are matched
+case-insensitively, so charts change shape at the upgrade; live tailing needs your reverse
+proxy to forward the original `Host` header.
 
-Agent tokens issued before the upgrade continue to work.
-
-### Docker socket URL
+## Docker socket URL
 By default the app will connect using the raw unix socket. But this can be overriden via the ENV variable `DOCKER_HOST`. That way you can specify fully qualified URL to the socket or URL of an docker socket proxy.
 
 In `compose-socket-proxy.yml` you can see a sample compose file for starting the socket proxy. To use it in the app set `DOCKER_HOST=http://localhost:2375` in the ENV.
