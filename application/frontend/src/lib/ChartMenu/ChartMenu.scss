@@ -1,26 +1,85 @@
-.chartHeader {
-  ul {
-    margin-top: 12px;
-    // gap: 6px;
+.chartContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 20px;
+
+  .chartHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid $lines-color;
+
+    @include for-mobile {
+      flex-direction: column;
+      gap: 8px;
+    }
   }
 
-  .item {
-    flex: 1;
-    font-size: $main-font-m;
-    box-shadow: $main-shadow-dark;
+  .chartTittle {
+    font-size: $main-font-l;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
-    cursor: pointer;
-    &.isActive {
-      color: $active-color;
+  .chartSubtitle {
+    margin-top: 4px;
+    font-size: $main-font-s;
+    color: $text-placeholder-color;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .timeSpan {
+    gap: 4px;
+    flex-shrink: 0;
+    font-size: $main-font-s;
+
+    & div {
+      padding: 4px 12px;
+      border-radius: 100px;
+      font-weight: 600;
+      cursor: pointer;
+      color: $text-placeholder-color;
+
+      &:hover {
+        color: $text-dark-color;
+      }
+      &.active {
+        color: $text-onactive-color;
+        background-color: $active-color;
+      }
     }
-    &:first-child {
-      border-top-left-radius: $main-border-radius;
-      border-bottom-left-radius: $main-border-radius;
+  }
+
+  .chartCanvas {
+    flex: 1;
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .chartEmpty {
+    font-size: $main-font-m;
+    color: $text-placeholder-color;
+  }
+}
+
+.dark-mode .chartContainer {
+  .chartHeader {
+    border-bottom-color: $lines-color-dark;
+  }
+  .timeSpan div {
+    &:hover {
+      color: $text-dark-color-dark;
     }
-    &:last-child {
-      border-top-right-radius: $main-border-radius;
-      border-bottom-right-radius: $main-border-radius;
+    &.active {
+      color: $text-onactive-color-dark;
+      background-color: $active-color-dark;
     }
-    // border-radius: $main-border-radius;
   }
 }
