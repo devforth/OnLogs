@@ -47,6 +47,7 @@
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=<any password>
       - PORT=8798
+      - TRUSTED_PROXIES=172.16.0.0/12 # the docker network traefik reaches OnLogs over, see below
     #  - ONLOGS_PATH_PREFIX=/onlogs if want to use with path prefix
 
     labels:
@@ -93,6 +94,25 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 | MAX_LOGS_SIZE | Maximum allowed total logs size before cleanup triggers. Accepts human-readable formats like 5GB, 500MB, 1.5GB etc. When exceeded, 10% of logs (by count) will be removed proportionally across containers starting from oldest. Validated at startup: an unparseable value stops OnLogs rather than silently disabling retention | 10GB | -
 | DISABLE_AUTH | Option to completely disable built in authentication in the application. When this option is set to `true` the app will behave like if the Administrator is logged in. The option to manage users will be removed. | false | -
 | METRICS_TOKEN | Bearer token for the Prometheus endpoint at `/api/v1/metrics`. While it is unset the endpoint returns `401` and exposes nothing, so metrics are off by default. See [Metrics](#metrics) | | only for `/api/v1/metrics`
+| TRUSTED_PROXIES | Peers allowed to name the client through `X-Forwarded-For` / `X-Real-IP`, as comma separated IPs and CIDR ranges. See [Behind a reverse proxy](#behind-a-reverse-proxy) | | only if behind nginx/traefik
+
+## Behind a reverse proxy
+
+Failed logins are rate limited per client address. Behind nginx or traefik every request
+arrives from the proxy, so without `TRUSTED_PROXIES` all your users count as one client and
+a single password sprayer locks out the rest. Set it to the addresses your proxy connects
+from:
+
+```
+TRUSTED_PROXIES=172.16.0.0/12    # docker networks land here, so any containerised proxy does too
+TRUSTED_PROXIES=127.0.0.1        # a proxy on the host
+```
+
+Keep the range as tight as your proxy allows — anything reaching OnLogs from a listed address
+can call itself any client.
+
+Make sure the proxy actually sends the headers — traefik does by default, nginx needs
+`proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`.
 
 ## Metrics
 

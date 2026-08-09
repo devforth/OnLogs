@@ -84,6 +84,12 @@ func init_config() {
 		os.Exit(1)
 	}
 
+	if err := routes.SetTrustedProxies(os.Getenv("TRUSTED_PROXIES")); err != nil {
+		fmt.Printf("FATAL: TRUSTED_PROXIES=%q is invalid (%v); refusing to start with a rate limiter that cannot tell clients apart.\n",
+			os.Getenv("TRUSTED_PROXIES"), err)
+		os.Exit(1)
+	}
+
 	fmt.Println("INFO: OnLogs configs done!")
 }
 
