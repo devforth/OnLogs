@@ -9,7 +9,10 @@
     message = "",
     width = "",
     isHiglighted = false,
-    sharedLinkCallBack = () => {},
+    // Null hides the button rather than rendering one that does nothing.
+    sharedLinkCallBack = null,
+    showContextCallBack = null,
+    statusFilterable = true,
   } = $props();
 
   let parsedStr = $derived(tryToParseLogString(message));
@@ -24,6 +27,9 @@
 >
   <div
     onclick={async () => {
+      if (!statusFilterable) {
+        return;
+      }
       if ($chosenStatus !== status) {
         chosenStatus.set(status);
       } else {
@@ -38,10 +44,22 @@
   <div class="time row_group"
     ><p>{message?.trim()?.length > 0 ? time : ""}</p>
     <div>
-      {#if message?.trim()?.length > 0}
+      {#if message?.trim()?.length > 0 && showContextCallBack}
+        <div
+          id={`thumb-context-${time}`}
+          class="contextButtonThumb"
+          title="Show context"
+          onclick={() => {
+            showContextCallBack();
+          }}
+        >
+          <i class="log log-Eye" id={`context-${time}`}></i>
+        </div>{/if}
+      {#if message?.trim()?.length > 0 && sharedLinkCallBack}
         <div
           id={`thumb-shared-${time}`}
           class="shareLinkButtonThumb"
+          title="Copy link to this line"
           onclick={() => {
             sharedLinkCallBack();
           }}

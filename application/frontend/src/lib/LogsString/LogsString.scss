@@ -59,10 +59,16 @@
 
   .time {
     width: 84px;
-    min-width: 101px;
+    // Room for the timestamp and both row buttons on one line.
+    min-width: 122px;
     margin-right: 8px;
     text-align: center;
     display: flex;
+
+    > div {
+      display: flex;
+      align-items: center;
+    }
     @include for-tablet {
       margin: 0;
       width: 150px;
@@ -85,7 +91,8 @@
     }
   }
 
-  .shareLinkButtonThumb {
+  .shareLinkButtonThumb,
+  .contextButtonThumb {
     margin-left: 4px;
     opacity: 0;
     cursor: pointer;
@@ -125,7 +132,8 @@
 }
 
 .logsString:hover {
-  .shareLinkButtonThumb {
+  .shareLinkButtonThumb,
+  .contextButtonThumb {
     opacity: 0.6;
     &:hover {
       opacity: 1;

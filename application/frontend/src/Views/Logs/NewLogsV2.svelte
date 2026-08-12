@@ -2,6 +2,8 @@
   // @ts-nocheck
 
   import LogsString from "../../lib/LogsString/LogsString.svelte";
+  import Modal from "../../lib/Modal/Modal.svelte";
+  import LogContext from "../../lib/LogContext/LogContext.svelte";
   import fetchApi from "../../utils/fetch";
   import { onDestroy, onMount, tick } from "svelte";
   import { get } from "svelte/store";
@@ -93,6 +95,8 @@
   let pinedBadgeTimer = null;
   let pinedBadgeIsVisible = $state(false);
   let searchResetVersion = $state(0);
+  // The row whose surroundings are being shown; null closes the context modal.
+  let contextAnchor = $state(null);
 
   function refreshStatus() {
     chosenStatus.set("");
@@ -490,6 +494,15 @@
         toastIsVisible.set(true);
       }, 400);
     }
+  }
+
+  // Copy only: re-pointing the view at the link resets the loaded logs and the
+  // websocket. Shared with the context modal, which renders rows of its own.
+  function copyLinkToLog(logItem) {
+    copyCustomText(
+      buildSharedLogUrl(location.href, logItem?.at(0)),
+      showCopiedUrlToast
+    );
   }
 
   function closeWS() {
@@ -1026,16 +1039,10 @@
                 status={getLogLineStatus(logItem?.at(1))}
                 isHiglighted={new Date($lastLogTimestamp).getTime() <
                   new Date(logItem?.at(0)).getTime()}
-                sharedLinkCallBack={() => {
-                  const timeStamp = logItem?.at(0);
-                  const nextUrl = buildSharedLogUrl(location.href, timeStamp);
-
-                  // Copy only: re-pointing the view at the link resets the
-                  // loaded logs and the websocket.
-                  copyCustomText(nextUrl, () => {
-                    showCopiedUrlToast();
-                  });
+                showContextCallBack={() => {
+                  contextAnchor = logItem;
                 }}
+                sharedLinkCallBack={() => copyLinkToLog(logItem)}
               />
             </div>
             <IntersectionObserver
@@ -1078,6 +1085,22 @@
     </div>
     <div class="timeBudgeContainer"></div>
   </div>{/if}
+
+<Modal
+  modalIsOpen={Boolean(contextAnchor)}
+  closeFunction={() => {
+    contextAnchor = null;
+  }}
+>
+  <LogContext
+    host={$lastChosenHost}
+    service={$lastChosenService}
+    anchor={contextAnchor}
+    {searchText}
+    caseSens={!$store.caseInSensitive}
+    shareLink={copyLinkToLog}
+  />
+</Modal>
 <svelte:window
   onmousedown={(e) => {
     mouseDownBlockFetch = true;
