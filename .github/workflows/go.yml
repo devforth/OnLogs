@@ -17,6 +17,7 @@ jobs:
       uses: actions/setup-go@v7
       with:
         go-version: 1.26.x
+        cache-dependency-path: application/backend/go.sum
 
     - name: Get coverage tool
       run: |
