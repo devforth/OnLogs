@@ -1,10 +1,10 @@
 @font-face {
 	font-family: "onLogsFont";
-	src: url("onLogsFont.eot?b1b1fa2c569a9742068bfa91c7006c7a?#iefix") format("embedded-opentype"),
-url("onLogsFont.woff2?b1b1fa2c569a9742068bfa91c7006c7a") format("woff2"),
-url("onLogsFont.woff?b1b1fa2c569a9742068bfa91c7006c7a") format("woff"),
-url("onLogsFont.ttf?b1b1fa2c569a9742068bfa91c7006c7a") format("truetype"),
-url("onLogsFont.svg?b1b1fa2c569a9742068bfa91c7006c7a#onLogsFont") format("svg");
+	src: url("onLogsFont.eot?aef3930177b47eac3029189d876a7102?#iefix") format("embedded-opentype"),
+url("onLogsFont.woff2?aef3930177b47eac3029189d876a7102") format("woff2"),
+url("onLogsFont.woff?aef3930177b47eac3029189d876a7102") format("woff"),
+url("onLogsFont.ttf?aef3930177b47eac3029189d876a7102") format("truetype"),
+url("onLogsFont.svg?aef3930177b47eac3029189d876a7102#onLogsFont") format("svg");
 	font-weight: normal;
     font-style: normal;
 }
@@ -41,111 +41,117 @@ url("onLogsFont.svg?b1b1fa2c569a9742068bfa91c7006c7a#onLogsFont") format("svg");
 .log-Chart:before {
 	content: "\f106";
 }
-.log-Clean:before {
+.log-ChartFilled:before {
 	content: "\f107";
 }
-.log-Clock:before {
+.log-Clean:before {
 	content: "\f108";
 }
-.log-Close:before {
+.log-Clock:before {
 	content: "\f109";
 }
-.log-Colums:before {
+.log-Close:before {
 	content: "\f10a";
 }
-.log-Combine:before {
+.log-Colums:before {
 	content: "\f10b";
 }
-.log-Copy:before {
+.log-Combine:before {
 	content: "\f10c";
 }
-.log-Cut:before {
+.log-Copy:before {
 	content: "\f10d";
 }
-.log-Data:before {
+.log-Cut:before {
 	content: "\f10e";
 }
-.log-Down:before {
+.log-Data:before {
 	content: "\f10f";
 }
-.log-EmptyHeart:before {
+.log-Down:before {
 	content: "\f110";
 }
-.log-Error:before {
+.log-EmptyHeart:before {
 	content: "\f111";
 }
-.log-Eye:before {
+.log-Error:before {
 	content: "\f112";
 }
-.log-Filter:before {
+.log-Eye:before {
 	content: "\f113";
 }
-.log-Group:before {
+.log-Filter:before {
 	content: "\f114";
 }
-.log-Heart:before {
+.log-Group:before {
 	content: "\f115";
 }
-.log-Home:before {
+.log-Heart:before {
 	content: "\f116";
 }
-.log-Info:before {
+.log-Home:before {
 	content: "\f117";
 }
-.log-Json:before {
+.log-Info:before {
 	content: "\f118";
 }
-.log-Last:before {
+.log-Json:before {
 	content: "\f119";
 }
-.log-Leters:before {
+.log-Last:before {
 	content: "\f11a";
 }
-.log-Logout:before {
+.log-Leters:before {
 	content: "\f11b";
 }
-.log-Moon:before {
+.log-Logout:before {
 	content: "\f11c";
 }
-.log-Pencil:before {
+.log-Moon:before {
 	content: "\f11d";
 }
-.log-Plus:before {
+.log-Pencil:before {
 	content: "\f11e";
 }
-.log-Pointer:before {
+.log-Plus:before {
 	content: "\f11f";
 }
-.log-Refresh:before {
+.log-Pointer:before {
 	content: "\f120";
 }
-.log-Search:before {
+.log-Refresh:before {
 	content: "\f121";
 }
-.log-Server:before {
+.log-Search:before {
 	content: "\f122";
 }
-.log-Share:before {
+.log-Server:before {
 	content: "\f123";
 }
-.log-ShareLink:before {
+.log-Share:before {
 	content: "\f124";
 }
-.log-Success:before {
+.log-ShareLink:before {
 	content: "\f125";
 }
-.log-Sun:before {
+.log-Success:before {
 	content: "\f126";
 }
-.log-Tips:before {
+.log-Sun:before {
 	content: "\f127";
 }
-.log-User:before {
+.log-Tips:before {
 	content: "\f128";
 }
-.log-Warning:before {
+.log-User:before {
 	content: "\f129";
 }
-.log-Wheel:before {
+.log-Warning:before {
 	content: "\f12a";
+}
+.log-Wheel:before {
+	content: "\f12b";
+}
+.log-WheelFilled:before {
+	content: "\f12c";
 }

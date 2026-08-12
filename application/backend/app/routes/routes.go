@@ -2,13 +2,16 @@ package routes
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +20,8 @@ import (
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/docker"
+	"github.com/devforth/OnLogs/app/groups"
+	"github.com/devforth/OnLogs/app/hostalias"
 	"github.com/devforth/OnLogs/app/statistics"
 	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/util"
@@ -25,79 +30,146 @@ import (
 )
 
 type RouteController struct {
-    DockerService *docker.DockerService
-    DaemonService *daemon.DaemonService
+	DockerService *docker.DockerService
+	DaemonService *daemon.DaemonService
 }
 
-func enableCors(w *http.ResponseWriter) {
+func enableCors(w http.ResponseWriter) {
 	var origin string
 	if os.Getenv("ENV_NAME") == "local" {
 		origin = "http://localhost:5173"
-	} else {
-		origin = ""
 	}
-	(*w).Header().Set("Access-Control-Allow-Origin", origin)
-	(*w).Header().Set("Access-Control-Allow-Credentials", "true")
-	(*w).Header().Set("Access-Control-Allow-Methods", "*")
-	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Access-Control-Allow-Origin", origin)
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Methods", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 }
 
-func verifyAdminUser(w *http.ResponseWriter, req *http.Request) bool {
+func isAllowedOrigin(req *http.Request) bool {
+	origin := req.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	if os.Getenv("ENV_NAME") == "local" && parsed.Host == "localhost:5173" {
+		return true
+	}
+	return strings.EqualFold(parsed.Host, req.Host)
+}
+
+func verifyAdminUser(w http.ResponseWriter, req *http.Request) bool {
 	if os.Getenv("DISABLE_AUTH") == "true" {
 		return true
 	}
 
 	username, err := util.GetUserFromJWT(*req)
 	if username != os.Getenv("ADMIN_USERNAME") {
-		(*w).WriteHeader(http.StatusForbidden)
-		json.NewEncoder(*w).Encode(map[string]string{"error": "Only admin can perform this request"})
+		fail(w, http.StatusForbidden, "Only admin can perform this request")
 		return false
 	}
 
 	if err != nil {
-		(*w).WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(*w).Encode(map[string]string{"error": err.Error()})
+		fail(w, http.StatusUnauthorized, err.Error())
 		return false
 	}
 	return true
 }
 
-func verifyUser(w *http.ResponseWriter, req *http.Request) bool {
+func verifyUser(w http.ResponseWriter, req *http.Request) bool {
 	if os.Getenv("DISABLE_AUTH") == "true" {
 		return true
 	}
 
-	_, err := util.GetUserFromJWT(*req)
-	if err != nil {
-		(*w).WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(*w).Encode(map[string]string{"error": err.Error()})
+	if _, err := util.GetUserFromJWT(*req); err != nil {
+		fail(w, http.StatusUnauthorized, err.Error())
 		return false
 	}
 	return true
 }
 
-func verifyRequest(w *http.ResponseWriter, req *http.Request) bool {
+type authLevel int
+
+const (
+	authNone authLevel = iota
+	authUser
+	authAdmin
+)
+
+// False means the request must not reach the handler body: a CORS preflight, a
+// rejected credential, or the wrong method. An empty method accepts any.
+func guard(w http.ResponseWriter, req *http.Request, level authLevel, method string) bool {
 	enableCors(w)
-	if req.Method == "OPTIONS" {
-		(*w).WriteHeader(http.StatusOK)
-		return true
+	if req.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return false
 	}
-	return false
+
+	switch level {
+	case authUser:
+		if !verifyUser(w, req) {
+			return false
+		}
+	case authAdmin:
+		if !verifyAdminUser(w, req) {
+			return false
+		}
+	}
+
+	if method != "" && req.Method != method {
+		w.WriteHeader(http.StatusNotFound)
+		return false
+	}
+	return true
 }
 
-func (h *RouteController)Frontend(w http.ResponseWriter, req *http.Request) {
-	requestedPath := strings.ReplaceAll(req.URL.String(), os.Getenv("ONLOGS_PATH_PREFIX"), "")
+func writeJSON(w http.ResponseWriter, status int, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	if status != http.StatusOK {
+		w.WriteHeader(status)
+	}
+	json.NewEncoder(w).Encode(payload)
+}
 
-	dirPath, fileName := filepath.Split(requestedPath)
-	if fileName == "" {
+func ok(w http.ResponseWriter) {
+	writeJSON(w, http.StatusOK, map[string]any{"error": nil})
+}
+
+func fail(w http.ResponseWriter, status int, message string) {
+	writeJSON(w, status, map[string]string{"error": message})
+}
+
+const (
+	maxRequestBody  = 1 << 20
+	sessionLifetime = 48 * time.Hour
+)
+
+func isTLS(req *http.Request) bool {
+	return req.TLS != nil || strings.EqualFold(req.Header.Get("X-Forwarded-Proto"), "https")
+}
+
+func decodeBody(w http.ResponseWriter, req *http.Request, target interface{}) bool {
+	req.Body = http.MaxBytesReader(w, req.Body, maxRequestBody)
+	if err := json.NewDecoder(req.Body).Decode(target); err != nil {
+		fail(w, http.StatusBadRequest, "Invalid request body")
+		return false
+	}
+	return true
+}
+
+func (h *RouteController) Frontend(w http.ResponseWriter, req *http.Request) {
+	// http.Dir sanitises the name it is given but never its own root.
+	dir := http.Dir("dist")
+
+	fileName := strings.TrimPrefix(strings.TrimPrefix(req.URL.Path, os.Getenv("ONLOGS_PATH_PREFIX")), "/")
+	if fileName == "" || strings.HasSuffix(fileName, "/") {
 		fileName = "index.html"
 	}
 
-	fileName = strings.Split(fileName, "?")[0]
-	dir := http.Dir("dist" + dirPath)
 	file, err := dir.Open(fileName)
 	if err != nil {
-		dir = http.Dir("dist")
 		file, err = dir.Open("index.html")
 		fileName = "index.html"
 	}
@@ -125,32 +197,35 @@ func (h *RouteController)Frontend(w http.ResponseWriter, req *http.Request) {
 	http.ServeContent(w, req, fileName, stat.ModTime(), bytes.NewReader(content))
 }
 
-func (h *RouteController)CheckCookie(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) CheckCookie(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+	ok(w)
 }
 
-func (h *RouteController)AddLogLine(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 	var logItem struct {
 		Token     string
 		Host      string
 		Container string
 		LogLine   []string
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&logItem)
+	if !decodeBody(w, req, &logItem) {
+		return
+	}
 
 	if !db.IsTokenExists(logItem.Token) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	if vars.Counters_For_Hosts_Last_30_Min[logItem.Host] == nil {
-		go statistics.RunStatisticForContainer(logItem.Host, logItem.Container)
+	if !util.IsSafeName(logItem.Host) || !util.IsSafeName(logItem.Container) || len(logItem.LogLine) < 2 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
+
+	statistics.EnsureWorker(context.Background(), logItem.Host, logItem.Container)
 	err := containerdb.PutLogMessage(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine)
 	if err != nil {
 		defer w.WriteHeader(http.StatusInternalServerError)
@@ -158,14 +233,10 @@ func (h *RouteController)AddLogLine(w http.ResponseWriter, req *http.Request) {
 	}
 
 	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
-	conns := vars.Connections[logItem.Host+"/"+logItem.Container]
-	for i := range conns {
-		c := conns[i]
-		c.WriteMessage(websocket.TextMessage, to_send)
-	}
+	vars.Broadcast(logItem.Host+"/"+logItem.Container, websocket.TextMessage, to_send)
 }
 
-func (h *RouteController)AddHost(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) AddHost(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -176,28 +247,35 @@ func (h *RouteController)AddHost(w http.ResponseWriter, req *http.Request) {
 		Token    string
 		Services []string
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&addReq)
+	if !decodeBody(w, req, &addReq) {
+		return
+	}
 
 	if !db.IsTokenExists(addReq.Token) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	vars.AgentsActiveContainers[addReq.Hostname] = addReq.Services
+	if !util.IsSafeName(addReq.Hostname) {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	for _, container := range addReq.Services {
+		if !util.IsSafeName(container) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+
+	vars.SetAgentContainers(addReq.Hostname, addReq.Services)
 	// fmt.Println("New host added: " + addReq.Hostname)  need to create separate route for SendUpdate func
 	for _, container := range addReq.Services {
 		os.MkdirAll("leveldb/hosts/"+addReq.Hostname+"/containers/"+container, 0700)
 	}
 }
 
-func (h *RouteController)ChangeFavourite(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
-		return
-	}
-
-	if req.Method != "POST" {
-		w.WriteHeader(http.StatusNotFound)
+func (h *RouteController) ChangeFavourite(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "POST") {
 		return
 	}
 
@@ -205,37 +283,224 @@ func (h *RouteController)ChangeFavourite(w http.ResponseWriter, req *http.Reques
 		Host    string `json:"host"`
 		Service string `json:"service"`
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&container)
-
-	key := []byte(container.Host + "/" + container.Service)
-	isAlreadyFavourite, _ := vars.FavsDB.Has(key, nil)
-	if isAlreadyFavourite {
-		vars.FavsDB.Delete(key, nil)
-	} else {
-		vars.FavsDB.Put(key, nil, nil)
-	}
-
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
-}
-
-func (h *RouteController)GetSecret(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+	if !decodeBody(w, req, &container) {
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"token": db.CreateOnLogsToken()})
+	username, _ := util.GetUserFromJWT(*req)
+	key := favouriteKey(username, container.Host, container.Service)
+
+	isAlreadyFavourite, err := vars.FavsDB.Has(key, nil)
+	if err == nil {
+		if isAlreadyFavourite {
+			err = vars.FavsDB.Delete(key, nil)
+		} else {
+			err = vars.FavsDB.Put(key, nil, nil)
+		}
+	}
+
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ok(w)
 }
 
-func (h *RouteController)GetChartData(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) GetGroups(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
-	if req.Method != "POST" {
-		w.WriteHeader(http.StatusNotFound)
+	username, _ := util.GetUserFromJWT(*req)
+	list, err := groups.List(username)
+
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+func (h *RouteController) CreateGroup(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "POST") {
+		return
+	}
+
+	var body struct {
+		Name    string          `json:"name"`
+		Members []groups.Member `json:"members"`
+	}
+	if !decodeBody(w, req, &body) {
+		return
+	}
+
+	if err := groups.ValidateGroupName(body.Name); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := groups.ValidateMembers(body.Members); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	username, _ := util.GetUserFromJWT(*req)
+	existing, err := groups.List(username)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	for _, group := range existing {
+		if group.Name == body.Name {
+			fail(w, http.StatusConflict, "Group \""+body.Name+"\" already exists")
+			return
+		}
+	}
+	// An authenticated user must not be able to write unbounded data to LevelDB.
+	if len(existing) >= groups.MaxGroupsPerUser {
+		fail(w, http.StatusBadRequest,
+			fmt.Sprintf("You can not have more than %d groups", groups.MaxGroupsPerUser))
+		return
+	}
+
+	if err := groups.Store(username, body.Name, body.Members); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ok(w)
+}
+
+func (h *RouteController) UpdateGroup(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "POST") {
+		return
+	}
+
+	var body struct {
+		Name    string          `json:"name"`
+		NewName string          `json:"newName"`
+		Members []groups.Member `json:"members"`
+	}
+	if !decodeBody(w, req, &body) {
+		return
+	}
+
+	newName := body.NewName
+	if newName == "" {
+		newName = body.Name
+	}
+
+	if err := groups.ValidateGroupName(body.Name); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := groups.ValidateGroupName(newName); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := groups.ValidateMembers(body.Members); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	username, _ := util.GetUserFromJWT(*req)
+	_, found, err := groups.Load(username, body.Name)
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !found {
+		fail(w, http.StatusNotFound, "No such group")
+		return
+	}
+
+	if newName != body.Name {
+		if _, taken, _ := groups.Load(username, newName); taken {
+			fail(w, http.StatusConflict, "Group \""+newName+"\" already exists")
+			return
+		}
+	}
+
+	if err := groups.Store(username, newName, body.Members); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if newName != body.Name {
+		if err := groups.Delete(username, body.Name); err != nil {
+			fail(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	ok(w)
+}
+
+func (h *RouteController) DeleteGroup(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "POST") {
+		return
+	}
+
+	var body struct {
+		Name string `json:"name"`
+	}
+	if !decodeBody(w, req, &body) {
+		return
+	}
+
+	if err := groups.ValidateGroupName(body.Name); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	username, _ := util.GetUserFromJWT(*req)
+	// Deleting what is not there is a success, because the UI may double-fire.
+	if err := groups.Delete(username, body.Name); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ok(w)
+}
+
+func (h *RouteController) GetHostAliases(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
+		return
+	}
+
+	aliases, err := hostalias.All()
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, aliases)
+}
+
+func (h *RouteController) SetHostAlias(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authAdmin, "POST") {
+		return
+	}
+
+	var body struct {
+		Host  string `json:"host"`
+		Alias string `json:"alias"`
+	}
+	if !decodeBody(w, req, &body) {
+		return
+	}
+
+	if err := hostalias.Set(body.Host, body.Alias); err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	ok(w)
+}
+
+func (h *RouteController) GetSecret(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authAdmin, "") {
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"token": db.CreateOnLogsToken()})
+}
+
+func (h *RouteController) GetChartData(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "POST") {
 		return
 	}
 
@@ -245,29 +510,21 @@ func (h *RouteController)GetChartData(w http.ResponseWriter, req *http.Request) 
 		Unit        string `json:"unit"`
 		UnitsAmount int    `json:"unitsAmount"`
 	}
-	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&data)
-	if err != nil {
-		w.Header().Add("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid data!"})
+	if !decodeBody(w, req, &data) {
 		return
 	}
 
-	if !util.Contains(data.Unit, []string{"hour", "day", "month"}) {
-		w.Header().Add("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Invalid data!"})
+	if !slices.Contains([]string{"hour", "day", "month"}, data.Unit) {
+		w.WriteHeader(http.StatusBadRequest)
+		writeJSON(w, http.StatusOK, map[string]interface{}{"error": "Invalid data!"})
+		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	e, _ := json.Marshal(
-		statistics.GetChartData(
-			data.Host, data.Service, data.Unit, data.UnitsAmount,
-		))
-	w.Write(e)
+	writeJSON(w, http.StatusOK, statistics.GetChartData(data.Host, data.Service, data.Unit, data.UnitsAmount))
 }
 
 func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
@@ -276,7 +533,8 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 		Services []map[string]interface{} `json:"services"`
 	}
 
-	var to_return []HostsList
+	to_return := []HostsList{}
+	viewer, _ := util.GetUserFromJWT(*req)
 	ctx := req.Context()
 	activeContainers := h.DaemonService.GetContainersList(ctx)
 
@@ -285,8 +543,8 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name() + "/containers")
 		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
-			isFavorite, _ := vars.FavsDB.Has([]byte(util.GetHost()+"/"+container.Name()), nil)
-			if util.Contains(container.Name(), activeContainers) || util.Contains(container.Name(), vars.AgentsActiveContainers[host.Name()]) {
+			isFavorite, _ := vars.FavsDB.Has(favouriteKey(viewer, host.Name(), container.Name()), nil)
+			if slices.Contains(activeContainers, container.Name()) || slices.Contains(vars.AgentContainers(host.Name()), container.Name()) {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
 			} else {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true, "isFavorite": isFavorite})
@@ -295,35 +553,26 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 		to_return = append(to_return, HostsList{Host: host.Name(), Services: allContainers})
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	e, _ := json.Marshal(to_return)
-	w.Write(e)
+	writeJSON(w, http.StatusOK, to_return)
 }
 
-func (h *RouteController)GetSizeByAll(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) GetSizeByAll(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
-	var totalSize float64
-	hosts, _ := os.ReadDir("leveldb/hosts/")
-	for _, host := range hosts {
-		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name() + "/containers")
-		for _, container := range containers {
-			totalSize += util.GetDirSize(host.Name(), container.Name())
-		}
-	}
+	_, totalBytes := util.LogsSizes()
+	totalSize := float64(totalBytes) / (1024.0 * 1024.0)
 
 	if totalSize < 0.1 && totalSize != 0.0 {
 		totalSize = 0.1
 	}
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", totalSize)}) // MiB
+	writeJSON(w, http.StatusOK, map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", totalSize)}) // MiB
 }
 
 // TODO need to return 0.0 when there is no logs for container in db
-func (h *RouteController)GetSizeByService(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) GetSizeByService(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
@@ -336,17 +585,16 @@ func (h *RouteController)GetSizeByService(w http.ResponseWriter, req *http.Reque
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	w.Header().Add("Content-Type", "application/json")
 
 	size := util.GetDirSize(params.Get("host"), params.Get("service"))
 	if size < 0.1 && size != 0.0 {
 		size = 0.1
 	}
-	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
+	writeJSON(w, http.StatusOK, map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
-func (h *RouteController)GetDockerSize(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) GetDockerSize(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
@@ -357,22 +605,27 @@ func (h *RouteController)GetDockerSize(w http.ResponseWriter, req *http.Request)
 	}
 
 	if params.Get("host") == "" {
-		panic("Host is not mentioned!")
+		fail(w, http.StatusBadRequest, "Host is not mentioned!")
+		return
 	}
-	w.Header().Add("Content-Type", "application/json")
 
+	// A container with no docker json log has size 0, not a nil dereference.
+	var size float64
 	containerID := util.GetDockerContainerID(params.Get("host"), params.Get("service"))
-	info, _ := os.Stat("/var/lib/docker/containers/" + containerID + "/" + containerID + "-json.log")
+	if containerID != "" {
+		if info, err := os.Stat("/var/lib/docker/containers/" + containerID + "/" + containerID + "-json.log"); err == nil && info != nil {
+			size = float64(info.Size()) / (1024.0 * 1024.0)
+		}
+	}
 
-	size := float64(info.Size()) / (1024.0 * 1024.0)
 	if size < 0.1 && size != 0.0 {
 		size = 0.1
 	}
-	json.NewEncoder(w).Encode(map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
+	writeJSON(w, http.StatusOK, map[string]interface{}{"sizeMiB": fmt.Sprintf("%.1f", size)}) // MiB
 }
 
-func (h *RouteController)GetStats(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) GetStats(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
@@ -382,20 +635,14 @@ func (h *RouteController)GetStats(w http.ResponseWriter, req *http.Request) {
 		Value   int    `json:"period"` // 1 = 30min, 2 = 1hr, 48 = 1d
 	}
 
-	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&data)
-
-	if err != nil {
-		w.Header().Add("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid data!"})
+	if !decodeBody(w, req, &data) {
 		return
 	}
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(statistics.GetStatisticsByService(data.Host, data.Service, data.Value))
+	writeJSON(w, http.StatusOK, statistics.GetStatisticsByService(data.Host, data.Service, data.Value))
 }
 
-func (h *RouteController)GetStorageData(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) GetStorageData(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
@@ -403,25 +650,33 @@ func (h *RouteController)GetStorageData(w http.ResponseWriter, req *http.Request
 		Host string `json:"host"`
 	}
 
-	decoder := json.NewDecoder(req.Body)
-	err := decoder.Decode(&data)
-
-	w.Header().Add("Content-Type", "application/json")
-	if err != nil {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid data!"})
+	if !decodeBody(w, req, &data) {
 		return
 	}
 
 	// TODO make for different hosts
 	if data.Host != util.GetHost() {
-		json.NewEncoder(w).Encode(map[string]string{"error": "For now working only for main host.\nAsked host: " + data.Host + "\nIt's ok to see this message, all works fine."})
+		fail(w, http.StatusOK, "For now working only for main host.\nAsked host: "+data.Host+"\nIt's ok to see this message, all works fine.")
 		return
 	}
-	json.NewEncoder(w).Encode(util.GetStorageData())
+	writeJSON(w, http.StatusOK, util.GetStorageData())
 }
 
-func (h *RouteController)GetPrevLogs(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+// Favourites are per user, like the user settings stored next to them.
+func favouriteKey(username string, host string, service string) []byte {
+	return []byte(username + "\x00" + host + "/" + service)
+}
+
+func statusFilter(params url.Values) *string {
+	status := params.Get("status")
+	if status == "" {
+		return nil
+	}
+	return &status
+}
+
+func (h *RouteController) GetPrevLogs(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
@@ -433,19 +688,18 @@ func (h *RouteController)GetPrevLogs(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if params.Get("startWith") == "" {
-		json.NewEncoder(w).Encode(map[string]interface{}{"error": "Need to specify \"startWith\"!"})
+		writeJSON(w, http.StatusOK, map[string]interface{}{"error": "Need to specify \"startWith\"!"})
 		return
 	}
-	w.Header().Add("Content-Type", "application/json")
 
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	json.NewEncoder(w).Encode(containerdb.GetLogs(true, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive, nil))
+	writeJSON(w, http.StatusOK, containerdb.GetLogs(true, false, params.Get("host"), params.Get("id"), params.Get("search"), limit, params.Get("startWith"), caseSensetive, statusFilter(params)))
 }
 
-func (h *RouteController)GetLogs(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) GetLogs(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
@@ -455,40 +709,32 @@ func (h *RouteController)GetLogs(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		caseSensetive = false
 	}
-	w.Header().Add("Content-Type", "application/json")
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
 
-	status := params.Get("status")
-	var statusPtr *string
-	if status != "" {
-		statusPtr = &status
-	}
-
-	json.NewEncoder(w).Encode(containerdb.GetLogs(
+	writeJSON(w, http.StatusOK, containerdb.GetLogs(
 		false, false, params.Get("host"), params.Get("id"), params.Get("search"),
-		limit, params.Get("startWith"), caseSensetive, statusPtr,
+		limit, params.Get("startWith"), caseSensetive, statusFilter(params),
 	))
 }
 
-func (h *RouteController)GetLogWithPrev(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) GetLogWithPrev(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
 	params := req.URL.Query()
 	limit, _ := strconv.Atoi(params.Get("limit"))
-	w.Header().Add("Content-Type", "application/json")
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	json.NewEncoder(w).Encode(containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false, nil))
+	writeJSON(w, http.StatusOK, containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false, statusFilter(params)))
 }
 
 // TODO return {"error": "Invalid host!"} when host is not exists
-func (h *RouteController)GetLogsStream(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
@@ -509,171 +755,174 @@ func (h *RouteController)GetLogsStream(w http.ResponseWriter, req *http.Request)
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
+		CheckOrigin:     isAllowedOrigin,
 	}
-	upgrader.CheckOrigin = func(r *http.Request) bool { return true } // verify req here?
 
 	ws, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
+		// gorilla returns (nil, err); appending here seeds a nil conn that a
+		// background goroutine later dereferences.
 		fmt.Println(err)
-	}
-	vars.Connections[container] = append(vars.Connections[container], ws)
-}
-
-func (h *RouteController)Login(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) {
-		json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
 		return
 	}
+	vars.AddConnection(container, ws)
+}
 
+func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
+	enableCors(w)
+	if req.Method == http.MethodOptions {
+		ok(w)
+		return
+	}
 	if req.Method != "POST" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
 	var loginData vars.UserData
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&loginData)
+	if !decodeBody(w, req, &loginData) {
+		return
+	}
+
+	// Keyed on the address and on the (address, login) pair -- never on the login
+	// alone, or anyone could lock any account out by guessing at it.
+	addr := clientAddr(req)
+	ipKey := "ip:" + addr
+	pairKey := "pair:" + loginKey(addr, loginData.Login)
+	if !loginLimiter.allow(ipKey, pairKey) {
+		vars.LoginBlocked.Add(1)
+		fail(w, http.StatusTooManyRequests, "Too many failed login attempts. Try again later.")
+		return
+	}
 
 	isCorrect := userdb.CheckUserPassword(loginData.Login, loginData.Password)
 	if !isCorrect {
-		json.NewEncoder(w).Encode(map[string]string{"error": "Wrong login or password!"})
+		// Once per request, not once per key: fail() takes two.
+		vars.LoginFailures.Add(1)
+		loginLimiter.fail(ipKey, pairKey)
+		fail(w, http.StatusOK, "Wrong login or password!")
 		return
 	}
+	loginLimiter.succeed(ipKey, pairKey)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "onlogs-cookie",
 		Value:    util.CreateJWT(loginData.Login),
 		Expires:  time.Now().AddDate(0, 0, 2),
-		MaxAge:   int(time.Now().AddDate(0, 0, 2).Unix()),
+		MaxAge:   int(sessionLifetime / time.Second),
+		HttpOnly: true,
+		Secure:   isTLS(req),
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+	ok(w)
 }
 
-func (h *RouteController)Logout(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) Logout(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     "onlogs-cookie",
 		Value:    "toDelete",
 		Expires:  time.Now().AddDate(-5, -5, -5),
-		MaxAge:   0,
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   isTLS(req),
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+	ok(w)
 }
 
-func (h *RouteController)CreateUser(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
-		return
-	}
-
-	if req.Method != "POST" {
-		w.WriteHeader(http.StatusNotFound)
+func (h *RouteController) CreateUser(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authAdmin, "POST") {
 		return
 	}
 
 	var loginData vars.UserData
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&loginData)
+	if !decodeBody(w, req, &loginData) {
+		return
+	}
 
 	err := userdb.CreateUser(loginData.Login, loginData.Password)
 	if err == nil {
-		json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+		ok(w)
 		return
 	}
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	fail(w, http.StatusOK, err.Error())
 }
 
-func (h *RouteController)GetUsers(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) GetUsers(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authAdmin, "") {
 		return
 	}
 
 	users := userdb.GetUsers()
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"users": users, "error": nil})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"users": users, "error": nil})
 }
 
-func (h *RouteController)UpdateUserSettings(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) UpdateUserSettings(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 
 	var settings map[string]interface{}
-	body, _ := io.ReadAll(req.Body)
-	json.Unmarshal(body, &settings)
+	if !decodeBody(w, req, &settings) {
+		return
+	}
 	username, _ := util.GetUserFromJWT(*req)
-	userdb.UpdateUserSettings(username, settings)
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+	if err := userdb.UpdateUserSettings(username, settings); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	ok(w)
 }
 
-func (h *RouteController)GetUserSettings(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyUser(&w, req) {
+func (h *RouteController) GetUserSettings(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authUser, "") {
 		return
 	}
 	username, _ := util.GetUserFromJWT(*req)
 
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(userdb.GetUserSettings(username))
+	writeJSON(w, http.StatusOK, userdb.GetUserSettings(username))
 }
 
-func (h *RouteController)EditHostname(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
-		return
-	}
-
-	var data struct {
-		Host string
-		Name string
-	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&data)
-
-	if data.Name != "" {
-		if data.Host != util.GetHost() {
-			// TODO ask for command
-		} else {
-			os.WriteFile("/etc/hosntame", []byte(data.Name), 0644)
-		}
-	}
-
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
-}
-
-func (h *RouteController)EditUser(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
+func (h *RouteController) EditUser(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authAdmin, "") {
 		return
 	}
 
 	var loginData vars.UserData
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&loginData)
+	if !decodeBody(w, req, &loginData) {
+		return
+	}
 
 	if loginData.Login == os.Getenv("ADMIN_USERNAME") {
-		w.Header().Add("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"error": "Can't edit admin. Use env variables to change admin username and password"})
+		fail(w, http.StatusOK, "Can't edit admin. Use env variables to change admin username and password")
 		return
 	}
 
 	if !userdb.IsUserExists(loginData.Login) {
-		json.NewEncoder(w).Encode(map[string]string{"error": "No such user"})
+		fail(w, http.StatusOK, "No such user")
 		return
 	}
 
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+	if loginData.Password == "" {
+		fail(w, http.StatusOK, "Password can not be empty")
+		return
+	}
+
+	if err := userdb.EditUser(loginData.Login, loginData.Password); err != nil {
+		fail(w, http.StatusOK, err.Error())
+		return
+	}
+
+	ok(w)
 }
 
-func (h *RouteController)DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
+func (h *RouteController) DeleteContainerLogs(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authAdmin, "") {
 		return
 	}
 
@@ -681,16 +930,16 @@ func (h *RouteController)DeleteContainerLogs(w http.ResponseWriter, req *http.Re
 		Host    string `json:"host"`
 		Service string `json:"service"`
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&containerItem)
+	if !decodeBody(w, req, &containerItem) {
+		return
+	}
 
 	go containerdb.DeleteContainer(containerItem.Host, containerItem.Service, false)
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+	ok(w)
 }
 
-func (h *RouteController)DeleteDockerLogs(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
+func (h *RouteController) DeleteDockerLogs(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authAdmin, "") {
 		return
 	}
 
@@ -698,38 +947,34 @@ func (h *RouteController)DeleteDockerLogs(w http.ResponseWriter, req *http.Reque
 		Host    string
 		Service string
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&logItem)
+	if !decodeBody(w, req, &logItem) {
+		return
+	}
 
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": util.DeleteDockerLogs(logItem.Host, logItem.Service)})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"error": util.DeleteDockerLogs(logItem.Host, logItem.Service)})
 }
 
-func (h *RouteController)AskForDelete(w http.ResponseWriter, req *http.Request) {
+func (h *RouteController) AskForDelete(w http.ResponseWriter, req *http.Request) {
 	var logItem struct {
 		Hostname string
 		Token    string
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&logItem)
+	if !decodeBody(w, req, &logItem) {
+		return
+	}
 
 	if !db.IsTokenExists(logItem.Token) {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	to_delete := []string{}
-	if len(vars.ToDelete[logItem.Hostname]) != 0 {
-		to_delete = vars.ToDelete[logItem.Hostname]
-		vars.ToDelete[logItem.Hostname] = []string{}
-	}
+	to_delete := vars.TakeQueuedDeletes(logItem.Hostname)
 
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"Services": to_delete})
+	writeJSON(w, http.StatusOK, map[string]interface{}{"Services": to_delete})
 }
 
-func (h *RouteController)DeleteContainer(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
+func (h *RouteController) DeleteContainer(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authAdmin, "") {
 		return
 	}
 
@@ -737,50 +982,44 @@ func (h *RouteController)DeleteContainer(w http.ResponseWriter, req *http.Reques
 		Host    string
 		Service string
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&logItem)
+	if !decodeBody(w, req, &logItem) {
+		return
+	}
 
 	if logItem.Host == "" || logItem.Host == util.GetHost() {
 		dockerContainerID := util.GetDockerContainerID(logItem.Host, logItem.Service)
 		dockerImage, _ := h.DockerService.GetContainerImageNameByContainerID(req.Context(), dockerContainerID)
 		if strings.Contains(dockerImage, "devforth/onlogs") {
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode(map[string]interface{}{"error": "Can't delete logs of OnLogs container!"})
+			writeJSON(w, http.StatusOK, map[string]interface{}{"error": "Can't delete logs of OnLogs container!"})
 			return
 		}
 	}
 
 	go containerdb.DeleteContainer(logItem.Host, logItem.Service, true)
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+	ok(w)
 }
 
-func (h *RouteController)DeleteUser(w http.ResponseWriter, req *http.Request) {
-	if verifyRequest(&w, req) || !verifyAdminUser(&w, req) {
-		return
-	}
-
-	if req.Method != "POST" {
-		w.WriteHeader(http.StatusNotFound)
+func (h *RouteController) DeleteUser(w http.ResponseWriter, req *http.Request) {
+	if !guard(w, req, authAdmin, "POST") {
 		return
 	}
 
 	var loginData struct {
 		Login string `json:"login"`
 	}
-	decoder := json.NewDecoder(req.Body)
-	decoder.Decode(&loginData)
+	if !decodeBody(w, req, &loginData) {
+		return
+	}
 	if loginData.Login == os.Getenv("ADMIN_USERNAME") {
-		w.Header().Add("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"error": "Can't delete admin"})
+		fail(w, http.StatusOK, "Can't delete admin")
 		return
 	}
 
-	err := userdb.DeleteUser(loginData.Login, loginData.Login)
+	err := userdb.DeleteUser(loginData.Login)
 	if err != nil {
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		fail(w, http.StatusOK, err.Error())
 		return
 	}
-	w.Header().Add("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"error": nil})
+	ok(w)
 }

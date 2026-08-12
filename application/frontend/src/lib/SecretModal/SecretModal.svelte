@@ -15,18 +15,21 @@
   import DockerSnippet from "./DockerSnippet.svelte";
   import DockerComposeSnippet from "./DockerComposeSnippet.svelte";
 
-  let token = "";
+  let token = $state("");
   let origin = `${location.origin}${changeKey}`;
   const api = new FetchApi();
+  let secretError = $state("");
   async function getSecret() {
     try {
       const data = await api.getSecret();
-      if (data.token) {
+      if (data?.token) {
         return data.token;
       }
-    } catch {
-      return "2345678901234567";
+      secretError = data?.error || "Could not obtain a token.";
+    } catch (e) {
+      secretError = "Could not obtain a token. Check your connection and try again.";
     }
+    return "";
   }
 
   function choseSnippetOption(opt = "") {
@@ -41,7 +44,7 @@
 <div
   class="secretModalContainer"
   use:clickOutside
-  on:click_outside={() => {
+  onclick_outside={() => {
     snipetModalIsVisible.set(false);
   }}
 >
@@ -51,7 +54,7 @@
       class={`labelItem clickable ${
         $currentSnippedOption === "Docker" ? "active" : ""
       }`}
-      on:click={() => {
+      onclick={() => {
         choseSnippetOption("Docker");
       }}
     >
@@ -61,7 +64,7 @@
       class={`labelItem clickable ${
         $currentSnippedOption === "DockerCompose" ? "active" : ""
       }`}
-      on:click={() => {
+      onclick={() => {
         choseSnippetOption("DockerCompose");
       }}
     >
@@ -69,6 +72,9 @@
     </div>
   </div>
   <div class={`snippetContainer `}>
+    {#if secretError}
+      <p class="secretError">{secretError}</p>
+    {/if}
     {#if $currentSnippedOption === "Docker"}
       <DockerSnippet {token} {origin} />
     {/if}
@@ -110,9 +116,9 @@
     />
   </div>
 </div>
-<div class="modalOverlay" id="modalOverlay" />
+<div class="modalOverlay" id="modalOverlay"></div>
 <svelte:window
-  on:keydown={(e) => {
+  onkeydown={(e) => {
     handleKeydown(e, "Escape", () => {
       snipetModalIsVisible.set(false);
     });

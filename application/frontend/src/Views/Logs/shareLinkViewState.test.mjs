@@ -1,21 +1,34 @@
 import assert from "node:assert/strict";
 import {
   hasSearchResetRequest,
-  shouldAutoScrollLogs,
-  shouldFlushBufferedLogs,
+  createLogsViewFlags,
 } from "./shareLinkViewState.js";
 
+// Live: LogsViewHeder disarms its pending debounce when the version bumps.
 assert.equal(hasSearchResetRequest(0, 0), false);
 assert.equal(hasSearchResetRequest(0, 1), true);
 assert.equal(hasSearchResetRequest(3, 4), true);
 
-assert.equal(shouldAutoScrollLogs(true, false), true);
-assert.equal(shouldAutoScrollLogs(true, true), false);
-assert.equal(shouldAutoScrollLogs(false, false), false);
+const flags = createLogsViewFlags();
+assert.equal(flags.isDeepLinkPending(), false);
+assert.equal(flags.consumeSearchSkip(), false);
+assert.equal(flags.consumeStatusSkip(), false);
 
-assert.equal(shouldFlushBufferedLogs(0, false, false), false);
-assert.equal(shouldFlushBufferedLogs(5, false, false), true);
-assert.equal(shouldFlushBufferedLogs(5, true, false), false);
-assert.equal(shouldFlushBufferedLogs(5, true, true), true);
+flags.beginDeepLink();
+assert.equal(flags.isDeepLinkPending(), true);
+// One skip each: the search and status blocks retrigger once after the reset.
+assert.equal(flags.consumeSearchSkip(), true);
+assert.equal(flags.consumeSearchSkip(), false);
+assert.equal(flags.consumeStatusSkip(), true);
+assert.equal(flags.consumeStatusSkip(), false);
+
+assert.equal(flags.isDeepLinkPending(), true);
+flags.endDeepLink();
+assert.equal(flags.isDeepLinkPending(), false);
+
+const other = createLogsViewFlags();
+flags.beginDeepLink();
+assert.equal(other.isDeepLinkPending(), false);
+assert.equal(other.consumeSearchSkip(), false);
 
 console.log("share link view state tests passed");

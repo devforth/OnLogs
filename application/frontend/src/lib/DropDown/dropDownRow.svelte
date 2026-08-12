@@ -1,23 +1,20 @@
 <script>
   import Checkbox from "../CheckBox/Checkbox.svelte";
-  export let rowImage = "";
-  export let rowTitle = "";
-  export let iconHeight = "";
-  export let isFirst = false;
-  export let storeValue = "";
-  export let disableCheckbox = false;
-  export let titleCallBack = null;
-  let checkBoxValue = true;
-  import { store } from "../../Stores/stores.js";
-
-  store.update((pv) => {
-    return { ...pv };
-  });
+  let checkBoxValue = $state(true);
+  let {
+    rowImage = "",
+    rowTitle = "",
+    iconHeight = "",
+    isFirst = false,
+    storeValue = "",
+    disableCheckbox = false,
+    titleCallBack = null
+  } = $props();
 </script>
 
 <tr
   class=" {isFirst ? 'isFirst' : ''} {titleCallBack ? 'clickable' : ''}"
-  on:click={() => {
+  onclick={() => {
     if (titleCallBack) {
       titleCallBack();
     }
@@ -30,7 +27,7 @@
         style:font-size={`${iconHeight}px`}
         style:line-height={"100%"}
         class={rowImage ? `${rowImage}` : ""}
-      />
+></i>
     </div>
   </td>
   <td><div class="dropDownRawEl text">{rowTitle}</div></td>
@@ -38,7 +35,7 @@
   <td class="dropDownRawEl"
     >{#if !disableCheckbox}<Checkbox bind:active={checkBoxValue} {storeValue} />
     {:else}
-      <div class="emptyBox" />
+      <div class="emptyBox"></div>
     {/if}
   </td>
   <!-- </div> -->

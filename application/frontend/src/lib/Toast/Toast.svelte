@@ -4,12 +4,13 @@
     toast,
     toastTimeoutId,
   } from "../../Stores/stores.js";
-  import ProgressBar from "../ProgressBar/ProgressBar.svelte";
   import Button from "../Button/Button.svelte";
   import { handleKeydown } from "../../utils/functions.js";
   import { onDestroy, onMount } from "svelte";
   import { fly } from "svelte/transition";
-  const { tittle, message, status, additionButton } = $toast;
+  // Reactive: the component is reused across toasts, so a non-reactive
+  // destructure shows the previous message with the new icon.
+  let { tittle, message, status, additionButton } = $derived($toast);
 
   onDestroy(() => {
     if ($toastTimeoutId) {
@@ -22,11 +23,10 @@
   transition:fly={{ y: -200, duration: 200 }}
   class="toastContainer {status}"
 >
-  <div class="toastIcoContainer"><i class="log log-{$toast.status}" /></div>
+  <div class="toastIcoContainer"><i class="log log-{$toast.status}"></i></div>
   <h4>{tittle}</h4>
   <p>{message}</p>
 
-  <!-- <ProgressBar /> -->
   <div class={additionButton?.isVisible ? "additionButtonContainer" : ""}>
     <div class="toastButtonContainer additionalButton">
       {#if additionButton?.isVisible}
@@ -55,7 +55,7 @@
 </div>
 
 <svelte:window
-  on:keydown={(e) => {
+  onkeydown={(e) => {
     handleKeydown(e, "Escape", () => {
       toastIsVisible.set(false);
       if (toastTimeoutId) {

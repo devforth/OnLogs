@@ -11,10 +11,10 @@
   import { onDestroy } from "svelte";
   import { changeKey } from "../../utils/changeKey.js";
 
-  let localTheme = "";
+  let localTheme = $state("");
   let api = new fetchApi();
 
-  const showUserMenu = window.DISABLE_AUTH ?? true;
+  const showUserMenu = !(window.DISABLE_AUTH ?? false);
 
   //store management
   function toggleUserMenu() {
@@ -50,7 +50,7 @@
 <div class="clientPanel">
   <ul class="clientPanelOptionsList">
     <li
-      on:click={() => {
+      onclick={() => {
         if ($activeMenuOption === "burger") {
           activeMenuOption.set(location.pathname.split("/")[1] || "home");
         } else {
@@ -59,35 +59,35 @@
       }}
       class="{$activeMenuOption === 'burger' && 'active'} burger"
     >
-      <i class="log log-Burger " />
+      <i class="log log-Burger "></i>
       <div
         class="higlightedOverlay {$activeMenuOption === 'burger' && 'active'}"
-      />
+></div>
     </li>
-    <li on:click={goToHome} class={$activeMenuOption === "home" && "active"}>
-      <i class="log log-Home " />
+    <li onclick={goToHome} class={$activeMenuOption === "home" && "active"}>
+      <i class="log log-Home "></i>
       <div
         class="higlightedOverlay {($activeMenuOption === 'home' && 'active') ||
           ($activeMenuOption === 'view' && 'active')}"
-      />
+></div>
     </li>
     {#if showUserMenu}
     <li
-      on:click={toggleUserMenu}
+      onclick={toggleUserMenu}
       class={$activeMenuOption === "users" && "active"}
     >
-      <i class="log log-User" />
+      <i class="log log-User"></i>
       <div
         class="higlightedOverlay {$activeMenuOption === 'users' && 'active'}"
-      />
+></div>
     </li>
     {/if}
 
     <!-- <li class={$activeMenuOption === "wheel" && "active"}>
       <i class="log log-Wheel" />
     </li> -->
-    <li on:click={toggleTheme}>
-      <i class="log log-{localTheme === 'dark' ? 'Sun' : 'Moon'}" />
+    <li onclick={toggleTheme}>
+      <i class="log log-{localTheme === 'dark' ? 'Sun' : 'Moon'}"></i>
     </li>
   </ul>
 </div>

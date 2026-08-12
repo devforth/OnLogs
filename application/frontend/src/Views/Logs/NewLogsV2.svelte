@@ -2,22 +2,20 @@
   // @ts-nocheck
 
   import LogsString from "../../lib/LogsString/LogsString.svelte";
+  import Modal from "../../lib/Modal/Modal.svelte";
+  import LogContext from "../../lib/LogContext/LogContext.svelte";
   import fetchApi from "../../utils/fetch";
-  import { navigate } from "svelte-routing";
-  import { afterUpdate, onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
+  import { get } from "svelte/store";
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
   import IntersectionObserver from "svelte-intersection-observer";
   import Spiner from "./Spiner.svelte";
   import Loader from "./Loader.svelte";
-  import LogStringHeader from "./LogStringHeader.svelte";
   import { fade } from "svelte/transition";
   import { handleKeydown, copyCustomText } from "../../utils/functions.js";
   import { findSearchTextInLogs } from "../../Views/Logs/functions.js";
-  import { applySharedLogUrl, buildSharedLogUrl } from "./shareLink.js";
-  import {
-    shouldAutoScrollLogs,
-    shouldFlushBufferedLogs,
-  } from "./shareLinkViewState.js";
+  import { buildSharedLogUrl } from "./shareLink.js";
+  import { createLogsViewFlags } from "./shareLinkViewState.js";
 
   import {
     store,
@@ -48,51 +46,57 @@
     scrollToNewLogsEnd,
     scrollToSpecificLog,
   } from "./functions";
-  import { debug } from "svelte/internal";
   const api = new fetchApi();
   let visibleLogs = [];
   let newLogs = [];
   let previousLogs = [];
-  let allLogs = [];
+  let allLogs = $state([]);
   let webSocket = null;
-  let logsFromWS = [];
+  let logsFromWS = $state([]);
 
-  let elements = [];
-  let intersects = [];
+  let elements = $state([]);
+  // Dense: binding a hole into IntersectionObserver's `intersecting` throws.
+  let intersects = $state([false, false, false, false]);
 
-  let dateEls = [];
-  let dateIntersects = [];
+  let dateEls = $state([]);
+  let dateIntersects = $state([]);
   let lastVisibleEl = null;
-  let endOffLogs = null;
-  let startOfLogs = null;
-  let startOfLogsIntersect = null;
-  let endOffLogsIntersect = null;
+  let endOffLogs = $state(null);
+  let startOfLogs = $state(null);
+  let startOfLogsIntersect = $state(null);
+  let endOffLogsIntersect = $state(null);
 
   let initialScroll = 0;
   let lastScrollTop = 0;
-  let scrollDirection = "up";
-  let pinedDate = ";";
+  let scrollDirection = $state("up");
+  let pinedDate = $state(";");
   let lastFetchActionIsFetch = true;
-  let scrollFromButton = false;
+  let scrollFromButton = $state(false);
   let stopLogsUnfetch = false;
 
-  let mouseDownBlockFetch = false;
-  let extremalScrollId = "";
+  let mouseDownBlockFetch = $state(false);
+  let extremalScrollId = $state("");
+  // Not $state: the interceptor effects read this guard, so clearing it would
+  // re-run them and refire the fetch it was meant to hold back.
   let interceptorsWait = false;
-  let autoscroll = false;
-  let div;
-  let getFullLogsSetIsTrottle = false;
+  let autoscroll = $state(false);
+  let div = $state();
+  let logsLoadGeneration = 0;
+  // Deliberately an object field: assigning a `let` here would retrigger the very
+  // reactive blocks this is meant to hold back.
+  const viewFlags = createLogsViewFlags();
   let pauseWS = false;
-  let newLogsAmount = 1;
+  let newLogsAmount = $state(1);
   let controller = null;
   let signal = null;
   let topFetchIsStarted = false;
+  // Latched once the server reports there is nothing older than what is loaded.
+  let startOfHistoryReached = false;
   let pinedBadgeTimer = null;
-  let pinedBadgeIsVisible = false;
-  let skipNextSearchReload = false;
-  let skipNextStatusReload = false;
-  let searchResetVersion = 0;
-  let isSharedLinkFocusMode = false;
+  let pinedBadgeIsVisible = $state(false);
+  let searchResetVersion = $state(0);
+  // The row whose surroundings are being shown; null closes the context modal.
+  let contextAnchor = $state(null);
 
   function refreshStatus() {
     chosenStatus.set("");
@@ -121,21 +125,39 @@
     }
   }
 
-  $: {
-    if (dateIntersects) {
-      findLastVisibleLog();
-    }
-  }
+
 
   //fetch params:
 
-  let searchText = "";
-  let limit = 60;
+  let searchText = $state("");
+  let limit = $state(60);
 
   let startWith = "";
   let tmpStartWith = [];
 
+  // The third element is the full storage key: the only unique row identity.
+  const logKey = (logItem) => logItem?.at(2) ?? logItem?.at(0) ?? "";
+
+  // Dropping repeats by key makes a recurrence visible as a missing row rather
+  // than a doubled one, and lets the {#each} be keyed.
+  function dedupeLogs(rows) {
+    const seen = new Set();
+    const unique = [];
+    for (const row of rows) {
+      const key = logKey(row);
+      if (key) {
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+      }
+      unique.push(row);
+    }
+    return unique;
+  }
+
   function resetAllLogs() {
+    startOfHistoryReached = false;
     allLogs = [];
     newLogs = [];
     visibleLogs = [];
@@ -144,44 +166,67 @@
   }
 
   async function getFullLogsSet() {
-    if (!getFullLogsSetIsTrottle && $lastChosenService) {
-      const initialService = $lastChosenService;
-      pauseWS = true;
-      let total_logs_amount = 0;
-      let last_key = "";
-      let is_all_logs_processed = false;
-      while (total_logs_amount < limit && !is_all_logs_processed) {
-        isSearching.set(true);
-        let data = await api.getLogs({
-            containerName: $lastChosenService,
-            hostName: $lastChosenHost,
-            limit: limit * 3,
-            search: searchText,
-            caseSens: !$store.caseInSensitive,
-            status: $chosenStatus,
-            startWith: last_key,
-        })
-        last_key = data.last_processed_key;
-        is_all_logs_processed = data.is_end;
-        total_logs_amount += data.logs.length;
+    if (!$lastChosenService) {
+      return;
+    }
 
-        if (initialService === $lastChosenService) {
-            setLastLogTime(data.logs?.at(0)?.at(0));
-            allLogs = [...allLogs, ...data.logs.reverse()];
-            let allLogsCopy = [...allLogs];
+    const initialService = $lastChosenService;
+    const generation = ++logsLoadGeneration;
+    pauseWS = true;
 
-            newLogs = allLogsCopy.splice(0, limit);
+    let acc = [];
+    let total_logs_amount = 0;
+    let last_key = "";
+    let is_all_logs_processed = false;
 
-            visibleLogs = allLogsCopy.splice(0, limit);
-            previousLogs = allLogsCopy.splice(0, limit);
-        }
+    try {
+    while (total_logs_amount < limit && !is_all_logs_processed) {
+      isSearching.set(true);
+      const data = await api.getLogs({
+        containerName: $lastChosenService,
+        hostName: $lastChosenHost,
+        limit: limit * 3,
+        search: searchText,
+        caseSens: !$store.caseInSensitive,
+        status: $chosenStatus,
+        startWith: last_key,
+      });
+
+      // A newer load, or a service switch, has superseded this one.
+      if (generation !== logsLoadGeneration || initialService !== $lastChosenService) {
+        return;
       }
+
+      last_key = data.last_processed_key;
+      is_all_logs_processed = data.is_end;
+      total_logs_amount += data.logs.length;
+
+      if (!data.logs.length) {
+        break;
+      }
+
+      setLastLogTime(data.logs?.at(0)?.at(0));
+      acc = [...acc, ...data.logs.reverse()];
+    }
+
+    if (generation !== logsLoadGeneration || initialService !== $lastChosenService) {
+      return;
+    }
+
+    allLogs = dedupeLogs(acc);
+    const allLogsCopy = [...allLogs];
+    newLogs = allLogsCopy.splice(0, limit);
+    visibleLogs = allLogsCopy.splice(0, limit);
+    previousLogs = allLogsCopy.splice(0, limit);
+
+    autoscroll = true;
+    logsFromWS = [];
+    } catch (e) {
+      console.error(e);
+    } finally {
       isSearching.set(false);
       isPending.set(false);
-      autoscroll = true;
       pauseWS = false;
-
-      logsFromWS = [];
     }
   }
 
@@ -200,6 +245,7 @@
     }
 
     urlHash.set("");
+    viewFlags.endDeepLink();
     setTimeout(() => {
       setTimeout(() => {
         setInitialScroll(1);
@@ -218,6 +264,7 @@
 
   async function fetchIfHashIsInUrl(startWith) {
     const initialService = $lastChosenService;
+    const generation = ++logsLoadGeneration;
     const getLogsArray = (response) =>
       Array.isArray(response?.logs) ? response.logs : [];
 
@@ -255,15 +302,15 @@
         const upperLogsResponse = await api.getLogs({
           containerName: $lastChosenService,
           limit: limit - downLogs.length,
-          startWith: viewLogs?.at(0)[0],
+          startWith: logKey(viewLogs?.at(0)),
           hostName: $lastChosenHost,
           status: $chosenStatus,
         });
         upperLogs = getLogsArray(upperLogsResponse);
       }
     }
-    if (initialService === $lastChosenService) {
-      allLogs = [...upperLogs.reverse(), ...viewLogs, ...downLogs];
+    if (initialService === $lastChosenService && generation === logsLoadGeneration) {
+      allLogs = dedupeLogs([...upperLogs.reverse(), ...viewLogs, ...downLogs]);
 
       let allLogsCopy = [...allLogs];
 
@@ -294,12 +341,6 @@
   }
 
   function addLogFromWS(logfromWS) {
-    if (isSharedLinkFocusMode) {
-      logsFromWS = [...logsFromWS, logfromWS];
-      autoscroll = false;
-      return;
-    }
-
     if (
       (!mouseDownBlockFetch && endOffLogsIntersect) ||
       (allLogs.length < 3 * limit && endOffLogsIntersect)
@@ -321,8 +362,8 @@
         previousLogs.push(logfromWS);
 
         if (allLogs.length === 3 * limit) {
-          allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-        } else allLogs = [...allLogs, logfromWS];
+          allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
+        } else allLogs = dedupeLogs([...allLogs, logfromWS]);
         if (allLogs.length < 3 * limit) {
         }
       }
@@ -382,7 +423,7 @@
 
           if (
             $chosenStatus &&
-            $chosenStatus !== logfromWS[1].split(" ")[0]?.toLowerCase()
+            $chosenStatus !== getLogLineStatus(logfromWS[1])
           ) {
             return;
           } else {
@@ -419,12 +460,13 @@
 
   function resetSearchParams() {
     searchText = "";
+    // Also disarms any debounce timer still pending in the header, which would
+    // otherwise write the previous service's search term back a moment later.
+    searchResetVersion = searchResetVersion + 1;
   }
 
-  async function exitSharedLinkFocusMode(flushBufferedLogs = false) {
-    isSharedLinkFocusMode = false;
-
-    if (flushBufferedLogs && logsFromWS.length) {
+  async function flushBufferedLogs() {
+    if (logsFromWS.length) {
       await getFullLogsSet();
       logsFromWS = [];
     }
@@ -454,35 +496,15 @@
     }
   }
 
-  async function applySharedLinkToCurrentView(timeStamp) {
-    const hadSearchText = Boolean(searchText);
-    const hadChosenStatus = Boolean($chosenStatus);
-    const { hash } = applySharedLogUrl(location.href, timeStamp);
-
-    isSharedLinkFocusMode = true;
-    chosenLogsString.set(timeStamp);
-    urlHash.set(hash);
-
-    if (hadSearchText) {
-      skipNextSearchReload = true;
-    }
-    if (hadChosenStatus) {
-      skipNextStatusReload = true;
-    }
-
-    resetSearchParams();
-    searchResetVersion = searchResetVersion + 1;
-    refreshStatus();
-    resetAllLogs();
-    resetParams();
-    setInitialScroll(0);
-    isPending.set(true);
-    closeWS();
-    getLogsFromWS();
-    topFetchIsStarted = true;
-
-    await fetchIfHashIsInUrl(timeStamp);
+  // Copy only: re-pointing the view at the link resets the loaded logs and the
+  // websocket. Shared with the context modal, which renders rows of its own.
+  function copyLinkToLog(logItem) {
+    copyCustomText(
+      buildSharedLogUrl(location.href, logItem?.at(0)),
+      showCopiedUrlToast
+    );
   }
+
   function closeWS() {
     if (webSocket) {
       webSocket.close();
@@ -509,83 +531,80 @@
     initialScroll = val;
   }
   const fetchedLogs = async (doNotScroll, customStartWith) => {
-    if (!$isFeatching) {
-      stopLogsUnfetch = false;
-      controller = new AbortController();
-      signal = controller.signal;
-      // if (mouseDownBlockFetch) {
-      //   return;
-      // }
-      const initialService = $lastChosenService;
-      if (scrollDirection === "up") {
-        isFeatching.set(true);
+    if ($isFeatching || scrollDirection !== "up") {
+      return;
+    }
 
-        try {
-          let total_logs_amount = 0;
-          let total_logs = [];
-          let is_all_logs_processed = false;
-          let last_key = customStartWith ? customStartWith : customStartWith === 0 ? "" : allLogs.at(0)?.at(0);
-          while (limit < total_logs_amount && !is_all_logs_processed) {
-            isSearching.set(true);
-            const data = (await getLogs({
-              containerName: $lastChosenService,
-              search: searchText,
-              limit,
-              status: $chosenStatus,
-              caseSens: !$store.caseInSensitive,
-              startWith: last_key,
-              hostName: $lastChosenHost,
-              signal,
-            })).logs.reverse();
-            total_logs = [...total_logs, ...data];
-            total_logs_amount += data.length;
-            is_all_logs_processed = data.is_end;
-            last_key = data.last_processed_key;
+    stopLogsUnfetch = false;
+    controller = new AbortController();
+    signal = controller.signal;
+    const initialService = $lastChosenService;
+    isFeatching.set(true);
 
-            if (initialService === $lastChosenService) {
-                if (data.length) {
-                let numberOfNewLogs = data.length;
+    try {
+      let total_logs_amount = 0;
+      let total_logs = [];
+      let is_all_logs_processed = false;
+      let last_key = customStartWith
+        ? customStartWith
+        : customStartWith === 0
+        ? ""
+        : logKey(allLogs.at(0));
 
-                const logsToPrevious = visibleLogs.splice(
-                    visibleLogs.length - numberOfNewLogs,
-                    numberOfNewLogs
-                );
+      while (total_logs_amount < limit && !is_all_logs_processed) {
+        isSearching.set(true);
+        const response = await getLogs({
+          containerName: $lastChosenService,
+          search: searchText,
+          limit,
+          status: $chosenStatus,
+          caseSens: !$store.caseInSensitive,
+          startWith: last_key,
+          hostName: $lastChosenHost,
+          signal,
+        });
 
-                const logsToVisible = newLogs.splice(
-                    newLogs.length - numberOfNewLogs,
-                    numberOfNewLogs
-                );
+        const data = response.logs.reverse();
+        total_logs = [...total_logs, ...data];
+        total_logs_amount += data.length;
+        is_all_logs_processed = response.is_end;
+        last_key = response.last_processed_key;
 
-                previousLogs.splice(
-                    previousLogs.length - numberOfNewLogs,
-                    numberOfNewLogs
-                );
-                newLogs = [...data, ...newLogs];
-                visibleLogs = [...logsToVisible, ...visibleLogs];
-                previousLogs = [...logsToPrevious, ...previousLogs];
-                previousLogs.length = limit;
-
-                allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
-                }
-                if (data.length === limit) {
-                setTimeout(() => {
-                    if (!doNotScroll) {
-                    scrollToNewLogsEnd(".newLogsEnd");
-                    }
-                }, 50);
-                }
-
-            }
-          isSearching.set(false);
+        if (initialService !== $lastChosenService || !data.length) {
+          break;
         }
-          lastFetchActionIsFetch = true;
-          return total_logs;
-        } catch (e) {
-          console.log(e);
+
+        const numberOfNewLogs = data.length;
+        const logsToPrevious = visibleLogs.splice(
+          visibleLogs.length - numberOfNewLogs,
+          numberOfNewLogs
+        );
+        const logsToVisible = newLogs.splice(
+          newLogs.length - numberOfNewLogs,
+          numberOfNewLogs
+        );
+        previousLogs.splice(previousLogs.length - numberOfNewLogs, numberOfNewLogs);
+
+        newLogs = [...data, ...newLogs];
+        visibleLogs = [...logsToVisible, ...visibleLogs];
+        previousLogs = [...logsToPrevious, ...previousLogs].slice(0, limit);
+        allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
+
+        if (data.length === limit && !doNotScroll) {
+          setTimeout(() => {
+            scrollToNewLogsEnd(".newLogsEnd");
+          }, 50);
         }
       }
+
+      lastFetchActionIsFetch = true;
+      return total_logs;
+    } catch (e) {
+      console.log(e);
+    } finally {
+      isSearching.set(false);
+      isFeatching.set(false);
     }
-    isFeatching.set(false);
   };
 
   const fetchedTopLogs = async (customStartWith) => {
@@ -606,7 +625,11 @@
       let total_logs = [];
       let total_received_logs_count = 0;
       let is_all_logs_processed = false;
-      let last_key = customStartWith ? customStartWith : customStartWith === 0 ? "" : allLogs.at(0)?.at(0);
+      let last_key = customStartWith
+        ? customStartWith
+        : customStartWith === 0
+        ? ""
+        : logKey(allLogs.at(0));
 
       while (limit > total_received_logs_count && !is_all_logs_processed) {
         isSearching.set(true);
@@ -623,13 +646,22 @@
         is_all_logs_processed = data.is_end;
         last_key = data.last_processed_key;
         total_received_logs_count += data.logs.length;
+        if (!data.logs.length) {
+          break;
+        }
         total_logs = [...total_logs, ...data.logs.reverse()];
       }
       isSearching.set(false);
       isFeatching.set(false);
 
       if (initialService === $lastChosenService) {
-        if (total_logs.length === limit) {
+        // Nothing older left: stop asking, or the top loader repeats the same
+        // request every tick forever.
+        startOfHistoryReached = is_all_logs_processed && !total_logs.length;
+
+        // Any rows at all, not a full page: the oldest page is almost always a
+        // partial one, and requiring a whole page threw the start of history away.
+        if (total_logs.length) {
           let numberOfNewLogs = total_logs.length;
           const logsToPrevious = visibleLogs.splice(0, numberOfNewLogs);
           const logsToVisible = newLogs.splice(0, numberOfNewLogs);
@@ -637,7 +669,7 @@
           newLogs = [...total_logs, ...newLogs];
           visibleLogs = [...logsToVisible, ...visibleLogs];
           previousLogs = [...logsToPrevious, ...previousLogs];
-          allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+          allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
         }
         fetchedData = total_logs;
       }
@@ -650,7 +682,7 @@
         const initialService = $lastChosenService;
         isFeatching.set(true);
 
-        let last_key = allLogs.at(-1) ? allLogs.at(-1)[0] : "";
+        let last_key = logKey(allLogs.at(-1));
         let total_logs = [];
         let total_received_logs_count = 0;
         let is_all_logs_processed = false;
@@ -669,6 +701,9 @@
           total_received_logs_count += data.logs.length;
           is_all_logs_processed = data.is_end;
           last_key = data.last_processed_key;
+          if (!data.logs.length) {
+            break;
+          }
           total_logs = [...total_logs, ...data.logs];
         }
         isSearching.set(false);
@@ -682,7 +717,7 @@
               newLogs = [...newLogs, ...logsToNew];
               visibleLogs = [...visibleLogs, ...logsToVisible];
               previousLogs = [...previousLogs, ...total_logs];
-              allLogs = [...newLogs, ...visibleLogs, ...previousLogs];
+              allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
               if (total_logs.length === limit) {
                 scrollToNewLogsEnd(".newLogsEnd", true);
               }
@@ -696,34 +731,22 @@
     }
   };
 
-  //
 
-  $: {
-    (async () => {
-      if ($lastChosenHost && $lastChosenService) {
-        await exitSharedLinkFocusMode();
-        setInitialScroll(0);
-        resetAllLogs();
-        resetParams();
-        resetSearchParams();
-        refreshStatus();
-
-        isPending.set(true);
-        closeWS();
-        await checkIfHashIsInUrl();
-        addScrollLIstenersToLogs();
-      }
-    })();
-  }
+  let scrollHandler = null;
+  let scrollTarget = null;
 
   function addScrollLIstenersToLogs() {
-    let isEventOnScroll = false;
+    clearInterval(scrollListenerIntervalId);
 
-    const interval = setInterval(() => {
+    scrollListenerIntervalId = setInterval(() => {
       const logsContEl = document.querySelector("#logs");
 
       if (logsContEl) {
-        logsContEl.addEventListener("scroll", function () {
+        // Without this, every reload stacked another listener on the same node.
+        if (scrollTarget && scrollHandler) {
+          scrollTarget.removeEventListener("scroll", scrollHandler);
+        }
+        scrollHandler = function () {
           let st = window.scrollY || logsContEl.scrollTop;
           if (st > lastScrollTop) {
             scrollDirection = "down";
@@ -739,97 +762,26 @@
           pinedBadgeTimer = setTimeout(function () {
             pinedBadgeIsVisible = false;
           }, 350);
-        });
-        isEventOnScroll = true;
-      }
-      if (isEventOnScroll) {
-        clearInterval(interval);
-        isEventOnScroll = false;
+        };
+        scrollTarget = logsContEl;
+        logsContEl.addEventListener("scroll", scrollHandler);
+        clearInterval(scrollListenerIntervalId);
       }
     }, 1000);
   }
 
-  $: {
-    (async () => {
-      if (skipNextSearchReload) {
-        skipNextSearchReload = false;
-        return;
-      }
-      await exitSharedLinkFocusMode();
-      if (searchText) {
-        resetParams();
-        resetAllLogs();
-        isPending.set(true);
-        await getFullLogsSet();
-      } else {
-        resetAllLogs();
-        await getFullLogsSet();
-      }
-      addScrollLIstenersToLogs();
-    })();
-  }
 
-  $: {
-    (async () => {
-      if (skipNextStatusReload) {
-        skipNextStatusReload = false;
-        return;
-      }
-      await exitSharedLinkFocusMode();
-      if ($chosenStatus) {
-        resetParams();
-        resetAllLogs();
-        isPending.set(true);
-        await getFullLogsSet();
-      } else {
-        resetAllLogs()
-        await getFullLogsSet();
-      }
-      addScrollLIstenersToLogs();
-    })();
-  }
 
-  $: {
-    isInterceptorVIsible(intersects[0], fetchedLogs, !mouseDownBlockFetch);
-  }
-  $: {
-    isInterceptorVIsible(intersects[1], unfetchedLogs, !mouseDownBlockFetch);
-  }
-  // $: {
-  //   isInterceptorVIsible(intersects[2], fetchedLogs, mouseDownBlockFetch);
-  // }
-  $: {
-    isInterceptorVIsible(intersects[3], unfetchedLogs, mouseDownBlockFetch);
-  }
 
-  $: {
-    if ([...allLogs]) {
-      highlightSearchText();
-    }
-  }
 
-  $: {
-    (async () => {
-      if (
-        shouldFlushBufferedLogs(
-          logsFromWS.length,
-          isSharedLinkFocusMode,
-          false
-        ) &&
-        endOffLogsIntersect
-      ) {
-        logsFromWS.length && (await getFullLogsSet());
-        logsFromWS = [];
-      }
-    })();
-  }
 
   const checkIfScrollOnTop = () => {
-    const checkIfScrollOnTopInterval = setInterval(async () => {
+    return setInterval(async () => {
       if (
         startOfLogsIntersect &&
         allLogs.length >= 3 * limit &&
-        !topFetchIsStarted
+        !topFetchIsStarted &&
+        !startOfHistoryReached
       ) {
         const data = await fetchedTopLogs();
         newLogsAmount = data.length;
@@ -846,23 +798,152 @@
     }, 500);
   };
 
+  let topScrollIntervalId = null;
+  let scrollListenerIntervalId = null;
+  let onResize = null;
+
   onMount(async () => {
-    checkIfScrollOnTop();
+    topScrollIntervalId = checkIfScrollOnTop();
     initialScroll = 1;
 
-    window.addEventListener("resize", () => {
+    onResize = () => {
       const logsContEl = document.querySelector("#logs");
       if (logsContEl) {
-        limit = Math.round(logsContEl.offsetHeight / 200) * 10;
+        // Never 0: a short pane would otherwise request no logs at all.
+        limit = Math.max(10, Math.round(logsContEl.offsetHeight / 200) * 10);
       }
-    });
+    };
+    window.addEventListener("resize", onResize);
   });
 
-  afterUpdate(() => {
-    if (shouldAutoScrollLogs(autoscroll, isSharedLinkFocusMode)) {
+  onDestroy(() => {
+    clearInterval(topScrollIntervalId);
+    clearInterval(scrollListenerIntervalId);
+    if (scrollTarget && scrollHandler) {
+      scrollTarget.removeEventListener("scroll", scrollHandler);
+    }
+    clearTimeout(extremalScrollId);
+    clearTimeout(pinedBadgeTimer);
+    if (onResize) {
+      window.removeEventListener("resize", onResize);
+    }
+    closeWS();
+    // The component is going away; it must not keep driving the shared stores
+    // the surviving instance reads.
+    logsLoadGeneration = logsLoadGeneration + 1;
+    isFeatching.set(false);
+    isSearching.set(false);
+    isPending.set(false);
+  });
+
+  // Reading allLogs makes this run once the new rows are in the DOM, which is
+  // what the scroll depends on.
+  $effect(() => {
+    allLogs;
+    if (autoscroll) {
       div && div.scrollTo(0, div.scrollHeight ? div.scrollHeight : 0);
     }
     autoscroll = false;
+  });
+  $effect.pre(() => {
+    if (dateIntersects.length !== allLogs.length) {
+      dateIntersects = Array.from(
+        { length: allLogs.length },
+        (_, i) => dateIntersects[i] ?? false
+      );
+    }
+  });
+  $effect.pre(() => {
+    if (dateIntersects) {
+      findLastVisibleLog();
+    }
+  });
+  //
+
+  $effect(() => {
+    (async () => {
+      if ($lastChosenHost && $lastChosenService) {
+        // Read without subscribing: referencing $urlHash here would make this
+        // block depend on it, and clearing the hash would retrigger it forever.
+        if (get(urlHash)) {
+          viewFlags.beginDeepLink();
+        }
+        // Let this flush settle first: resetting synchronously re-enters this
+        // effect through the state it writes.
+        await tick();
+        setInitialScroll(0);
+        resetAllLogs();
+        resetParams();
+        resetSearchParams();
+        refreshStatus();
+
+        isPending.set(true);
+        closeWS();
+        await checkIfHashIsInUrl();
+        addScrollLIstenersToLogs();
+      }
+    })();
+  });
+  $effect(() => {
+    const currentSearchText = searchText;
+    (async () => {
+      if (viewFlags.consumeSearchSkip() || viewFlags.isDeepLinkPending()) {
+        return;
+      }
+      if (currentSearchText) {
+        resetParams();
+        resetAllLogs();
+        isPending.set(true);
+        await getFullLogsSet();
+      } else {
+        resetAllLogs();
+        await getFullLogsSet();
+      }
+      addScrollLIstenersToLogs();
+    })();
+  });
+  $effect(() => {
+    const currentStatus = $chosenStatus;
+    (async () => {
+      if (viewFlags.consumeStatusSkip() || viewFlags.isDeepLinkPending()) {
+        return;
+      }
+      if (currentStatus) {
+        resetParams();
+        resetAllLogs();
+        isPending.set(true);
+        await getFullLogsSet();
+      } else {
+        resetAllLogs()
+        await getFullLogsSet();
+      }
+      addScrollLIstenersToLogs();
+    })();
+  });
+  $effect(() => {
+    isInterceptorVIsible(intersects[0], fetchedLogs, !mouseDownBlockFetch);
+  });
+  $effect(() => {
+    isInterceptorVIsible(intersects[1], unfetchedLogs, !mouseDownBlockFetch);
+  });
+  // $: {
+  //   isInterceptorVIsible(intersects[2], fetchedLogs, mouseDownBlockFetch);
+  // }
+  $effect(() => {
+    isInterceptorVIsible(intersects[3], unfetchedLogs, mouseDownBlockFetch);
+  });
+  $effect(() => {
+    if ([...allLogs]) {
+      highlightSearchText();
+    }
+  });
+  $effect(() => {
+    (async () => {
+      if (logsFromWS.length && endOffLogsIntersect) {
+        await getFullLogsSet();
+        logsFromWS = [];
+      }
+    })();
   });
 </script>
 
@@ -882,20 +963,20 @@
 {#if $isPending}<Spiner />{:else}
   <div id="logs" class="logs" bind:this={div}>
     <div class="logsTableContainer">
-      <table class="logsTable {$store.breakLines ? 'breakLines' : ''}">
+      <div class="logsTable {$store.breakLines ? 'breakLines' : ''}">
         {#if $isSearching}
         <div style="left: 50%; top: 50%; padding-bottom: 10px;" class="flex">
           <Loader />
         </div>
         {/if}
-        <div id="startOfLogs" />
+        <div id="startOfLogs"></div>
         <IntersectionObserver
           element={startOfLogs}
           bind:intersecting={startOfLogsIntersect}
         >
-          <div id="startOfLogs" bind:this={startOfLogs} />
+          <div id="startOfLogs" bind:this={startOfLogs}></div>
         </IntersectionObserver>
-        {#each allLogs as logItem, i}
+        {#each allLogs as logItem, i (logKey(logItem) || i)}
           {#if transformLogStringForTimeBudget(logItem, $store.UTCtime) !== transformLogStringForTimeBudget(allLogs[i - 1], $store.UTCtime) && i - 1 >= 0}
             <div class="timeBudgeContainer">
               <div class="timeBadgeWrapper">
@@ -920,15 +1001,12 @@
                 ? 'chosen'
                 : ''}"
             >
-              {#if $chosenLogsString === logItem?.at(0)}
-                <LogStringHeader />
-              {/if}
               {#if i === limit / 2 - 1}
                 <IntersectionObserver
                   element={elements[0]}
                   bind:intersecting={intersects[0]}
                 >
-                  <div class="observer" bind:this={elements[0]} />
+                  <div class="observer" bind:this={elements[0]}></div>
                 </IntersectionObserver>{/if}
 
               {#if i === allLogs.length - limit / 2 && allLogs.length >= 3 * limit}
@@ -936,7 +1014,7 @@
                   element={elements[1]}
                   bind:intersecting={intersects[1]}
                 >
-                  <div class="observer" bind:this={elements[1]} />
+                  <div class="observer" bind:this={elements[1]}></div>
                 </IntersectionObserver>{/if}
 
               {#if i === 0 && allLogs.length >= 3 * limit}
@@ -944,7 +1022,7 @@
                   element={elements[2]}
                   bind:intersecting={intersects[2]}
                 >
-                  <div class="observer" bind:this={elements[2]} />
+                  <div class="observer" bind:this={elements[2]}></div>
                 </IntersectionObserver>{/if}
 
               {#if i === allLogs.length - 1 && allLogs.length >= 3 * limit}
@@ -952,7 +1030,7 @@
                   element={elements[3]}
                   bind:intersecting={intersects[3]}
                 >
-                  <div class="observer" bind:this={elements[3]} />
+                  <div class="observer" bind:this={elements[3]}></div>
                 </IntersectionObserver>{/if}
 
               <LogsString
@@ -961,16 +1039,10 @@
                 status={getLogLineStatus(logItem?.at(1))}
                 isHiglighted={new Date($lastLogTimestamp).getTime() <
                   new Date(logItem?.at(0)).getTime()}
-                sharedLinkCallBack={() => {
-                  const timeStamp = logItem?.at(0);
-                  const nextUrl = buildSharedLogUrl(location.href, timeStamp);
-
-                  copyCustomText(nextUrl, async () => {
-                    showCopiedUrlToast();
-                    await applySharedLinkToCurrentView(timeStamp);
-                  });
+                showContextCallBack={() => {
+                  contextAnchor = logItem;
                 }}
-                getLogsByTagOptions={(limit, searchText)}
+                sharedLinkCallBack={() => copyLinkToLog(logItem)}
               />
             </div>
             <IntersectionObserver
@@ -980,7 +1052,7 @@
               <div
                 class={transformLogStringForTimeBudget(logItem, $store.UTCtime)}
                 bind:this={dateEls[i]}
-              />
+></div>
             </IntersectionObserver>
           </div>
         {/each}
@@ -989,19 +1061,18 @@
           element={endOffLogs}
           bind:intersecting={endOffLogsIntersect}
         >
-          <div id="endOfLogs" bind:this={endOffLogs} />
+          <div id="endOfLogs" bind:this={endOffLogs}></div>
         </IntersectionObserver>
-      </table>
+      </div>
       {#if !endOffLogsIntersect && allLogs.length}
         <div>
           <ButtonToBottom
             number={logsFromWS.length}
-            ico={"Down"}
             callBack={async () => {
-              await exitSharedLinkFocusMode(true);
+              await flushBufferedLogs();
               scrollFromButton = true;
               autoscroll = true;
-              scrollDirection === "up";
+              scrollDirection = "up";
               // logsFromWS.length && (await getFullLogsSet());
 
               setTimeout(() => {
@@ -1012,20 +1083,35 @@
         </div>
       {/if}
     </div>
-    <div class="timeBudgeContainer" />
+    <div class="timeBudgeContainer"></div>
   </div>{/if}
+
+<Modal
+  modalIsOpen={Boolean(contextAnchor)}
+  closeFunction={() => {
+    contextAnchor = null;
+  }}
+>
+  <LogContext
+    host={$lastChosenHost}
+    service={$lastChosenService}
+    anchor={contextAnchor}
+    {searchText}
+    caseSens={!$store.caseInSensitive}
+    shareLink={copyLinkToLog}
+  />
+</Modal>
 <svelte:window
-  on:mousedown={(e) => {
+  onmousedown={(e) => {
     mouseDownBlockFetch = true;
   }}
-  on:mouseup={(e) => {
+  onmouseup={(e) => {
     mouseDownBlockFetch = false;
     clearInterval(extremalScrollId);
     interceptorsWait = false;
   }}
-  on:keydown={(e) => {
+  onkeydown={(e) => {
     handleKeydown(e, "Escape", () => {
-      exitSharedLinkFocusMode();
       chosenLogsString.set("");
       chosenStatus.set("");
     });

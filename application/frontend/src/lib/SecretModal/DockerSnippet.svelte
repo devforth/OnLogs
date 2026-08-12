@@ -1,6 +1,5 @@
 <script>
-  export let token = "";
-  export let origin = "";
+  let { token = "", origin = "" } = $props();
 </script>
 
 <pre class="secretSnippet">

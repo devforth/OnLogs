@@ -21,34 +21,39 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
-func initTestConfig() *RouteController {
+var testCtrl *RouteController
+
+func TestMain(m *testing.M) {
+	if os.Getenv("JWT_SECRET") == "" {
+		os.Setenv("JWT_SECRET", "routes-package-test-signing-key")
+	}
+	// A token is only accepted while its account exists, so the accounts these
+	// tests sign tokens for have to be present.
+	os.Setenv("ADMIN_USERNAME", "admin")
+	userdb.CreateUser("admin", "admin-password-for-tests")
+	userdb.CreateUser("testuser", "testuser")
+	userdb.CreateUser("viewer", "viewer-password")
+	userdb.CreateUser("someuser", "someuser-password")
+
 	cli, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	defer cli.Close()
-
-	dockerService := &docker.DockerService{
-		Client: cli,
-	}
-
-	daemonService := &daemon.DaemonService{
-		DockerClient: dockerService,
-	}
-
-	// Initialize the "Controller" with its dependencies
-	routerCtrl := &RouteController{
+	dockerService := &docker.DockerService{Client: cli}
+	testCtrl = &RouteController{
 		DockerService: dockerService,
-		DaemonService: daemonService,
+		DaemonService: daemon.NewDaemonService(dockerService),
 	}
-	return routerCtrl
+
+	code := m.Run()
+	cli.Close()
+	os.Exit(code)
 }
 
 func TestFrontend(t *testing.T) {
-	ctrl := initTestConfig()
 	os.Mkdir("dist", 0700)
 	os.WriteFile("dist/index.html", []byte("text"), 0700)
 
 	req1, _ := http.NewRequest("GET", "/frontend", nil)
 	rr1 := httptest.NewRecorder()
-	handler1 := http.HandlerFunc(ctrl.Frontend)
+	handler1 := http.HandlerFunc(testCtrl.Frontend)
 	handler1.ServeHTTP(rr1, req1)
 	body1, _ := io.ReadAll(rr1.Result().Body)
 	if string(body1) != "text" {
@@ -57,7 +62,7 @@ func TestFrontend(t *testing.T) {
 
 	req2, _ := http.NewRequest("GET", "/fasf", nil)
 	rr2 := httptest.NewRecorder()
-	handler2 := http.HandlerFunc(ctrl.Frontend)
+	handler2 := http.HandlerFunc(testCtrl.Frontend)
 	handler2.ServeHTTP(rr2, req2)
 	body2, _ := io.ReadAll(rr2.Result().Body)
 	if string(body2) != "text" {
@@ -66,27 +71,11 @@ func TestFrontend(t *testing.T) {
 }
 
 func TestCheckCookie(t *testing.T) {
-	ctrl := initTestConfig()
-
-	req1, _ := http.NewRequest("GET", "/frontend", nil)
-	rr1 := httptest.NewRecorder()
-	handler1 := http.HandlerFunc(ctrl.CheckCookie)
-	handler1.ServeHTTP(rr1, req1)
-	if rr1.Result().StatusCode != 401 {
-		t.Error("Should be unauthorized!")
+	if status, _ := call(t, testCtrl.CheckCookie, authedRequest(t, "", "GET", "/", nil)); status != 401 {
+		t.Errorf("a request with no cookie returned %d, want 401", status)
 	}
-
-	req2, _ := http.NewRequest("GET", "/", nil)
-	req2.AddCookie(&http.Cookie{
-		Name:  "onlogs-cookie",
-		Value: util.CreateJWT("testuser"),
-	})
-	userdb.CreateUser("testuser", "testuser")
-	rr2 := httptest.NewRecorder()
-	handler2 := http.HandlerFunc(ctrl.CheckCookie)
-	handler2.ServeHTTP(rr2, req2)
-	if rr2.Result().StatusCode != 200 {
-		t.Error("Should be unauthorized!")
+	if status, _ := call(t, testCtrl.CheckCookie, authedRequest(t, "testuser", "GET", "/", nil)); status != 200 {
+		t.Errorf("a signed request returned %d, want 200", status)
 	}
 }
 
@@ -95,7 +84,6 @@ func TestGetHosts(t *testing.T) {
 	if err != nil {
 		os.Setenv("DOCKER_HOST", "unix:///var/run/docker.sock")
 	}
-	ctrl := initTestConfig()
 
 	os.RemoveAll("leveldb/hosts")
 	os.MkdirAll("leveldb/hosts/Test1/containers/containerTest1", 0700)
@@ -111,10 +99,8 @@ func TestGetHosts(t *testing.T) {
 		Value: util.CreateJWT("testuser"),
 	})
 
-	userdb.CreateUser("testuser", "testuser")
-
 	rr1 := httptest.NewRecorder()
-	handler1 := http.HandlerFunc(ctrl.GetHosts)
+	handler1 := http.HandlerFunc(testCtrl.GetHosts)
 	handler1.ServeHTTP(rr1, req1)
 	b, _ := io.ReadAll(rr1.Result().Body)
 
@@ -171,87 +157,54 @@ func TestGetHosts(t *testing.T) {
 	}
 }
 
-func TestSizeByAll(t *testing.T) {
-	ctrl := initTestConfig()
-	req1, _ := http.NewRequest("GET", "/", nil)
-	req1.AddCookie(&http.Cookie{
-		Name:  "onlogs-cookie",
-		Value: util.CreateJWT("testuser"),
-	})
-	userdb.CreateUser("testuser", "testuser")
-	rr1 := httptest.NewRecorder()
-	handler1 := http.HandlerFunc(ctrl.GetSizeByAll)
-	handler1.ServeHTTP(rr1, req1)
-	b, _ := io.ReadAll(rr1.Result().Body)
-	if !strings.Contains(string(b), "\"0.0\"") {
-		t.Error("Wrong size: ", string(b))
+func TestSizeEndpointsReportAnEmptyStore(t *testing.T) {
+	cases := []struct {
+		name    string
+		handler http.HandlerFunc
+		target  string
+	}{
+		{"sizeByAll", testCtrl.GetSizeByAll, "/api/v1/getSizeByAll"},
+		{"sizeByService", testCtrl.GetSizeByService, "/api/v1/getSizeByService?service=containerTest1&host=Test1"},
 	}
-}
 
-func TestSizeByService(t *testing.T) {
-	ctrl := initTestConfig()
-	req1, _ := http.NewRequest("GET", "/getSizeByService?service=containerTest1&host=Test1", nil)
-	req1.AddCookie(&http.Cookie{
-		Name:  "onlogs-cookie",
-		Value: util.CreateJWT("testuser"),
-	})
-	userdb.CreateUser("testuser", "testuser")
-	rr1 := httptest.NewRecorder()
-	handler1 := http.HandlerFunc(ctrl.GetSizeByAll)
-	handler1.ServeHTTP(rr1, req1)
-	b, _ := io.ReadAll(rr1.Result().Body)
-	if !strings.Contains(string(b), "\"0.0\"") {
-		t.Error("Wrong size: ", string(b))
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, body := call(t, c.handler, authedRequest(t, "testuser", "GET", c.target, nil))
+			if !strings.Contains(string(body), "\"0.0\"") {
+				t.Errorf("%s reported %s, want 0.0", c.name, body)
+			}
+		})
 	}
 }
 
 func TestLogin(t *testing.T) {
-	ctrl := initTestConfig()
-	postBody, _ := json.Marshal(map[string]string{
-		"Login":    "testuser",
-		"Password": "testsuser",
-	})
-	req1, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody))
-	userdb.CreateUser("testuser", "testuser")
-
-	rr1 := httptest.NewRecorder()
-	handler1 := http.HandlerFunc(ctrl.Login)
-	handler1.ServeHTTP(rr1, req1)
-	b, _ := io.ReadAll(rr1.Result().Body)
-	if !strings.Contains(string(b), "Wrong") {
-		t.Error("Password must be wrong!")
+	_, wrong := call(t, testCtrl.Login,
+		authedRequest(t, "", "POST", "/", map[string]string{"Login": "testuser", "Password": "testsuser"}))
+	if !strings.Contains(string(wrong), "Wrong") {
+		t.Errorf("a bad password was accepted: %s", wrong)
 	}
 
-	postBody2, _ := json.Marshal(map[string]string{
-		"Login":    "testuser",
-		"Password": "testuser",
-	})
-	req2, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody2))
-	rr2 := httptest.NewRecorder()
-	handler2 := http.HandlerFunc(ctrl.Login)
-	handler2.ServeHTTP(rr2, req2)
-	b2, _ := io.ReadAll(rr2.Result().Body)
-	if !strings.Contains(string(b2), "null") {
-		t.Error("Password must be wrong!")
+	_, right := call(t, testCtrl.Login,
+		authedRequest(t, "", "POST", "/", map[string]string{"Login": "testuser", "Password": "testuser"}))
+	if !strings.Contains(string(right), "null") {
+		t.Errorf("the correct password was rejected: %s", right)
 	}
 }
 
 func TestLogout(t *testing.T) {
-	ctrl := initTestConfig()
 	postBody, _ := json.Marshal(map[string]string{
 		"Login":    "testuser",
 		"Password": "testuser",
 	})
 	req1, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody))
-	userdb.CreateUser("testuser", "testuser")
 
 	rr1 := httptest.NewRecorder()
-	handler1 := http.HandlerFunc(ctrl.Login)
+	handler1 := http.HandlerFunc(testCtrl.Login)
 	handler1.ServeHTTP(rr1, req1)
 
 	rr2 := httptest.NewRecorder()
 	req1.AddCookie(rr1.Result().Cookies()[0])
-	handler2 := http.HandlerFunc(ctrl.Logout)
+	handler2 := http.HandlerFunc(testCtrl.Logout)
 	handler2.ServeHTTP(rr2, req1)
 
 	if rr2.Result().Cookies()[0].Value != "toDelete" {
@@ -260,15 +213,13 @@ func TestLogout(t *testing.T) {
 }
 
 func TestGetStats(t *testing.T) {
-	ctrl := initTestConfig()
 	postBody1, _ := json.Marshal(map[string]string{
 		"Login":    "testuser",
 		"Password": "testuser",
 	})
 	req1, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody1))
-	userdb.CreateUser("testuser", "testuser")
 	rr1 := httptest.NewRecorder()
-	handler1 := http.HandlerFunc(ctrl.Login)
+	handler1 := http.HandlerFunc(testCtrl.Login)
 	handler1.ServeHTTP(rr1, req1)
 	rr2 := httptest.NewRecorder()
 
@@ -287,7 +238,7 @@ func TestGetStats(t *testing.T) {
 	})
 	req2, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody2))
 	req2.AddCookie(rr1.Result().Cookies()[0])
-	handler2 := http.HandlerFunc(ctrl.GetStats)
+	handler2 := http.HandlerFunc(testCtrl.GetStats)
 	handler2.ServeHTTP(rr2, req2)
 
 	b, _ := io.ReadAll(rr2.Result().Body)
@@ -301,19 +252,16 @@ func TestGetStats(t *testing.T) {
 }
 
 func TestGetChartData(t *testing.T) {
-	ctrl := initTestConfig()
 	postBody1, _ := json.Marshal(map[string]string{
 		"Login":    "testuser",
 		"Password": "testuser",
 	})
 	req1, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody1))
-	userdb.CreateUser("testuser", "testuser")
 	rr1 := httptest.NewRecorder()
-	handler1 := http.HandlerFunc(ctrl.Login)
+	handler1 := http.HandlerFunc(testCtrl.Login)
 	handler1.ServeHTTP(rr1, req1)
 
 	cur_db, _ := leveldb.OpenFile("leveldb/hosts/test/statistics", nil)
-	vars.Stat_Hosts_DBs["test"] = cur_db
 	vars.Container_Stat_Counter["test/test"] = map[string]uint64{"error": 2, "debug": 1, "info": 3, "warn": 5, "meta": 0, "other": 4}
 	vars.Stat_Containers_DBs["test/test"] = cur_db
 	to_put, _ := json.Marshal(vars.Container_Stat_Counter["test/test"])
@@ -329,7 +277,7 @@ func TestGetChartData(t *testing.T) {
 	})
 	req2, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody2))
 	req2.AddCookie(rr1.Result().Cookies()[0])
-	handler2 := http.HandlerFunc(ctrl.GetChartData)
+	handler2 := http.HandlerFunc(testCtrl.GetChartData)
 	handler2.ServeHTTP(rr2, req2)
 
 	res := map[string]map[string]int{}

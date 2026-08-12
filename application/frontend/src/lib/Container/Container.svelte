@@ -1,9 +1,12 @@
 <script>
-  export let highlighted = false;
-  export let minHeightVh = 0;
-  export let maxHeightVh = 100;
-  export let paddingOff = false;
-  export let noShadows = false;
+  let {
+    highlighted = false,
+    minHeightVh = 0,
+    maxHeightVh = 100,
+    paddingOff = false,
+    noShadows = false,
+    children
+  } = $props();
 </script>
 
 <div
@@ -13,5 +16,5 @@
   style:min-height={`${minHeightVh}vh`}
   style={maxHeightVh !== 0 && `max-height: ${maxHeightVh}vh`}
 >
-  <slot />
+  {@render children?.()}
 </div>

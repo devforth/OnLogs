@@ -1,0 +1,90 @@
+.modalContainer:has(.logContext) {
+  background-color: $block-bg-color;
+}
+
+.logContext {
+  width: 80vw;
+  max-width: 1100px;
+
+  .logContextHead {
+    padding-right: 40px;
+    margin-bottom: 8px;
+
+    p {
+      color: $text-placeholder-color;
+      font-size: $main-font-xs;
+    }
+  }
+
+  .logContextLoading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 120px;
+    padding-left: 32px;
+  }
+
+  .logContextBox {
+    // offsetTop of the anchor row is measured against this box.
+    position: relative;
+    height: 60vh;
+    overflow: auto;
+  }
+
+  .contextAnchor {
+    background-color: $active-transparent-color;
+    border-radius: $main-border-radius;
+  }
+
+  .logContextMore {
+    width: 100%;
+    padding: 6px 0;
+    cursor: pointer;
+    border-radius: $main-border-radius;
+    background-color: $inpun-color;
+    color: $btn-common-color;
+    font-size: $main-font-xs;
+
+    // The global `button:hover` scales by 1.1, and a full-width button can only
+    // grow sideways out of its scroll container.
+    &:hover {
+      transform: none;
+      opacity: 1;
+      background-color: $active-transparent-color;
+    }
+
+    &:disabled,
+    &:disabled:hover {
+      cursor: default;
+      opacity: 0.5;
+      background-color: $inpun-color;
+    }
+  }
+
+  @include for-mobile {
+    width: 86vw;
+  }
+}
+
+.dark-mode .modalContainer:has(.logContext) {
+  background-color: $block-bg-color-dark;
+}
+
+.dark-mode .logContext {
+  .contextAnchor {
+    background-color: $active-transparent-color-dark;
+  }
+  .logContextMore {
+    background-color: $inpun-color-dark;
+    color: $text-dark-color-dark;
+
+    &:hover {
+      background-color: $active-transparent-color-dark;
+    }
+
+    &:disabled,
+    &:disabled:hover {
+      background-color: $inpun-color-dark;
+    }
+  }
+}

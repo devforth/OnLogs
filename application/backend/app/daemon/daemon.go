@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"strconv"
 	"strings"
@@ -20,7 +21,9 @@ import (
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
+	leveldbUtil "github.com/syndtr/goleveldb/leveldb/util"
 )
 
 const (
@@ -40,24 +43,35 @@ type DaemonService struct {
 	streamSeq          uint64
 	recentFingerprints map[string][]string
 	recentSet          map[string]map[string]struct{}
+	droppedReplays     map[string]int
+
+	// droppedReplays is cleared when a stream ends; these two are for /metrics,
+	// which needs a total that survives a restart and a cursor readable without
+	// touching LevelDB.
+	droppedReplayTotals map[string]uint64
+	cursorTimestamps    map[string]time.Time
 }
 
-func (h *DaemonService) ensureRuntimeState() {
-	h.streamsMu.Lock()
-	defer h.streamsMu.Unlock()
+func NewDaemonService(dockerClient *docker.DockerService) *DaemonService {
+	return &DaemonService{
+		DockerClient:        dockerClient,
+		streamCancels:       map[string]context.CancelFunc{},
+		streamIDs:           map[string]uint64{},
+		recentFingerprints:  map[string][]string{},
+		recentSet:           map[string]map[string]struct{}{},
+		droppedReplays:      map[string]int{},
+		droppedReplayTotals: map[string]uint64{},
+		cursorTimestamps:    map[string]time.Time{},
+	}
+}
 
-	if h.streamCancels == nil {
-		h.streamCancels = map[string]context.CancelFunc{}
+func noteMeta(db *leveldb.DB, host, containerName, token string, toHost bool, message string) {
+	if toHost {
+		agent.SendLogMessage(token, containerName,
+			strings.SplitN(createLogMessage(nil, host, containerName, message), " ", 2))
+		return
 	}
-	if h.streamIDs == nil {
-		h.streamIDs = map[string]uint64{}
-	}
-	if h.recentFingerprints == nil {
-		h.recentFingerprints = map[string][]string{}
-	}
-	if h.recentSet == nil {
-		h.recentSet = map[string]map[string]struct{}{}
-	}
+	createLogMessage(db, host, containerName, message)
 }
 
 func createLogMessage(db *leveldb.DB, host string, container string, message string) string {
@@ -66,27 +80,6 @@ func createLogMessage(db *leveldb.DB, host string, container string, message str
 		containerdb.PutLogMessage(db, host, container, []string{datetime, message})
 	}
 	return datetime + " " + message
-}
-
-func validateMessage(message string) (string, bool) {
-	for !strings.HasPrefix(message, vars.Year) {
-		message = message[1:]
-		if len(message) < 31 {
-			return "", false
-		}
-	}
-
-	return message, true
-}
-
-func closeActiveStream(containerName string) {
-	newDaemonStreams := make([]string, 0, len(vars.Active_Daemon_Streams))
-	for _, stream := range vars.Active_Daemon_Streams {
-		if stream != containerName {
-			newDaemonStreams = append(newDaemonStreams, stream)
-		}
-	}
-	vars.Active_Daemon_Streams = newDaemonStreams
 }
 
 func normalizeTimestamp(raw string) (string, time.Time, error) {
@@ -112,6 +105,78 @@ func parseDockerLogLine(line string) ([]string, time.Time, bool) {
 	return []string{tsStr, parts[1]}, ts, true
 }
 
+func (h *DaemonService) rememberFingerprint(containerName, fingerprint string) {
+	if h.recentSet[containerName] == nil {
+		h.recentSet[containerName] = map[string]struct{}{}
+	}
+	if _, exists := h.recentSet[containerName][fingerprint]; exists {
+		return
+	}
+
+	h.recentSet[containerName][fingerprint] = struct{}{}
+	h.recentFingerprints[containerName] = append(h.recentFingerprints[containerName], fingerprint)
+	if len(h.recentFingerprints[containerName]) > maxRecentLogEntries {
+		toDrop := h.recentFingerprints[containerName][0]
+		h.recentFingerprints[containerName] = h.recentFingerprints[containerName][1:]
+		delete(h.recentSet[containerName], toDrop)
+	}
+}
+
+// seedBoundaryFingerprints loads the lines already stored at exactly the cursor
+// timestamp, so a replay of them is recognised while a genuinely new line
+// sharing that nanosecond is still kept.
+func (h *DaemonService) seedBoundaryFingerprints(host, containerName string, cursor time.Time) {
+	if cursor.IsZero() {
+		return
+	}
+	db := util.GetDB(host, containerName, "logs")
+	if db == nil {
+		return
+	}
+
+	prefix := cursor.UTC().Format(streamTimestampFmt)
+	iter := db.NewIterator(leveldbUtil.BytesPrefix([]byte(prefix)), nil)
+	defer iter.Release()
+
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	for iter.Next() {
+		h.rememberFingerprint(containerName, prefix+" "+string(iter.Value()))
+	}
+}
+
+func (h *DaemonService) countDroppedReplay(containerName string) {
+
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	h.droppedReplays[containerName]++
+	h.droppedReplayTotals[util.GetHost()+"/"+containerName]++
+	if count := h.droppedReplays[containerName]; count == 1 || count%100 == 0 {
+		fmt.Printf("INFO: dropped %d replayed log line(s) for %s\n", count, containerName)
+	}
+}
+
+func (h *DaemonService) DroppedReplays(containerName string) int {
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	return h.droppedReplays[containerName]
+}
+
+// Keyed host/container, and survives a stream restart so the counter does not
+// reset every time a container bounces.
+func (h *DaemonService) DroppedReplayTotals() map[string]uint64 {
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	return maps.Clone(h.droppedReplayTotals)
+}
+
+// Mirrors what saveCursor persisted, so a scrape needs no LevelDB.
+func (h *DaemonService) CursorTimestamps() map[string]time.Time {
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	return maps.Clone(h.cursorTimestamps)
+}
+
 func (h *DaemonService) isRecentDuplicate(containerName, fingerprint string) bool {
 	h.streamsMu.Lock()
 	defer h.streamsMu.Unlock()
@@ -123,19 +188,73 @@ func (h *DaemonService) isRecentDuplicate(containerName, fingerprint string) boo
 		return true
 	}
 
-	h.recentSet[containerName][fingerprint] = struct{}{}
-	h.recentFingerprints[containerName] = append(h.recentFingerprints[containerName], fingerprint)
-	if len(h.recentFingerprints[containerName]) > maxRecentLogEntries {
-		toDrop := h.recentFingerprints[containerName][0]
-		h.recentFingerprints[containerName] = h.recentFingerprints[containerName][1:]
-		delete(h.recentSet[containerName], toDrop)
+	h.rememberFingerprint(containerName, fingerprint)
+	return false
+}
+
+// storedThrough is the cursor as persisted: the timestamp of the newest line
+// already stored. getResumeSince deliberately rewinds behind it, so everything
+// the stream replays up to this point is already on disk.
+func (h *DaemonService) storedThrough(host, containerName string) time.Time {
+	db := util.GetDB(host, containerName, "streamstate")
+	if db == nil {
+		return time.Time{}
+	}
+	raw, err := db.Get([]byte(cursorKey), nil)
+	if err != nil || len(raw) == 0 {
+		return time.Time{}
+	}
+	ts, err := time.Parse(time.RFC3339Nano, string(raw))
+	if err != nil {
+		return time.Time{}
+	}
+	return ts
+}
+
+// ingestLine stores one streamed line, dropping anything the previous run had
+// already persisted. Returns true when the line was stored.
+func (h *DaemonService) ingestLine(host, containerName string, currentDB *leveldb.DB, token string, toHost bool, storedThrough time.Time, line string) bool {
+
+	logItem, cursorTS, ok := parseDockerLogLine(line)
+	if !ok {
+		return false
 	}
 
-	return false
+	// Docker's Since is floored to whole seconds and the cursor is rewound on
+	// purpose, so every attach replays lines that are already stored.
+	if !storedThrough.IsZero() && cursorTS.Before(storedThrough) {
+		h.countDroppedReplay(containerName)
+		return false
+	}
+
+	fingerprint := logItem[0] + " " + logItem[1]
+	if h.isRecentDuplicate(containerName, fingerprint) {
+		h.countDroppedReplay(containerName)
+		return false
+	}
+
+	if toHost {
+		agent.SendLogMessage(token, containerName, logItem)
+		h.saveCursor(host, containerName, cursorTS)
+		return true
+	}
+
+	if err := containerdb.PutLogMessage(currentDB, host, containerName, logItem); err != nil {
+		fmt.Println("ERROR:", err.Error())
+		return false
+	}
+	h.saveCursor(host, containerName, cursorTS)
+
+	toSend, _ := json.Marshal(logItem)
+	vars.Broadcast(containerName, websocket.TextMessage, toSend)
+	return true
 }
 
 func (h *DaemonService) getResumeSince(host, containerName string) time.Time {
 	db := util.GetDB(host, containerName, "streamstate")
+	if db == nil {
+		return time.Now().Add(-initialBackfill)
+	}
 	raw, err := db.Get([]byte(cursorKey), nil)
 	if err != nil || len(raw) == 0 {
 		return time.Now().Add(-initialBackfill)
@@ -150,7 +269,15 @@ func (h *DaemonService) getResumeSince(host, containerName string) time.Time {
 }
 
 func (h *DaemonService) saveCursor(host, containerName string, ts time.Time) {
+
+	h.streamsMu.Lock()
+	h.cursorTimestamps[host+"/"+containerName] = ts.UTC()
+	h.streamsMu.Unlock()
+
 	db := util.GetDB(host, containerName, "streamstate")
+	if db == nil {
+		return
+	}
 	err := db.Put([]byte(cursorKey), []byte(ts.UTC().Format(streamTimestampFmt)), nil)
 	if err != nil {
 		fmt.Println("ERROR: unable to save stream cursor:", err)
@@ -190,12 +317,22 @@ func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.ReadCloser, 
 		_ = pw.CloseWithError(err)
 	}()
 
-	if scanErr := scanLogs(ctx, pr, onLine); scanErr != nil {
-		return scanErr
-	}
+	scanErr := scanLogs(ctx, pr, onLine)
+
+	// Release the writer before waiting on it. StdCopy may be parked in
+	// pw.Write, and neither closing rc nor cancelling ctx unblocks a blocked
+	// write -- so without this, an early return from scanLogs (cancellation, or
+	// a line over the scanner's 1 MiB limit) leaves StdCopy stuck, this function
+	// never returns, finalizeStream never runs, and EnsureStream refuses to
+	// restart that container for the life of the process.
+	_ = pr.CloseWithError(io.ErrClosedPipe)
 
 	copyErr := <-copyDone
-	if copyErr != nil && !errors.Is(copyErr, io.EOF) && !errors.Is(copyErr, context.Canceled) {
+	if scanErr != nil {
+		return scanErr
+	}
+	if copyErr != nil && !errors.Is(copyErr, io.EOF) && !errors.Is(copyErr, context.Canceled) &&
+		!errors.Is(copyErr, io.ErrClosedPipe) {
 		return copyErr
 	}
 	return nil
@@ -222,13 +359,26 @@ func (h *DaemonService) finalizeStream(containerName string, streamID uint64) bo
 		return false
 	}
 
+	// Dropping the CancelFunc without calling it leaks streamCtx and the
+	// watchdog goroutine parked on <-ctx.Done() for every stream that ends.
+	if cancel, ok := h.streamCancels[containerName]; ok {
+		defer cancel()
+	}
 	delete(h.streamCancels, containerName)
 	delete(h.streamIDs, containerName)
+	delete(h.recentSet, containerName)
+	delete(h.recentFingerprints, containerName)
+	delete(h.droppedReplays, containerName)
+	// droppedReplayTotals deliberately survives; the cursor does not, since a
+	// stopped stream has no progress to fall behind on.
+	delete(h.cursorTimestamps, util.GetHost()+"/"+containerName)
 	return true
 }
 
 func (h *DaemonService) runContainerStream(ctx context.Context, containerName string, toHost bool, streamID uint64) {
 	host := util.GetHost()
+	storedThrough := h.storedThrough(host, containerName)
+	h.seedBoundaryFingerprints(host, containerName, storedThrough)
 	since := h.getResumeSince(host, containerName)
 	rc, err := h.DockerClient.Client.ContainerLogs(
 		ctx,
@@ -244,7 +394,7 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 	if err != nil {
 		fmt.Println("ERROR: unable to attach logs stream for", containerName, ":", err)
 		if h.finalizeStream(containerName, streamID) {
-			closeActiveStream(containerName)
+			vars.RemoveActiveStream(containerName)
 		}
 		return
 	}
@@ -257,63 +407,26 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 
 	currentDB := util.GetDB(host, containerName, "logs")
 	token := os.Getenv("ONLOGS_TOKEN")
-	if toHost {
-		agent.SendLogMessage(token, containerName, strings.SplitN(createLogMessage(nil, host, containerName, "ONLOGS: Container listening started!"), " ", 2))
-	} else {
-		createLogMessage(currentDB, host, containerName, "ONLOGS: Container listening started!")
-	}
+	noteMeta(currentDB, host, containerName, token, toHost, "ONLOGS: Container listening started!")
 
 	streamErr := h.streamDockerLogs(ctx, rc, func(line string) {
-		logItem, cursorTS, ok := parseDockerLogLine(line)
-		if !ok {
-			return
-		}
-
-		fingerprint := logItem[0] + " " + logItem[1]
-		if h.isRecentDuplicate(containerName, fingerprint) {
-			return
-		}
-
-		if toHost {
-			agent.SendLogMessage(token, containerName, logItem)
-			h.saveCursor(host, containerName, cursorTS)
-			return
-		}
-
-		err := containerdb.PutLogMessage(currentDB, host, containerName, logItem)
-		if err != nil {
-			fmt.Println("ERROR:", err.Error())
-			return
-		}
-		h.saveCursor(host, containerName, cursorTS)
-
-		toSend, _ := json.Marshal(logItem)
-		for _, c := range vars.Connections[containerName] {
-			c.WriteMessage(1, toSend)
-		}
+		h.ingestLine(host, containerName, currentDB, token, toHost, storedThrough, line)
 	}, !h.isContainerTTY(ctx, containerName))
 
-	if streamErr != nil && ctx.Err() == nil {
-		if toHost {
-			agent.SendLogMessage(token, containerName, strings.SplitN(createLogMessage(nil, host, containerName, "ONLOGS: Container listening stopped! ("+streamErr.Error()+")"), " ", 2))
-		} else {
-			createLogMessage(currentDB, host, containerName, "ONLOGS: Container listening stopped! ("+streamErr.Error()+")")
+	if ctx.Err() == nil {
+		reason := "(EOF)"
+		if streamErr != nil {
+			reason = "(" + streamErr.Error() + ")"
 		}
-	} else if ctx.Err() == nil {
-		if toHost {
-			agent.SendLogMessage(token, containerName, strings.SplitN(createLogMessage(nil, host, containerName, "ONLOGS: Container listening stopped! (EOF)"), " ", 2))
-		} else {
-			createLogMessage(currentDB, host, containerName, "ONLOGS: Container listening stopped! (EOF)")
-		}
+		noteMeta(currentDB, host, containerName, token, toHost, "ONLOGS: Container listening stopped! "+reason)
 	}
 
 	if h.finalizeStream(containerName, streamID) {
-		closeActiveStream(containerName)
+		vars.RemoveActiveStream(containerName)
 	}
 }
 
 func (h *DaemonService) EnsureStream(ctx context.Context, containerName string) {
-	h.ensureRuntimeState()
 
 	h.streamsMu.Lock()
 	if _, exists := h.streamCancels[containerName]; exists {
@@ -327,11 +440,9 @@ func (h *DaemonService) EnsureStream(ctx context.Context, containerName string) 
 	h.streamIDs[containerName] = streamID
 	h.streamsMu.Unlock()
 
-	if !util.Contains(containerName, vars.Active_Daemon_Streams) {
-		vars.Active_Daemon_Streams = append(vars.Active_Daemon_Streams, containerName)
-	}
+	vars.AddActiveStream(containerName)
 
-	if os.Getenv("AGENT") != "" {
+	if util.IsAgentMode() {
 		go h.runContainerStream(streamCtx, containerName, true, streamID)
 		return
 	}
@@ -339,7 +450,6 @@ func (h *DaemonService) EnsureStream(ctx context.Context, containerName string) 
 }
 
 func (h *DaemonService) StopStream(containerName string) {
-	h.ensureRuntimeState()
 
 	h.streamsMu.Lock()
 	cancel, exists := h.streamCancels[containerName]
@@ -352,15 +462,19 @@ func (h *DaemonService) StopStream(containerName string) {
 	if exists {
 		cancel()
 	}
-	closeActiveStream(containerName)
+	vars.RemoveActiveStream(containerName)
 }
 
-func (h *DaemonService) CreateDaemonToHostStream(ctx context.Context, containerName string) {
-	h.runContainerStream(ctx, containerName, true, 0)
-}
-
-func (h *DaemonService) CreateDaemonToDBStream(ctx context.Context, containerName string) {
-	h.runContainerStream(ctx, containerName, false, 0)
+// runningNames keeps only containers docker reports as running. Attaching to an
+// exited container writes a started/stopped META pair on every reconcile.
+func runningNames(result []docker.ContainerNamesResult) []string {
+	var names []string
+	for i := range result {
+		if result[i].Running && result[i].Name != "" {
+			names = append(names, result[i].Name)
+		}
+	}
+	return names
 }
 
 // returns list of names of docker containers from docker daemon
@@ -368,37 +482,25 @@ func (h *DaemonService) GetContainersList(ctx context.Context) []string {
 	result, err := h.DockerClient.GetContainerNames(ctx)
 	if err != nil {
 		fmt.Println("ERROR: failed to get containers list from docker daemon:", err)
-		return vars.DockerContainers
+		return vars.DockerContainerList()
 	}
 
 	var names []string
 
-	containersMetaDB := vars.ContainersMeta_DBs[util.GetHost()]
+	containersMetaDB := util.GetContainersMetaDB(util.GetHost())
 	if containersMetaDB == nil {
-		containersMetaDB, err := leveldb.OpenFile("leveldb/hosts/"+util.GetHost()+"/containersMeta", nil)
-		if err != nil {
-			panic(err)
-		}
-		vars.ContainersMeta_DBs[util.GetHost()] = containersMetaDB
+		return runningNames(result)
 	}
-	containersMetaDB = vars.ContainersMeta_DBs[util.GetHost()]
 
 	for i := range result {
 		name := result[i].Name
 		id := result[i].ID
 
-		names = append(names, name)
+		// Every container is recorded, so a stopped one can still be looked up
+		// by name; only running ones are streamed and shown as enabled.
 		containersMetaDB.Put([]byte(name), []byte(id), nil)
 	}
 
+	names = runningNames(result)
 	return names
-}
-
-func (h *DaemonService) GetContainerImageNameByContainerID(ctx context.Context, containerID string) string {
-	result, err := h.DockerClient.GetContainerImageNameByContainerID(ctx, containerID)
-	if err != nil {
-		return ""
-	}
-
-	return result
 }

@@ -29,13 +29,13 @@
 - 🔎 Search through logs (configurable case sensitivity)
 - 👁 View parameters (parsing JSON, showing local/UTC time for every logline)
 - 🔴 Realtime logs updating
+- 🗂 Group services into named folders in the sidebar, per user
+- 📈 Prometheus metrics endpoint for log volume and OnLogs' own health
 
 ### Roadmap
 
-- 🗂 Grouping hosts
 - 🏷 Search and filter by tags (log status, time)
 - 🔌Plugins and internal ability to notify about some event (e.g. notify when Error happens)
-- 📊 Improved statistics
 
 ## Hello world & usage
 ### Docker Compose example with traefik
@@ -47,6 +47,7 @@
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=<any password>
       - PORT=8798
+      - TRUSTED_PROXIES=172.16.0.0/12 # the docker network traefik reaches OnLogs over, see below
     #  - ONLOGS_PATH_PREFIX=/onlogs if want to use with path prefix
 
     labels:
@@ -66,7 +67,7 @@ volumes:
 
 ### Docker Run example with traefik
 ```sh
-docker run --restart always -e ADMIN_USERNAME=admin -e PASSWORD=<any password> -e PORT=8798 \
+docker run --restart always -e ADMIN_USERNAME=admin -e ADMIN_PASSWORD=<any password> -e PORT=8798 \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
     -v /var/lib/docker/containers:/var/lib/docker/containers \
     -v /etc/hostname:/etc/hostname \
@@ -83,17 +84,107 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 |----------------------------|---------------------------------|--------|-----------------|
 | DOCKER_HOST              | URL of the docker socket to connect to. See below | `unix:///var/run/docker.sock` | |
 | ADMIN_USERNAME           | Username for initial user                        | `admin`                 | if `AGENT=false`
-| ADMIN_PASSWORD           | Password for initial user                        |                    | if `AGENT=false`
+| ADMIN_PASSWORD           | Password for initial user. Must not be empty — OnLogs refuses to start without it unless `DISABLE_AUTH=true` |                    | if `AGENT=false`
 | PORT               | Port to listen on                                | `2874`             | if `AGENT=false`
-| JWT_SECRET         | Secret for JWT tokens for users                  | Generates randomly | -
+| JWT_SECRET         | Secret for JWT tokens for users. Generated with `crypto/rand` on first start and persisted to `leveldb/JWT_secret`. Set it explicitly if you want sessions to survive the volume being recreated | Generates randomly | -
 | ONLOGS_PATH_PREFIX | Base path if you using OnLogs not on subdomain   |                    | only if using on path prefix
-| AGENT             | Toggles agent mode. If enabled, there will be no web interface available, and all logs will be sent  and stored on HOST                                                      | `false` | -
+| AGENT             | Toggles agent mode. If enabled, there will be no web interface available, and all logs will be sent  and stored on HOST. Parsed as a boolean, so `false`, `0` and an unset value all mean off | `false` | -
 | HOST               | Url to OnLogs host from protocol to domain name. |                    | if `AGENT=true`
 | ONLOGS_TOKEN       | Token that will use an agent to authorize and connect to HOST | Generates with OnLogs interface   | if `AGENT=true`
-| MAX_LOGS_SIZE | Maximum allowed total logs size before cleanup triggers. Accepts human-readable formats like 5GB, 500MB, 1.5GB etc. When exceeded, 10% of logs (by count) will be removed proportionally across containers starting from oldest | 10GB | -
+| MAX_LOGS_SIZE | Maximum allowed total logs size before cleanup triggers. Accepts human-readable formats like 5GB, 500MB, 1.5GB etc. When exceeded, 10% of logs (by count) will be removed proportionally across containers starting from oldest. Validated at startup: an unparseable value stops OnLogs rather than silently disabling retention | 10GB | -
 | DISABLE_AUTH | Option to completely disable built in authentication in the application. When this option is set to `true` the app will behave like if the Administrator is logged in. The option to manage users will be removed. | false | -
+| METRICS_TOKEN | Bearer token for the Prometheus endpoint at `/api/v1/metrics`. While it is unset the endpoint returns `401` and exposes nothing, so metrics are off by default. See [Metrics](#metrics) | | only for `/api/v1/metrics`
+| TRUSTED_PROXIES | Peers allowed to name the client through `X-Forwarded-For` / `X-Real-IP`, as comma separated IPs and CIDR ranges. See [Behind a reverse proxy](#behind-a-reverse-proxy) | | only if behind nginx/traefik
 
-### Docket socket URL
+## Behind a reverse proxy
+
+Failed logins are rate limited per client address. Behind nginx or traefik every request
+arrives from the proxy, so without `TRUSTED_PROXIES` all your users count as one client and
+a single password sprayer locks out the rest. Set it to the addresses your proxy connects
+from:
+
+```
+TRUSTED_PROXIES=172.16.0.0/12    # docker networks land here, so any containerised proxy does too
+TRUSTED_PROXIES=127.0.0.1        # a proxy on the host
+```
+
+Keep the range as tight as your proxy allows — anything reaching OnLogs from a listed address
+can call itself any client.
+
+Make sure the proxy actually sends the headers — traefik does by default, nginx needs
+`proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`.
+
+## Metrics
+
+Prometheus metrics at `${ONLOGS_PATH_PREFIX}/api/v1/metrics`. Set `METRICS_TOKEN` to enable
+them — while it is unset every request gets a `401`, since the endpoint reveals container
+names and log volumes.
+
+```yaml
+scrape_configs:
+  - job_name: onlogs
+    metrics_path: /api/v1/metrics
+    authorization:
+      credentials: <your METRICS_TOKEN>
+    static_configs:
+      - targets: ["onlogs:2874"]
+```
+
+| metric | labels | meaning |
+|---|---|---|
+| `onlogs_log_lines_total` | host, container, level | Log lines stored, by severity |
+| `onlogs_stream_up` | host, container | 1 while a container's stream is attached |
+| `onlogs_stream_cursor_timestamp_seconds` | host, container | Newest line ingested |
+| `onlogs_dropped_replay_lines_total` | host, container | Lines dropped as replays |
+| `onlogs_logs_size_bytes` / `_limit_bytes` | | Stored size, and `MAX_LOGS_SIZE` |
+| `onlogs_container_db_size_bytes` | host, container | Stored size per container |
+| `onlogs_retention_deleted_lines_total` | | Lines deleted by the quota |
+| `onlogs_filesystem_size_bytes` / `_avail_bytes` | | The filesystem holding the logs |
+| `onlogs_stats_workers`, `onlogs_websocket_connections` | | Workers and live viewers |
+| `onlogs_goroutines`, `onlogs_heap_bytes` | | Process health |
+| `onlogs_login_failures_total`, `onlogs_login_blocked_total` | | Rejected and blocked logins |
+| `onlogs_build_info` | version | Always 1 |
+
+Alert on error rate, and on ingestion stalling while lines are still arriving:
+
+```yaml
+- alert: OnLogsContainerErrors
+  expr: sum by (host, container) (rate(onlogs_log_lines_total{level="error"}[5m])) > 1
+  for: 10m
+
+- alert: OnLogsIngestStalled
+  expr: |
+    (time() - onlogs_stream_cursor_timestamp_seconds > 300)
+      and on (host, container) (rate(onlogs_log_lines_total[10m]) > 0)
+  for: 5m
+```
+
+Worth knowing: `onlogs_stream_up` covers local containers only, not agent-forwarded ones;
+size gauges refresh every 5 minutes and the limit is read once at startup; counters reset
+on restart, as usual; and at most 1000 host/container pairs are counted.
+
+## Upgrading from 1.x
+
+Your logs are safe — nothing in the volume is migrated or deleted.
+
+**Check these three first, or the container will not start:**
+
+| Variable | What changed |
+|---|---|
+| `ADMIN_PASSWORD` | Must not be empty, unless `DISABLE_AUTH=true`. The 1.3.1 `docker run` example set `PASSWORD=` by mistake — if you copied it, fix the name. |
+| `MAX_LOGS_SIZE` | Must be a valid size if you set it. Leaving it unset is fine. |
+| `AGENT` | Now a real boolean. `AGENT=false` used to mean *on*, so you may have been running without a web interface by accident. `yes` and `on` no longer work. |
+
+**Everyone is logged out once.** 1.3.1 signed sessions with an empty key, which anyone
+could forge. A real secret is generated on first start — set `JWT_SECRET` yourself if you
+want sessions to survive the volume being recreated.
+
+Smaller changes: passwords are now hashed (rotate them if the database may have been
+exposed); favourites are per user and need starring again; log levels are matched
+case-insensitively, so charts change shape at the upgrade; live tailing needs your reverse
+proxy to forward the original `Host` header.
+
+## Docker socket URL
 By default the app will connect using the raw unix socket. But this can be overriden via the ENV variable `DOCKER_HOST`. That way you can specify fully qualified URL to the socket or URL of an docker socket proxy.
 
 In `compose-socket-proxy.yml` you can see a sample compose file for starting the socket proxy. To use it in the app set `DOCKER_HOST=http://localhost:2375` in the ENV.

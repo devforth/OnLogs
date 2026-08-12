@@ -1,16 +1,16 @@
 <script>
-  // @ts-nocheck
+  
 
-  export let searchText = "";
-  export let searchResetVersion = 0;
   import Button from "../../../lib/Button/Button.svelte";
   import DropDown from "../../../lib/DropDown/DropDown.svelte";
   import { clickOutside } from "../../../lib/OutsideClicker/OutsideClicker.js";
   import { hasSearchResetRequest } from "../shareLinkViewState.js";
-  let dropDownIsVisible = false;
-  let isSearchVIsible = false;
-  let lastSearchResetVersion = searchResetVersion;
-  let timer;
+  import { onDestroy, untrack } from "svelte";
+  let { searchText = $bindable(""), searchResetVersion = 0 } = $props();
+  let dropDownIsVisible = $state(false);
+  let isSearchVIsible = $state(false);
+  let lastSearchResetVersion = $state(untrack(() => searchResetVersion));
+  let timer = $state();
   const debounce = (v) => {
     clearTimeout(timer);
     timer = setTimeout(() => {
@@ -27,10 +27,15 @@
     }
   }
 
-  $: if (hasSearchResetRequest(lastSearchResetVersion, searchResetVersion)) {
-    lastSearchResetVersion = searchResetVersion;
-    isSearchVIsible = false;
-  }
+  $effect(() => {
+    if (hasSearchResetRequest(lastSearchResetVersion, searchResetVersion)) {
+      lastSearchResetVersion = searchResetVersion;
+      isSearchVIsible = false;
+      clearTimeout(timer);
+    }
+  });
+
+  onDestroy(() => clearTimeout(timer));
 </script>
 
 <div id="top-line">
@@ -45,7 +50,7 @@
     <div
       style:position={"relative"}
       use:clickOutside
-      on:click_outside={handleClickOutside}
+      onclick_outside={handleClickOutside}
     >
       <Button
         icon={"log log-Eye"}
@@ -80,15 +85,13 @@
     />
   </div>
   <div class="header search {!isSearchVIsible && 'hidden'}">
-    {#if !searchText}<div class="searchIcoContainer">
-        <i class={"log log-Search"} />
-      </div>{/if}
+    <div class="searchIcoContainer">
+      <i class={"log log-Search"}></i>
+    </div>
     <input
       type="text"
-      bind:value={searchText}
-      on:input={(e) => {
-        searchText = e.target.value;
-      }}
+      value={searchText}
+      oninput={(e) => debounce(e.target.value)}
       placeholder="Search"
     />
   </div>

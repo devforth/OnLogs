@@ -1,0 +1,116 @@
+.groupModal {
+  min-width: 300px;
+  max-width: 450px;
+
+  @include for-mobile {
+    min-width: auto;
+    width: 76vw;
+  }
+
+  h3 {
+    margin-bottom: 16px;
+    // Modal.svelte pins its close button at the top right.
+    padding-right: 40px;
+    color: $text-dark-color;
+  }
+
+  // Matches the Search field, minus its absolutely positioned placeholder,
+  // which only exists there because an icon is overlaid on that input.
+  .groupNameInput {
+    width: 100%;
+    height: 40px;
+    box-sizing: border-box;
+    padding: 0 $normal-padding;
+    font-family: inherit;
+    font-size: $main-font-m;
+    background-color: $inpun-color;
+    border: 1px solid $text-placeholder-color;
+    border-radius: $main-border-radius;
+    color: $text-dark-color;
+
+    &:focus {
+      outline: none;
+      border: 2px solid $active-color;
+    }
+  }
+
+  .groupModalTree {
+    max-height: 40vh;
+    overflow-y: auto;
+    margin-top: 20px;
+
+    &::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+      background-color: rgba(0, 0, 0, 0);
+    }
+
+    &::-webkit-scrollbar-corner {
+      display: none;
+    }
+  }
+
+  // Echoes .hostHeader / .hostName in the sidebar, which lists the same data.
+  .groupModalHost {
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    gap: 12px;
+    font-weight: bold;
+    font-size: $main-font-s;
+    margin-top: $normal-padding;
+
+    &:first-child {
+      margin-top: 0;
+    }
+
+    i {
+      font-size: 16px;
+      line-height: 1;
+    }
+  }
+
+  .groupModalService {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 0;
+
+    &:hover {
+      opacity: 0.8;
+    }
+
+    input[type="checkbox"] {
+      accent-color: $active-color;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: $main-font-s;
+    }
+
+    .disabled {
+      opacity: 0.2;
+    }
+  }
+
+  .groupModalButtons {
+    display: flex;
+    justify-content: end;
+    gap: 8px;
+    margin-top: 24px;
+  }
+
+  // Keeps the destructive button away from the one beside it, and collapses to
+  // nothing when it is not rendered.
+  #groupModalDelete {
+    margin-right: auto;
+  }
+}

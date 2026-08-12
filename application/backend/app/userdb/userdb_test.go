@@ -39,19 +39,22 @@ func TestEditUser(t *testing.T) {
 	CreateUser("testtest", "testtest")
 	EditUser("testtest", "sus?")
 
-	pass, _ := vars.UsersDB.Get([]byte("testtest"), nil)
-	if string(pass) != "sus?" {
+	if !CheckUserPassword("testtest", "sus?") {
 		t.Error("User wasn't edited")
+	}
+	pass, _ := vars.UsersDB.Get([]byte("testtest"), nil)
+	if string(pass) == "sus?" {
+		t.Error("Password is stored in cleartext")
 	}
 }
 
 func TestDeleteUser(t *testing.T) {
-	err := DeleteUser("aaaaaaaaa????????", "123")
+	err := DeleteUser("aaaaaaaaa????????")
 	if err == nil {
 		t.Error("Error is nil")
 	}
 
-	DeleteUser("admin1", "admin")
+	DeleteUser("admin1")
 	if IsUserExists("admin1") {
 		t.Error("User should be deleted")
 	}

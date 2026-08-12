@@ -1,7 +1,6 @@
 <script>
   // @ts-ignore
   import Container from "@/lib/Container/Container.svelte";
-  import HostList from "../../lib/HostList/HostList.svelte";
   import NewLogsV2 from "../Logs/NewLogsV2.svelte";
   import Button from "../../lib/Button/Button.svelte";
   import fetchApi from "../../utils/fetch";
@@ -20,12 +19,18 @@
     toastIsVisible,
     chosenLogsString,
     store,
+    groupModalIsVisible,
+    hostBeingRenamed,
   } from "../../Stores/stores.js";
+  import GroupModal from "../../lib/GroupModal/GroupModal.svelte";
+  import HostAliasModal from "../../lib/HostAliasModal/HostAliasModal.svelte";
+  import { reloadGroups } from "../../utils/groups.js";
+  import { reloadHostAliases } from "../../utils/hostAliases.js";
   import UserMenu from "../../lib/UserMenu/UserMenu.svelte";
   import Modal from "../../lib/Modal/Modal.svelte";
   import UserManageForm from "../../lib/UserMenu/UserManageForm.svelte";
   import { navigate } from "svelte-routing";
-  import { onMount, onDestroy, afterUpdate } from "svelte";
+  import { onMount, onDestroy, } from "svelte";
 
   import ListWithChoise from "../../lib/ListWithChoise/ListWithChoise.svelte";
   import CommonList from "../../lib/CommonList/CommonList.svelte";
@@ -35,7 +40,6 @@
   import LogsSize from "../../lib/LogsSize/LogsSize.svelte";
   import ConfirmationMenu from "../../lib/ConfirmationMenu/ConfirmationMenu.svelte";
   import ServiceSettings from "../ServiceSettings/ServiceSettings.svelte";
-  import ServiceSettingsLeft from "../ServiceSettings/ServiceSettingsLeft.svelte";
   import { lastLogTimestamp } from "../../Stores/stores.js";
   import { changeKey } from "../../utils/changeKey.js";
   import Stats from "../../lib/Stats/Stats.svelte";
@@ -45,14 +49,14 @@
   import { findSearchTextInLogs } from "../../Views/Logs/functions";
 
   let api = new fetchApi();
-  let hostList = [];
+  let hostList = $state([]);
   let intervalId = null;
   let INTERVAL = 10000;
 
   let userMenuState = false;
-  let addUserModOpen = false;
-  let newUserData = { login: "", password: "" };
-  let userForAdding = "";
+  let addUserModOpen = $state(false);
+  let newUserData = $state({ login: "", password: "" });
+  let userForAdding = $state("");
   let withoutRightPanel = false;
 
   function handleClick({ target }) {
@@ -65,8 +69,13 @@
     }
   }
 
-  export let host = "";
-  export let service = "";
+  let { host = "", service = "" } = $props();
+
+  const section = location.pathname.includes("/stats")
+    ? "stats"
+    : location.pathname.includes("/servicesettings")
+      ? "settings"
+      : "logs";
 
   function closeModal() {
     addUserModalOpen.set(false);
@@ -88,10 +97,10 @@
     navigate(`${changeKey}/login`, { replace: true });
   }
 
-  userMenuOpen.subscribe((v) => {
+  const unsubscribeUserMenu = userMenuOpen.subscribe((v) => {
     userMenuState = v;
   });
-  addUserModalOpen.subscribe((v) => {
+  const unsubscribeAddUserModal = addUserModalOpen.subscribe((v) => {
     addUserModOpen = v;
   });
 
@@ -101,12 +110,16 @@
     if (Array.isArray(data) && data.at(0)) {
       hostList = [...data];
     }
-    if (data.host) {
+    if (data?.host) {
       hostList = [data];
     }
-    return data;
+    return Array.isArray(data) ? data : [];
   }
   onMount(async () => {
+    // Groups only change when this user changes them, so they are loaded once
+    // rather than folded into the host polling.
+    reloadGroups();
+    reloadHostAliases();
     const data = await getHosts();
     intervalId = setInterval(async () => {
       await getHosts();
@@ -121,18 +134,18 @@
           return s.serviceName === $lastChosenService;
         }
       );
-      if (isAlreadyChosenService[0].serviceName) {
+      if (isAlreadyChosenService[0]?.serviceName) {
         return;
       } else {
         if (service) {
           lastChosenService.set(service);
         } else {
-          lastChosenService.set(hostList.at(0)["services"].at(0).serviceName);
+          lastChosenService.set(hostList.at(0)?.services?.at(0)?.serviceName);
         }
         if (host) {
           lastChosenHost.set(host);
         } else {
-          lastChosenHost.set(hostList.at(0)["host"]);
+          lastChosenHost.set(hostList.at(0)?.host);
         }
       }
     }
@@ -140,6 +153,15 @@
 
   onDestroy(() => {
     clearInterval(intervalId);
+    unsubscribeUserMenu();
+    unsubscribeAddUserModal();
+  });
+
+  $effect(() => {
+    if (host && service && service !== "undefined") {
+      lastChosenHost.set(host);
+      lastChosenService.set(service);
+    }
   });
 
   // $: {
@@ -153,14 +175,12 @@
 <div class="contentContainer">
   <div class="subContainerLeft subContainer ">
     <div
-      class={$activeMenuOption === "burger" &&
-        !location.pathname.includes("/servicesettings") &&
-        "active"}
+      class={$activeMenuOption === "burger" && "active"}
       id="listContainer"
-      on:mouseenter={() => {
+      onmouseenter={() => {
         listScrollIsVisible.set(true);
       }}
-      on:mouseleave={() => {
+      onmouseleave={() => {
         listScrollIsVisible.set(false);
       }}
     >
@@ -168,7 +188,7 @@
         <div class="onLogsPanel">
           <div class="onLogsPanelHeader">
             <h1
-              on:click={() => {
+              onclick={() => {
                 navigate(
                   `${changeKey}/view/${$lastChosenHost}/${$lastChosenService}`,
                   {
@@ -183,7 +203,7 @@
             <div
               style:position={"relative"}
               use:clickOutside
-              on:click_outside={() => {
+              onclick_outside={() => {
                 addHostMenuIsVisible.set(false);
               }}
               class={withoutRightPanel && "visuallyHidden"}
@@ -205,10 +225,10 @@
             </div>
           </div>
 
-          {#if location.pathname.includes("/view") || location.pathname === `${changeKey}` || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION/` || location.pathname === "/" || location.pathname.includes("/stats")}
+          {#if location.pathname.includes("/view") || location.pathname === `${changeKey}` || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION/` || location.pathname === "/" || location.pathname.includes("/stats") || location.pathname.includes("/servicesettings")}
             <ListWithChoise
+              {section}
               listData={hostList}
-              headerButton={"Pencil"}
               listElementButton={"true"}
               activeElementName={host && service && service !== "undefined"
                 ? `${host}-${service}`
@@ -217,8 +237,6 @@
               listData={[{ name: "Logout", ico: "Logout", callBack: logout }]}
               isRowClickable={true}
             />{/if}
-          {#if location.pathname.includes("/servicesettings")}
-            <ServiceSettingsLeft />{/if}
         </div>
       </Container>
     </div>
@@ -242,11 +260,17 @@
       {#if location.pathname.includes("/servicesettings")}
         <ServiceSettings />{/if}
       {#if location.pathname.includes("/stats")}
-        <MainChartMenu />{/if}
+        <MainChartMenu {host} {service} />{/if}
     </Container>
   </div>
   {#if $snipetModalIsVisible}
     <SecretModal />
+  {/if}
+  {#if $groupModalIsVisible}
+    <GroupModal hosts={hostList} />
+  {/if}
+  {#if $hostBeingRenamed}
+    <HostAliasModal />
   {/if}
   <div
     class="subContainerRight  subContainer {withoutRightPanel
@@ -285,4 +309,4 @@
     {closeModal}
   /></Modal
 >
-<svelte:window on:click={handleClick} />
+<svelte:window onclick={handleClick} />

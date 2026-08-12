@@ -6,12 +6,14 @@
 
 @import "./Views/Logs/LogsView.scss";
 @import "./Views/Login//Login.scss";
-@import "./lib/HostList/HostList.scss";
 @import "./lib/ClientPanel/ClientPanel.scss";
 @import "./lib/DropDown/DropDown.scss";
 @import "./lib/CheckBox/CheckBox.scss";
 @import "./lib/UserMenu/UserMenu.scss";
 @import "./lib/Modal/Modal.scss";
+@import "./lib/LogContext/LogContext.scss";
+@import "./lib/GroupModal/GroupModal.scss";
+@import "./lib/HostAliasModal/HostAliasModal.scss";
 @import "./Theme.scss";
 @import "./lib/ListWithChoise/ListWithChoise.scss";
 @import "./lib/CommonList/CommonList.scss";
@@ -24,7 +26,6 @@
 @import "./Views/ServiceSettings/ServiceSettings.scss";
 @import "./lib/Stats/Stats.scss";
 @import "./lib/ChartMenu/ChartMenu.scss";
-@import "./lib/ProgressBar/ProgressBar.scss";
 @import "./lib/StreamInfo/StreamInfo.scss";
 body {
   font-family: "Ubuntu", sans-serif;
@@ -53,6 +54,7 @@ h1 {
 li {
   list-style: none;
   color: inherit;
+  padding: 10px 0;
 }
 
 p {

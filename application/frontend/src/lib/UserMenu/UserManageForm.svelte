@@ -1,9 +1,7 @@
 <script>
   import Button from "../Button/Button.svelte";
 
-  export let userData = { login: "", password: "" };
-  export let createHandler = () => {};
-  export let closeModal = () => {};
+  let { userData = $bindable({ login: "", password: "" }), createHandler = () => {}, closeModal = () => {} } = $props();
 </script>
 
 <div class="userCreateForm">
@@ -42,7 +40,7 @@
     </div>
     <div>
       <Button title={"Cancel"} minWidth={86} highlighted CB={closeModal} />
-      <div />
+      <div></div>
     </div>
   </div>
 </div>

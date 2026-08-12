@@ -1,4 +1,5 @@
 <script>
+  import { untrack } from "svelte";
   import Button from "../Button/Button.svelte";
   import {
     confirmationObj,
@@ -8,14 +9,13 @@
     toast,
     toastIsVisible,
     toastTimeoutId,
-    theme,
   } from "../../Stores/stores.js";
   import Input from "../Input/Input.svelte";
   import Checkbox from "../CheckBox/Checkbox.svelte";
   import fetchApi from "../../utils/fetch.js";
 
   let confirmationWord = "I understand that logs will be lost";
-  let tipsIsVisible = false;
+  let tipsIsVisible = $state(false);
   let inputValue = "";
   let error = false;
   function changeMessage(triger) {
@@ -61,8 +61,24 @@
     }
   }
 
-  $: {
-    changeMessage($store.deleteFromDocker);
+  // Only the clear-logs flow owns the message; a caller-supplied action
+  // brings its own. changeMessage writes confirmationObj, so the read of it
+  // stays untracked or the effect would retrigger itself forever.
+  $effect(() => {
+    const deleteFromDocker = $store.deleteFromDocker;
+    untrack(() => {
+      if (!$confirmationObj.action) {
+        changeMessage(deleteFromDocker);
+      }
+    });
+  });
+
+  async function confirm() {
+    if (typeof $confirmationObj.action === "function") {
+      await $confirmationObj.action();
+      return;
+    }
+    await deletelogs();
   }
 </script>
 
@@ -70,13 +86,13 @@
   <div class="tipsContainer">
     <i
       class="log log-Tips"
-      on:mouseenter={() => {
+      onmouseenter={() => {
         tipsIsVisible = true;
       }}
-      on:mouseleave={() => {
+      onmouseleave={() => {
         tipsIsVisible = false;
       }}
-    />
+></i>
     {#if tipsIsVisible}
       <div class="tipsText container">
         <span class="boldText">Delete Docker logs </span> - when the option is set to
@@ -121,7 +137,7 @@
       title={"Delete"}
       highlighted={true}
       CB={() => {
-        deletelogs();
+        confirm();
       }}
     />
     <Button
@@ -134,10 +150,10 @@
     />
   </div>
 </div>
-<div class="modalOverlay" on:click={closeMenu} />
+<div class="modalOverlay" onclick={closeMenu}></div>
 
 <svelte:window
-  on:keydown={({ key }) => {
+  onkeydown={({ key }) => {
     key === "Escape" && closeMenu();
 
   }}

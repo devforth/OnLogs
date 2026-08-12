@@ -1,9 +1,12 @@
 <script>
   import { clickOutside } from "../../lib/OutsideClicker/OutsideClicker.js";
 
-  export let modalIsOpen = false;
-  export let storeProp = {};
-  export let closeFunction = null;
+  let {
+    modalIsOpen = false,
+    storeProp = {},
+    closeFunction = null,
+    children
+  } = $props();
 
   function handleKeydown(e) {
     if (e.key === "Escape") {
@@ -18,12 +21,12 @@
 
 {#if modalIsOpen}
   <div>
-    <div class="modalOverlay" id="modalOverlay" />
-    <div class="modalContainer" use:clickOutside on:click_outside={closeModal}>
-      <div class="closeButton" on:click={closeModal}>
-        <i class="log log-Close" />
+    <div class="modalOverlay" id="modalOverlay"></div>
+    <div class="modalContainer" use:clickOutside onclick_outside={closeModal}>
+      <div class="closeButton" onclick={closeModal}>
+        <i class="log log-Close"></i>
       </div>
-      <slot />
+      {@render children?.()}
     </div>
   </div>{/if}
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} />

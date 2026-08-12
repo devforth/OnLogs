@@ -15,8 +15,9 @@ type DockerService struct {
 }
 
 type ContainerNamesResult struct {
-	Name string
-	ID   string
+	Name    string
+	ID      string
+	Running bool
 }
 
 func (s *DockerService) GetContainerNames(ctx context.Context) ([]ContainerNamesResult, error) {
@@ -31,7 +32,7 @@ func (s *DockerService) GetContainerNames(ctx context.Context) ([]ContainerNames
 		if len(c.Names) > 0 {
 			name = strings.TrimPrefix(c.Names[0], "/")
 		}
-		res = append(res, ContainerNamesResult{Name: name, ID: c.ID})
+		res = append(res, ContainerNamesResult{Name: name, ID: c.ID, Running: c.State == "running"})
 	}
 	return res, nil
 }

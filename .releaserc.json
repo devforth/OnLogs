@@ -1,0 +1,12 @@
+{
+  "branches": ["main"],
+  "tagFormat": "${version}",
+  "plugins": [
+    ["@semantic-release/commit-analyzer", { "preset": "conventionalcommits" }],
+    ["@semantic-release/release-notes-generator", { "preset": "conventionalcommits" }],
+    ["@semantic-release/exec", {
+      "prepareCmd": "docker buildx build --platform=linux/amd64,linux/arm64 --build-arg VERSION=${nextRelease.version} --tag devforth/onlogs:${nextRelease.version} --tag devforth/onlogs:latest --push ./application"
+    }],
+    ["@semantic-release/github", { "successComment": false, "failComment": false }]
+  ]
+}

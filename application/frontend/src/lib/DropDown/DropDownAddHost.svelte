@@ -3,19 +3,25 @@
   import {
     snipetModalIsVisible,
     addHostMenuIsVisible,
+    groupModalIsVisible,
+    groupBeingEdited,
   } from "../../Stores/stores.js";
 </script>
 
 <div class="dropDownContainer addHost " id="addHost">
   <table class="dropDownTable">
-    <thbody>
+    <tbody>
       <DropDownRow
         rowTitle={"Create services group"}
         rowImage={"log log-Group"}
         storeValue={""}
         isFirst={true}
         disableCheckbox={true}
-        titleCallBack={() => {}}
+        titleCallBack={() => {
+          groupBeingEdited.set(null);
+          groupModalIsVisible.set(true);
+          addHostMenuIsVisible.set(false);
+        }}
       />
       <DropDownRow
         rowTitle={"Connect new host"}
@@ -27,6 +33,6 @@
           addHostMenuIsVisible.set(false);
         }}
       />
-    </thbody>
+    </tbody>
   </table>
 </div>

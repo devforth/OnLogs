@@ -22,9 +22,9 @@
     initialSettingsGetted = true;
   });
 
-  $: {
+  $effect(() => {
     if ($store) {
       saveSettings();
     }
-  }
+  });
 </script>

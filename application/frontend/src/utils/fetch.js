@@ -36,6 +36,15 @@ class fetchApi {
       navigate(`${changeKey}/login`, { replace: true });
       return null;
     }
+    if (!response.ok) {
+      // Rejections carry {"error": "..."} and the caller has to be able to show
+      // it; only a body that says nothing is worth throwing over.
+      const rejected = await response.json().catch(() => null);
+      if (rejected && typeof rejected === "object" && "error" in rejected) {
+        return rejected;
+      }
+      throw new Error(`${method} ${path} failed with ${response.status}`);
+    }
     return await response.json();
   }
 
@@ -75,16 +84,18 @@ class fetchApi {
     hostName = "",
     signal,
   }) {
-    return await this.doFetch(
-      "GET",
-      `${
-        this.url
-      }getLogs?host=${hostName}&id=${containerName}&search=${search}&status=${status}&limit=${limit}&startWith=${startWith}${
-        search ? `&caseSens=${caseSens}` : ""
-      }`,
-      null,
-      signal
-    );
+    const params = new URLSearchParams({
+      host: hostName,
+      id: containerName,
+      search,
+      status,
+      limit,
+      startWith,
+    });
+    if (search) {
+      params.set("caseSens", caseSens);
+    }
+    return await this.doFetch("GET", `${this.url}getLogs?${params}`, null, signal);
   }
 
   async getPrevLogs({
@@ -97,10 +108,17 @@ class fetchApi {
     startWith = "",
     hostName = "",
   }) {
-    return await this.doFetch(
-      "GET",
-      `${this.url}getPrevLogs?host=${hostName}&id=${containerName}&search=${search}&status=${status}&limit=${limit}&offset=${offset}&startWith=${startWith}&caseSens=${caseSens}`
-    );
+    const params = new URLSearchParams({
+      host: hostName,
+      id: containerName,
+      search,
+      status,
+      limit,
+      offset,
+      startWith,
+      caseSens,
+    });
+    return await this.doFetch("GET", `${this.url}getPrevLogs?${params}`);
   }
 
   async getUsers() {
@@ -126,10 +144,8 @@ class fetchApi {
     return await this.doFetch("GET", `${this.url}getSizeByAll`);
   }
   async getServiceLogsSize(host, service) {
-    return await this.doFetch(
-      "GET",
-      `${this.url}getSizeByService?host=${host}&service=${service}`
-    );
+    const params = new URLSearchParams({ host, service });
+    return await this.doFetch("GET", `${this.url}getSizeByService?${params}`);
   }
   async cleanLogs(host, service) {
     return await this.doFetch("POST", `${this.url}deleteContainerLogs`, {
@@ -156,6 +172,31 @@ class fetchApi {
       service,
     });
   }
+  async getHostAliases() {
+    return await this.doFetch("GET", `${this.url}getHostAliases`);
+  }
+  async setHostAlias(host, alias) {
+    return await this.doFetch("POST", `${this.url}setHostAlias`, { host, alias });
+  }
+  async getGroups() {
+    return await this.doFetch("GET", `${this.url}getGroups`);
+  }
+  async createGroup(name, members) {
+    return await this.doFetch("POST", `${this.url}createGroup`, {
+      name,
+      members,
+    });
+  }
+  async updateGroup(name, newName, members) {
+    return await this.doFetch("POST", `${this.url}updateGroup`, {
+      name,
+      newName,
+      members,
+    });
+  }
+  async deleteGroup(name) {
+    return await this.doFetch("POST", `${this.url}deleteGroup`, { name });
+  }
   async getStats(options) {
     return await this.doFetch("POST", `${this.url}getStats`, options);
   }
@@ -175,10 +216,13 @@ class fetchApi {
     startWith = "",
     hostName = "",
   }) {
-    return await this.doFetch(
-      "GET",
-      `${this.url}getLogWithPrev?host=${hostName}&id=${containerName}&limit=${limit}&startWith=${startWith}`
-    );
+    const params = new URLSearchParams({
+      host: hostName,
+      id: containerName,
+      limit,
+      startWith,
+    });
+    return await this.doFetch("GET", `${this.url}getLogWithPrev?${params}`);
   }
 
   async cleanDockerLogs(host, service) {
@@ -196,13 +240,6 @@ class fetchApi {
 
   async getUserSettings() {
     return await this.doFetch("GET", `${this.url}getUserSettings`);
-  }
-
-  async getLogsByTag({ host, containerName, limit, status, message }) {
-    return await this.doFetch(
-      "GET",
-      `${this.url}getUserSettings?host=${host}&id=${containerName}&limit=${limit}&status=${status}&message=${message}`
-    );
   }
 }
 

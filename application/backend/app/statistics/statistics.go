@@ -12,26 +12,44 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
+// The caller must never receive the live map: it is written on every log line.
+func snapshotCounter(location string) map[string]uint64 {
+	vars.Mutex.Lock()
+	defer vars.Mutex.Unlock()
+
+	snapshot := containerdb.NewStatCounter()
+	for key, value := range vars.Container_Stat_Counter[location] {
+		snapshot[key] = value
+	}
+	return snapshot
+}
+
 func restartStats(host string, container string) {
 	current_db := util.GetDB(host, container, "statistics")
+	if current_db == nil {
+		return
+	}
 	location := host
 	if container != "" {
 		location += "/" + container
 	}
 
-	current_datetime := time.Now().UTC().Format("2006-01-02T15:04:05.999999999Z")
-
 	last_stat_time := getLastStatTime(current_db)
 	if last_stat_time == "" {
-		last_stat_time = current_datetime
-		calc_stat := collectLogsBackward(host, container, last_stat_time)
-		saveStats(current_db, calc_stat, last_stat_time)
-	} else {
-		calc_stat, new_datetime := collectLogsForward(host, container, last_stat_time)
-		if last_stat_time == new_datetime {
-			new_datetime = current_datetime
+		// Anchored to the newest line actually seen, never to the clock: the
+		// clock is ahead of lines docker has not replayed yet, and the forward
+		// scan would then seek straight past them.
+		calc_stat, newest := collectLogs(host, container, "", false)
+		if newest != "" {
+			saveStats(current_db, calc_stat, newest)
 		}
-		saveStats(current_db, calc_stat, new_datetime)
+	} else {
+		calc_stat, new_datetime := collectLogs(host, container, last_stat_time, true)
+		// Nothing new: saving would rewrite the previous interval's record with
+		// an empty one and move the cursor off the log timeline onto the clock.
+		if last_stat_time != new_datetime {
+			saveStats(current_db, calc_stat, new_datetime)
+		}
 	}
 
 	resetInMemoryStats(location)
@@ -48,70 +66,60 @@ func getLastStatTime(db *leveldb.DB) string {
 	return string(iter.Key())
 }
 
-func collectLogsBackward(host, container, until string) map[string]uint64 {
-	calc_stat := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+// A forward scan returns the cursor it finished on; a backward scan returns the
+// newest key it saw, which is where a first cursor belongs.
+func collectLogs(host, container, cursor string, forward bool) (map[string]uint64, string) {
+	stats := containerdb.NewStatCounter()
+	newest := ""
 
 	for {
-		raw_logs := containerdb.GetLogs(false, true, host, container, "", 1000, until, true, nil)
-		logs, ok := raw_logs["logs"].([][]string)
+		page := containerdb.GetLogs(forward, false, host, container, "", 1000, cursor, true, nil)
+		logs, ok := page["logs"].([][]string)
 		if !ok || len(logs) == 0 {
 			break
 		}
 
-		for _, log := range logs {
-			status_key := containerdb.GetLogStatusKey(log[1])
-			calc_stat[status_key]++
-		}
-
-		if raw_logs["is_end"].(bool) {
-			break
-		}
-		until = raw_logs["last_processed_key"].(string)
-	}
-
-	return calc_stat
-}
-
-func collectLogsForward(host, container, since string) (map[string]uint64, string) {
-	calcStat := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-
-	for {
-		rawLogs := containerdb.GetLogs(true, false, host, container, "", 1000, since, true, nil)
-		logs, ok := rawLogs["logs"].([][]string)
-		if !ok || len(logs) == 0 {
-			break
+		if !forward && newest == "" {
+			newest = logs[0][2]
 		}
 
 		for _, log := range logs {
-			statusKey := containerdb.GetLogStatusKey(log[1])
-			calcStat[statusKey]++
+			stats[containerdb.GetLogStatusKey(log[1])]++
 		}
 
-		since = rawLogs["last_processed_key"].(string)
-
-		if rawLogs["is_end"].(bool) {
+		cursor = page["last_processed_key"].(string)
+		if page["is_end"].(bool) {
 			break
 		}
 	}
-	return calcStat, since
+
+	if forward {
+		return stats, cursor
+	}
+	return stats, newest
 }
 
+// Statistics are keyed by time and read back with time.Parse, so a full log key
+// (which carries a " +<nano>-<counter>" suffix) must be reduced to its timestamp.
 func saveStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
+	key := strings.Split(timestamp, " +")[0]
+	if _, err := time.Parse(time.RFC3339Nano, key); err != nil {
+		key = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+
 	to_put, _ := json.Marshal(stats)
-	db.Put([]byte(timestamp), to_put, nil)
+	db.Put([]byte(key), to_put, nil)
 }
 
 func resetInMemoryStats(location string) {
 	vars.Mutex.Lock()
-	vars.Container_Stat_Counter[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Container_Stat_Counter[location] = containerdb.NewStatCounter()
 	vars.Mutex.Unlock()
 }
 
 func RunStatisticForContainerWithContext(ctx context.Context, host string, container string) {
 	location := host + "/" + container
-	vars.Mutex.Lock()
-	vars.Container_Stat_Counter[location] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-	vars.Mutex.Unlock()
+	resetInMemoryStats(location)
 	defer restartStats(host, container)
 	for {
 		select {
@@ -128,48 +136,36 @@ func RunStatisticForContainerWithContext(ctx context.Context, host string, conta
 	}
 }
 
-func RunStatisticForContainer(host string, container string) {
-	RunStatisticForContainerWithContext(context.Background(), host, container)
-}
-
 func GetStatisticsByService(host string, service string, value int) map[string]uint64 {
 	location := host + "/" + service
-
-	vars.Mutex.Lock()
-	to_return := vars.Container_Stat_Counter[location]
-	vars.Mutex.Unlock()
-
-	if to_return == nil {
-		to_return = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-	}
+	to_return := snapshotCounter(location)
 
 	if value < 1 {
 		return to_return
 	}
 
 	searchTo := time.Now().Add(-(time.Hour * time.Duration(value/2))).UTC()
-	var tmp_stats map[string]uint64
-	current_db := util.GetDB(host, service, "statistics")
+	current_db := util.GetDBIfExists(host, service, "statistics")
+	if current_db == nil {
+		return to_return
+	}
 	iter := current_db.NewIterator(nil, nil)
 	defer iter.Release()
 	iter.Last()
-	hasPrev := true
-	result_map := map[string]uint64{"debug": to_return["debug"], "error": to_return["error"], "info": to_return["info"], "warn": to_return["warn"], "meta": to_return["meta"], "other": to_return["other"]}
-	for hasPrev {
+
+	for hasPrev := true; hasPrev; hasPrev = iter.Prev() {
 		tmp_time, _ := time.Parse(time.RFC3339Nano, string(iter.Key()))
 		if searchTo.After(tmp_time) {
 			break
 		}
-		json.Unmarshal(iter.Value(), &tmp_stats)
-		result_map["debug"] += tmp_stats["debug"]
-		result_map["error"] += tmp_stats["error"]
-		result_map["info"] += tmp_stats["info"]
-		result_map["warn"] += tmp_stats["warn"]
-		result_map["meta"] += tmp_stats["meta"]
-		result_map["other"] += tmp_stats["other"]
-		hasPrev = iter.Prev()
+		// Fresh each round: Unmarshal merges into a non-nil map.
+		record := map[string]uint64{}
+		json.Unmarshal(iter.Value(), &record)
+		for level, count := range record {
+			to_return[level] += count
+		}
 	}
-	return result_map
+	return to_return
 }
 
 func GetChartData(host string, service string, unit string, uAmount int) map[string]map[string]uint64 {
@@ -192,7 +188,11 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 
 	location := host + "/" + service
 	to_return := map[string]map[string]uint64{}
-	iter := util.GetDB(host, service, "statistics").NewIterator(nil, nil)
+	statsDB := util.GetDBIfExists(host, service, "statistics")
+	if statsDB == nil {
+		return to_return
+	}
+	iter := statsDB.NewIterator(nil, nil)
 	iter.Last()
 	defer iter.Release()
 	hasPrev := true
@@ -208,23 +208,19 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 		} else {
 			datetime = strings.Split(string(iter.Key()), sep)[0] + formatting
 		}
-		to_return[datetime] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-		tmp_stats := map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
-		json.Unmarshal(iter.Value(), &tmp_stats)
-
-		to_return[datetime]["error"] += tmp_stats["error"]
-		to_return[datetime]["debug"] += tmp_stats["debug"]
-		to_return[datetime]["info"] += tmp_stats["info"]
-		to_return[datetime]["warn"] += tmp_stats["warn"]
-		to_return[datetime]["meta"] += tmp_stats["meta"]
-		to_return[datetime]["other"] += tmp_stats["other"]
+		if to_return[datetime] == nil {
+			to_return[datetime] = containerdb.NewStatCounter()
+		}
+		record := map[string]uint64{}
+		json.Unmarshal(iter.Value(), &record)
+		for level, count := range record {
+			to_return[datetime][level] += count
+		}
 
 		hasPrev = iter.Prev()
 	}
 
-	vars.Mutex.Lock()
-	to_return["now"] = vars.Container_Stat_Counter[location]
-	vars.Mutex.Unlock()
+	to_return["now"] = snapshotCounter(location)
 
 	return to_return
 }

@@ -25,6 +25,15 @@ export const theme = writable("light");
 export const lastChosenHost = writable("");
 export const lastChosenService = writable("");
 
+export const hostAliases = writable({});
+export const hostBeingRenamed = writable(null);
+
+// service groups, loaded from /api/v1/getGroups
+export const groups = writable([]);
+export const groupModalIsVisible = writable(false);
+// The group being edited, or null when the modal is creating a new one.
+export const groupBeingEdited = writable(null);
+
 // toast state
 
 export const toast = writable({
@@ -52,7 +61,8 @@ export const listScrollIsVisible = writable(false);
 
 //confirmation menu
 export const confirmationObj = writable({
-  action: function () {},
+  // null means "the default clear-logs flow"; a function replaces it.
+  action: null,
   message:
     "You want to delete host service logs. This data will be lost. This action cannot be undone.",
 
@@ -68,7 +78,7 @@ export const lastLogTimestamp = writable(0);
 
 //stats
 export const lastStatsPeriod = writable(2);
-export const lastStatisticPeriod = writable("Per hour");
+export const lastStatisticPeriod = writable("hour");
 
 //spiner
 

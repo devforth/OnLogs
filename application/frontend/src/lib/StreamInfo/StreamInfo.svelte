@@ -4,9 +4,13 @@
   import { lastLogTime, WSisMuted, manuallyUnmuted } from "../../Stores/stores";
   import { getTimeDifference } from "../../utils/functions";
   let lastLogsCheckerInterval = null;
-  let componentLastLogTime = [] || "";
+  let componentLastLogTime = $state([]);
 
-  $: componentLastLogTime = getTimeDifference($lastLogTime);
+  // Not $derived: the interval below also refreshes this so the elapsed time
+  // keeps counting up while $lastLogTime stays put.
+  $effect.pre(() => {
+    componentLastLogTime = getTimeDifference($lastLogTime);
+  });
 
   let LAST_LOG_INTWRVAL = 5000;
   function checkLastLogs() {
@@ -29,7 +33,7 @@
   <i
     class="log log-Last {$WSisMuted ? 'WSisMuted' : ''}"
     title="Live mode"
-    on:click={() => {
+    onclick={() => {
       if ($WSisMuted) {
         WSisMuted.set(false);
         manuallyUnmuted.set(true);
@@ -38,7 +42,7 @@
         manuallyUnmuted.set(false);
       }
     }}
-  />
+></i>
 
   <h4 class="log-heading">Last log line:</h4>
   {#if Array.isArray(componentLastLogTime)}
@@ -60,6 +64,6 @@
     {/if}
   {/if}
   <div class="log-time">
-    <span class="log-time-ago" />
+    <span class="log-time-ago"></span>
   </div>
 </div>

@@ -1,0 +1,63 @@
+.hostAliasModal {
+  min-width: 320px;
+  max-width: 420px;
+
+  @include for-mobile {
+    min-width: auto;
+    width: 76vw;
+  }
+
+  h3 {
+    margin-bottom: 4px;
+    // Modal.svelte pins its close button at the top right.
+    padding-right: 40px;
+    color: $text-dark-color;
+  }
+
+  .hostAliasReal {
+    font-family: $mono-font;
+    font-size: $main-font-s;
+    color: $text-placeholder-color;
+    margin-bottom: 16px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hostAliasInput {
+    width: 100%;
+    height: 40px;
+    box-sizing: border-box;
+    padding: 0 $normal-padding;
+    font-family: inherit;
+    font-size: $main-font-m;
+    background-color: $inpun-color;
+    border: 1px solid $text-placeholder-color;
+    border-radius: $main-border-radius;
+    color: $text-dark-color;
+
+    &:focus {
+      outline: none;
+      border: 2px solid $active-color;
+    }
+  }
+
+  .hostAliasHint {
+    margin-top: 10px;
+    font-size: $main-font-xs;
+    line-height: 1.5;
+    color: $text-placeholder-color;
+  }
+
+  .hostAliasButtons {
+    display: flex;
+    justify-content: end;
+    margin-top: 24px;
+  }
+}
+
+.dark-mode .hostAliasModal {
+  .hostAliasInput:focus {
+    border-color: $active-color-dark;
+  }
+}

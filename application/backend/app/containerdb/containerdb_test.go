@@ -20,16 +20,16 @@ func TestPutLogMessage(t *testing.T) {
 	defer statusDB.Close()
 	defer db.Close()
 
-	PutLogMessage(db, host, cont, []string{vars.Year + "-02-10T12:56:09.230421754Z", "vokAU6OdSulJGynsz wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
-	PutLogMessage(db, host, cont, []string{vars.Year + "-02-10T12:57:09.230421754Z", "ERROR wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
-	PutLogMessage(db, host, cont, []string{vars.Year + "-02-10T12:58:09.230421754Z", "WARN vokAU6OdSulJGynsz\r\n"})
-	PutLogMessage(db, host, cont, []string{vars.Year + "-02-10T12:59:09.230421754Z", "DEBUG wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
-	PutLogMessage(db, host, cont, []string{vars.Year + "-02-10T12:59:59.230421754Z", "INFO fasdfasdfB&^*inuk\r\n"})
+	PutLogMessage(db, host, cont, []string{testYear + "-02-10T12:56:09.230421754Z", "vokAU6OdSulJGynsz wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
+	PutLogMessage(db, host, cont, []string{testYear + "-02-10T12:57:09.230421754Z", "ERROR wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
+	PutLogMessage(db, host, cont, []string{testYear + "-02-10T12:58:09.230421754Z", "WARN vokAU6OdSulJGynsz\r\n"})
+	PutLogMessage(db, host, cont, []string{testYear + "-02-10T12:59:09.230421754Z", "DEBUG wBaKssXuAPGk6ZFiQxq4sQHe7B9Q9RbTAy\r\n"})
+	PutLogMessage(db, host, cont, []string{testYear + "-02-10T12:59:59.230421754Z", "INFO fasdfasdfB&^*inuk\r\n"})
 
 	keys := []string{
-		vars.Year + "-02-10T12:56:09.230421754Z", vars.Year + "-02-10T12:57:09.230421754Z",
-		vars.Year + "-02-10T12:58:09.230421754Z", vars.Year + "-02-10T12:59:09.230421754Z",
-		vars.Year + "-02-10T12:59:59.230421754Z",
+		testYear + "-02-10T12:56:09.230421754Z", testYear + "-02-10T12:57:09.230421754Z",
+		testYear + "-02-10T12:58:09.230421754Z", testYear + "-02-10T12:59:09.230421754Z",
+		testYear + "-02-10T12:59:59.230421754Z",
 	}
 	for _, key := range keys {
 		iter := db.NewIterator(nil, nil)
@@ -58,7 +58,7 @@ func TestPutLogMessage(t *testing.T) {
 			t.Error("Not expected error: ", r)
 		}
 	}()
-	PutLogMessage(db, "", cont, []string{vars.Year + "-02-10T12:57:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "", cont, []string{testYear + "-02-10T12:57:09.230421754Z", "fasdf\r\n"})
 }
 
 func TestGetLogs(t *testing.T) {
@@ -69,44 +69,60 @@ func TestGetLogs(t *testing.T) {
 	vars.Statuses_DBs["Test/TestGetLogsCont"] = statusDB
 	defer statusDB.Close()
 
-	PutLogMessage(db, "Test", "TestGetLogsCont", []string{vars.Year + "-02-10T12:57:09.230421754Z", "fasdf\r\n"})
-	PutLogMessage(db, "Test", "TestGetLogsCont", []string{vars.Year + "-02-10T12:51:09.230421754Z", "fasdf\r\n"})
-	PutLogMessage(db, "Test", "TestGetLogsCont", []string{vars.Year + "-02-10T12:52:09.230421754Z", "fasdf\r\n"})
-	PutLogMessage(db, "Test", "TestGetLogsCont", []string{vars.Year + "-02-10T12:53:09.230421754Z", "fasdf\r\n"})
-	PutLogMessage(db, "Test", "TestGetLogsCont", []string{vars.Year + "-02-10T12:54:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "Test", "TestGetLogsCont", []string{testYear + "-02-10T12:57:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "Test", "TestGetLogsCont", []string{testYear + "-02-10T12:51:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "Test", "TestGetLogsCont", []string{testYear + "-02-10T12:52:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "Test", "TestGetLogsCont", []string{testYear + "-02-10T12:53:09.230421754Z", "fasdf\r\n"})
+	PutLogMessage(db, "Test", "TestGetLogsCont", []string{testYear + "-02-10T12:54:09.230421754Z", "fasdf\r\n"})
 	db.Close()
 
 	var logs [][]string
-	logs = GetLogs(false, true, "Test", "TestGetLogsCont", "", 30, vars.Year+"-02-10T12:57:09.230421754Z", false, nil)["logs"].([][]string)
+	logs = GetLogs(false, true, "Test", "TestGetLogsCont", "", 30, testYear+"-02-10T12:57:09.230421754Z", false, nil)["logs"].([][]string)
 	if len(logs) != 5 {
 		t.Error("5 logItems must be returned!")
 	}
-	if logs[0][0] != vars.Year+"-02-10T12:57:09.230421754Z" {
+	if logs[0][0] != testYear+"-02-10T12:57:09.230421754Z" {
 		t.Error("Invalid first logItem datetime: ", logs[0][0])
 	}
-	if logs[4][0] != vars.Year+"-02-10T12:51:09.230421754Z" {
+	if logs[4][0] != testYear+"-02-10T12:51:09.230421754Z" {
 		t.Error("Invalid last logItem datetime: ", logs[4][0])
 	}
 
-	logs = GetLogs(true, false, "Test", "TestGetLogsCont", "", 30, vars.Year+"-02-10T12:51:09.230421754Z", false, nil)["logs"].([][]string)
+	// Page with the cursor the API returns -- the full key -- which identifies
+	// exactly one row; a bare timestamp would drop every row sharing that instant.
+	oldest := GetLogs(true, false, "Test", "TestGetLogsCont", "", 1, "", false, nil)
+	oldestRows := oldest["logs"].([][]string)
+	if len(oldestRows) != 1 {
+		t.Fatalf("expected one row when paging forward from the start, got %d", len(oldestRows))
+	}
+	if oldestRows[0][0] != testYear+"-02-10T12:51:09.230421754Z" {
+		t.Error("Invalid first logItem datetime: ", oldestRows[0][0])
+	}
+
+	cursor := oldest["last_processed_key"].(string)
+	if cursor == "" {
+		t.Fatal("GetLogs returned no cursor to page with")
+	}
+
+	logs = GetLogs(true, false, "Test", "TestGetLogsCont", "", 30, cursor, false, nil)["logs"].([][]string)
 	if len(logs) != 4 {
 		t.Error("4 logItems must be returned!")
 	}
-	if logs[0][0] != vars.Year+"-02-10T12:52:09.230421754Z" {
+	if logs[0][0] != testYear+"-02-10T12:52:09.230421754Z" {
 		t.Error("Invalid first logItem datetime: ", logs[0][0])
 	}
-	if logs[3][0] != vars.Year+"-02-10T12:57:09.230421754Z" {
+	if logs[3][0] != testYear+"-02-10T12:57:09.230421754Z" {
 		t.Error("Invalid last logItem datetime: ", logs[3][0])
 	}
 
-	logs = GetLogs(true, false, "Test", "TestGetLogsCont", "", 30, vars.Year+"-02-10T12:51:09.230421753Z", false, nil)["logs"].([][]string)
+	logs = GetLogs(true, false, "Test", "TestGetLogsCont", "", 30, testYear+"-02-10T12:51:09.230421753Z", false, nil)["logs"].([][]string)
 	if len(logs) != 5 {
 		t.Error("4 logItems must be returned!")
 	}
-	if logs[0][0] != vars.Year+"-02-10T12:51:09.230421754Z" {
+	if logs[0][0] != testYear+"-02-10T12:51:09.230421754Z" {
 		t.Error("Invalid first logItem datetime: ", logs[0][0])
 	}
-	if logs[4][0] != vars.Year+"-02-10T12:57:09.230421754Z" {
+	if logs[4][0] != testYear+"-02-10T12:57:09.230421754Z" {
 		t.Error("Invalid last logItem datetime: ", logs[3][0])
 	}
 }
@@ -138,7 +154,7 @@ func TestPutLogMessageSameTimestampAcrossRestart(t *testing.T) {
 	statusDB, _ := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/statuses", nil)
 	vars.Statuses_DBs[location] = statusDB
 
-	ts := vars.Year + "-02-10T12:57:09.230421754Z"
+	ts := testYear + "-02-10T12:57:09.230421754Z"
 	_ = PutLogMessage(db, host, container, []string{ts, "first"})
 	_ = PutLogMessage(db, host, container, []string{ts, "second"})
 	logKeyCounter.Store(0)

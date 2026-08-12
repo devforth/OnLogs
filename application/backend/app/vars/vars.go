@@ -1,18 +1,16 @@
 package vars
 
 import (
-	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/syndtr/goleveldb/leveldb"
 )
 
 var (
 	ActiveDBs           = map[string]*leveldb.DB{}
 	Stat_Containers_DBs = map[string]*leveldb.DB{}
-	Stat_Hosts_DBs      = map[string]*leveldb.DB{}
 	Statuses_DBs        = map[string]*leveldb.DB{}
 	BrokenLogs_DBs      = map[string]*leveldb.DB{}
 	ContainersMeta_DBs  = map[string]*leveldb.DB{}
@@ -23,22 +21,28 @@ var (
 	DockerContainers       = []string{}
 	AgentsActiveContainers = map[string][]string{}
 
-	ToDelete    = map[string][]string{}
-	Connections = map[string][]*websocket.Conn{}
+	ToDelete = map[string][]string{}
 
-	Counters_For_Hosts_Last_30_Min = map[string]map[string]uint64{}
-	Container_Stat_Counter         = map[string]map[string]uint64{}
+	// Reachable only through AddConnection/Broadcast/ConnectionCount so it
+	// cannot be touched without the lock.
+	connections = map[string][]*viewer{}
 
-	Mutex   sync.Mutex
-	DBMutex sync.RWMutex
+	Container_Stat_Counter = map[string]map[string]uint64{}
 
+	Mutex            sync.Mutex
+	DBMutex          sync.RWMutex
+	connectionsMutex sync.RWMutex
+
+	AliasDB, AliasDBErr       = leveldb.OpenFile("leveldb/hostaliases", nil)
 	FavsDB, FavsDBErr         = leveldb.OpenFile("leveldb/favourites", nil)
-	StateDB, StateDBErr       = leveldb.OpenFile("leveldb/state", nil)
+	GroupsDB, GroupsDBErr     = leveldb.OpenFile("leveldb/groups", nil)
 	UsersDB, UsersDBErr       = leveldb.OpenFile("leveldb/users", nil)
 	TokensDB, TokensDBErr     = leveldb.OpenFile("leveldb/tokens", nil)
 	SettingsDB, SettingsDBErr = leveldb.OpenFile("leveldb/usersSettings", nil)
 
-	Year = strconv.Itoa(time.Now().UTC().Year())
+	// Here rather than in routes so app/metrics need not import the HTTP layer.
+	LoginFailures atomic.Uint64
+	LoginBlocked  atomic.Uint64
 )
 
 const (

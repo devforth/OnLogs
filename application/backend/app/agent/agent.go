@@ -8,21 +8,29 @@ import (
 	"os"
 
 	"github.com/devforth/OnLogs/app/util"
-	"github.com/devforth/OnLogs/app/vars"
 )
 
-func SendInitRequest(containers []string) {
-	postBody, _ := json.Marshal(map[string]interface{}{
+func post(path string, body map[string]any) (*http.Response, error) {
+	payload, _ := json.Marshal(body)
+	return http.Post(os.Getenv("HOST")+path, "application/json", bytes.NewBuffer(payload))
+}
+
+func identity() map[string]any {
+	return map[string]any{
 		"Hostname": util.GetHost(),
 		"Token":    os.Getenv("ONLOGS_TOKEN"),
-		"Services": containers,
-	})
-	responseBody := bytes.NewBuffer(postBody)
+	}
+}
 
-	resp, err := http.Post(os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
+func SendInitRequest(containers []string) {
+	body := identity()
+	body["Services"] = containers
+
+	resp, err := post("/api/v1/addHost", body)
 	if err != nil {
 		panic("ERROR: Can't send request to host: " + err.Error())
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		b, _ := io.ReadAll(resp.Body)
@@ -31,15 +39,19 @@ func SendInitRequest(containers []string) {
 }
 
 func SendLogMessage(token string, container string, message_item []string) bool {
-	postBody, _ := json.Marshal(map[string]interface{}{
+	resp, err := post("/api/v1/addLogLine", map[string]any{
 		"Host":      util.GetHost(),
 		"Token":     token,
 		"LogLine":   []string{message_item[0], message_item[1]},
 		"Container": container,
 	})
-	resp, err := http.Post(os.Getenv("HOST")+"/api/v1/addLogLine", "application/json", bytes.NewBuffer(postBody))
+	if err == nil {
+		defer resp.Body.Close()
+	}
 	if err != nil || resp.StatusCode != 200 {
-		vars.BrokenLogs_DBs[container].Put([]byte(message_item[0]), []byte(message_item[1]), nil)
+		if buffer := util.GetDB(util.GetHost(), container, "brokenlogs"); buffer != nil {
+			buffer.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
+		}
 		return false
 	}
 	return true
@@ -49,53 +61,49 @@ func TryResend() {
 	token := os.Getenv("ONLOGS_TOKEN")
 	containers, _ := os.ReadDir("leveldb/hosts/" + util.GetHost() + "/containers/")
 	for _, container := range containers {
-		tmpDB := vars.BrokenLogs_DBs[container.Name()]
-		if tmpDB == nil {
-			tmpDB = util.GetDB(util.GetHost(), container.Name(), "/brokenLogs")
-			defer tmpDB.Close()
-		}
-
-		iter := tmpDB.NewIterator(nil, nil)
-		defer iter.Release()
-		iter.First()
-		if iter.Value() == nil {
-			continue
-		}
-
-		if !SendLogMessage(token, container.Name(), []string{string(iter.Key()), string(iter.Value())}) {
+		if !resendContainerBuffer(token, container.Name()) {
 			return
-		}
-		tmpDB.Delete(iter.Key(), nil)
-
-		for iter.Next() {
-			if !SendLogMessage(token, container.Name(), []string{string(iter.Key()), string(iter.Value())}) {
-				return
-			}
-			tmpDB.Delete(iter.Key(), nil)
 		}
 	}
 }
 
-func SendUpdate(containers []string) {
-	postBody, _ := json.Marshal(map[string]interface{}{
-		"Hostname": util.GetHost(),
-		"Token":    os.Getenv("ONLOGS_TOKEN"),
-		"Services": containers,
-	})
-	responseBody := bytes.NewBuffer(postBody)
+// Returns false when the master is still unreachable, so the caller stops.
+func resendContainerBuffer(token string, container string) bool {
+	buffer := util.GetDB(util.GetHost(), container, "brokenlogs")
+	if buffer == nil {
+		return true
+	}
 
-	http.Post(os.Getenv("HOST")+"/api/v1/addHost", "application/json", responseBody)
+	iter := buffer.NewIterator(nil, nil)
+	defer iter.Release()
+
+	for iter.Next() {
+		key := append([]byte{}, iter.Key()...)
+		value := append([]byte{}, iter.Value()...)
+		if !SendLogMessage(token, container, []string{string(key), string(value)}) {
+			return false
+		}
+		buffer.Delete(key, nil)
+	}
+	return true
+}
+
+func SendUpdate(containers []string) {
+	body := identity()
+	body["Services"] = containers
+
+	if resp, err := post("/api/v1/addHost", body); err == nil {
+		resp.Body.Close()
+	}
 	AskForDelete()
 }
 
 func AskForDelete() {
-	postBody, _ := json.Marshal(map[string]interface{}{
-		"Hostname": util.GetHost(),
-		"Token":    os.Getenv("ONLOGS_TOKEN"),
-	})
-	responseBody := bytes.NewBuffer(postBody)
-
-	resp, _ := http.Post(os.Getenv("HOST")+"/api/v1/askForDelete", "application/json", responseBody)
+	resp, err := post("/api/v1/askForDelete", identity())
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if string(body) != "" {

@@ -16,7 +16,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v3
       with:
-        go-version: 1.24.x
+        go-version: 1.26.x
 
     - name: Get coverage tool
       run: |
@@ -39,11 +39,32 @@ jobs:
         color: red
         namedLogo: checkmarx
 
+    - name: Vet
+      run: |
+        cd application/backend
+        go vet ./...
+
     - name: Test
       run: |
         cd application/backend
         go test ./... -coverprofile cover.out
         go tool cover -func cover.out > covered.txt
+
+    - name: Test with the race detector
+      run: |
+        cd application/backend
+        go test -race ./...
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 24.x
+
+    - name: Frontend tests
+      run: |
+        cd application/frontend
+        npm ci
+        npm test
 
     - name: Get coverage
       run: |
@@ -75,3 +96,45 @@ jobs:
         message: ${{ env.COVERAGE }}
         color: green
         namedLogo: go
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      # semantic-release derives the version from tags, so it needs all of them.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      # Plugins resolve from the repo, not the npx sandbox, so each is named here.
+      - name: Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          npx -y
+          -p semantic-release@25.0.9
+          -p @semantic-release/commit-analyzer@13.0.1
+          -p @semantic-release/release-notes-generator@14.1.1
+          -p @semantic-release/exec@7.1.0
+          -p @semantic-release/github@12.0.9
+          -p conventional-changelog-conventionalcommits@10.2.1
+          semantic-release

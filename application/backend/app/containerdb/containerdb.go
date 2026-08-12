@@ -17,19 +17,77 @@ import (
 	leveldbUtil "github.com/syndtr/goleveldb/leveldb/util"
 )
 
+// One classification rule, mirrored by classifyLogLine in
+// frontend/src/Views/Logs/functions.js.
+var logLevels = []struct {
+	needle string
+	level  string
+}{
+	{"ERROR", "error"},
+	{"ERR", "error"},
+	{"WARNING", "warn"},
+	{"WARN", "warn"},
+	{"DEBUG", "debug"},
+	{"INFO", "info"},
+	{"ONLOGS", "meta"},
+}
+
 func GetLogStatusKey(message string) string {
-	if strings.Contains(message, "ERROR") || strings.Contains(message, "ERR") {
-		return "error"
-	} else if strings.Contains(message, "WARN") || strings.Contains(message, "WARNING") {
-		return "warn"
-	} else if strings.Contains(message, "DEBUG") {
-		return "debug"
-	} else if strings.Contains(message, "INFO") {
-		return "info"
-	} else if strings.Contains(message, "ONLOGS") {
-		return "meta"
+	for _, token := range strings.Fields(ansiEscapeRegex.ReplaceAllString(message, "")) {
+		upper := strings.ToUpper(token)
+		for _, level := range logLevels {
+			if strings.Contains(upper, level.needle) {
+				return level.level
+			}
+		}
 	}
 	return "other"
+}
+
+func forEachContainer(visit func(host, container string)) error {
+	hosts, err := os.ReadDir("leveldb/hosts/")
+	if err != nil {
+		return fmt.Errorf("failed to read hosts directory: %v", err)
+	}
+	for _, h := range hosts {
+		containers, _ := os.ReadDir("leveldb/hosts/" + h.Name() + "/containers")
+		for _, c := range containers {
+			visit(h.Name(), c.Name())
+		}
+	}
+	return nil
+}
+
+// scanLimit 0 means scan every row.
+func pruneUpTo(db *leveldb.DB, cutoff time.Time, scanLimit int) int {
+	batch := new(leveldb.Batch)
+	deleted := 0
+
+	iter := db.NewIterator(nil, nil)
+	scanned := 0
+	for ok := iter.First(); ok && (scanLimit == 0 || scanned < scanLimit); ok = iter.Next() {
+		scanned++
+		keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(iter.Key())))
+		if err != nil {
+			fmt.Println("Error parsing key time:", err)
+			continue
+		}
+		if !keyTime.After(cutoff) {
+			batch.Delete(iter.Key())
+			deleted++
+		}
+	}
+	iter.Release()
+
+	if deleted == 0 {
+		return 0
+	}
+	if err := db.Write(batch, nil); err != nil {
+		fmt.Println("Failed to delete batch:", err)
+		return 0
+	}
+	db.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
+	return deleted
 }
 
 func checkAndManageLogSize(host string, container string) error {
@@ -39,132 +97,63 @@ func checkAndManageLogSize(host string, container string) error {
 	}
 
 	for {
-		hosts, err := os.ReadDir("leveldb/hosts/")
-		if err != nil {
-			return fmt.Errorf("failed to read hosts directory: %v", err)
-		}
-
 		var totalSize int64
-		for _, h := range hosts {
-			hostName := h.Name()
-			containers, _ := os.ReadDir("leveldb/hosts/" + hostName + "/containers")
-			for _, c := range containers {
-				containerName := c.Name()
-				size := util.GetDirSize(hostName, containerName)
-				totalSize += int64(size * 1024 * 1024)
-			}
+		if err := forEachContainer(func(h, c string) {
+			totalSize += int64(util.GetDirSize(h, c) * 1024 * 1024)
+		}); err != nil {
+			return err
 		}
-
-		// fmt.Printf("Max size: %d, current dir size: %d\n", maxSize, totalSize)
 		if totalSize <= maxSize {
-			break
+			return nil
 		}
 
 		var cutoffKeys [][]byte
-		for _, h := range hosts {
-			hostName := h.Name()
-			containers, _ := os.ReadDir("leveldb/hosts/" + hostName + "/containers")
-			for _, c := range containers {
-				containerName := c.Name()
-				logsDB := util.GetDB(hostName, containerName, "logs")
-				if logsDB == nil {
-					continue
-				}
-
-				cutoffKeysForContainer, err := getCutoffKeysForContainer(logsDB, 200)
-				if err != nil || len(cutoffKeysForContainer) == 0 {
-					continue
-				}
-				cutoffKeys = append(cutoffKeys, cutoffKeysForContainer)
+		if err := forEachContainer(func(h, c string) {
+			logsDB := util.GetDB(h, c, "logs")
+			if logsDB == nil {
+				return
 			}
+			if key, err := getCutoffKeysForContainer(logsDB, 200); err == nil && len(key) > 0 {
+				cutoffKeys = append(cutoffKeys, key)
+			}
+		}); err != nil {
+			return err
 		}
 
 		if len(cutoffKeys) == 0 {
 			fmt.Println("Nothing to delete, cutoff keys not found.")
-			break
+			return nil
 		}
 
-		oldestCutoffKey := findOldestCutoffKey(cutoffKeys)
-		oldestTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(oldestCutoffKey)))
+		oldestTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(findOldestCutoffKey(cutoffKeys))))
 		if err != nil {
 			fmt.Println("Error parsing oldest time:", err)
-			break
+			return nil
 		}
 		fmt.Println("Oldest time for deletion cutoff:", oldestTime)
 
-		for _, h := range hosts {
-			hostName := h.Name()
-			containers, _ := os.ReadDir("leveldb/hosts/" + hostName + "/containers")
-			for _, c := range containers {
-				containerName := c.Name()
-				logsDB := util.GetDB(hostName, containerName, "logs")
-				if logsDB == nil {
+		if err := forEachContainer(func(h, c string) {
+			// Everything the quota measures, or it can never come down.
+			for _, dbType := range util.PrunableDBs() {
+				db := util.GetDB(h, c, dbType)
+				if db == nil {
 					continue
 				}
-
-				batch := new(leveldb.Batch)
-				deletedCount := 0
-				iter := logsDB.NewIterator(nil, nil)
-
-				count := 0
-				for ok := iter.First(); ok && count < 200; ok = iter.Next() {
-					count++
-					keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(iter.Key())))
-					if err != nil {
-						fmt.Println("Error parsing key time:", err)
-						continue
-					}
-					if keyTime.Before(oldestTime) || keyTime.Equal(oldestTime) {
-						batch.Delete(iter.Key())
-						deletedCount++
-					}
+				scanLimit := 0
+				if dbType == "logs" {
+					scanLimit = 200
 				}
-				iter.Release()
-
-				if deletedCount > 0 {
-					err = logsDB.Write(batch, nil)
-					if err != nil {
-						fmt.Printf("Failed to delete batch in %s/%s: %v\n", hostName, containerName, err)
-					} else {
-						fmt.Printf("Deleted %d logs from %s/%s\n", deletedCount, hostName, containerName)
-					}
-					logsDB.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
-				}
-
-				statusesDB := util.GetDB(hostName, containerName, "statuses")
-				if statusesDB != nil {
-					batch := new(leveldb.Batch)
-					deletedCountStatuses := 0
-					iter := statusesDB.NewIterator(nil, nil)
-
-					for ok := iter.First(); ok; ok = iter.Next() {
-						keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(iter.Key())))
-						if err != nil {
-							fmt.Println("Error parsing key time:", err)
-							continue
-						}
-						if keyTime.Before(oldestTime) || keyTime.Equal(oldestTime) {
-							batch.Delete(iter.Key())
-							deletedCountStatuses++
-						}
-					}
-					iter.Release()
-
-					if deletedCountStatuses > 0 {
-						err := statusesDB.Write(batch, nil)
-						if err != nil {
-							fmt.Printf("Failed to delete batch in statusesDB for %s/%s: %v\n", hostName, containerName, err)
-						}
-						statusesDB.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
-					}
+				if deleted := pruneUpTo(db, oldestTime, scanLimit); deleted > 0 && dbType == "logs" {
+					CountRetentionDeleted(deleted)
+					fmt.Printf("Deleted %d logs from %s/%s\n", deleted, h, c)
 				}
 			}
+		}); err != nil {
+			return err
 		}
 
 		time.Sleep(100 * time.Millisecond)
 	}
-
-	return nil
 }
 
 func getCutoffKeysForContainer(db *leveldb.DB, limit int) ([]byte, error) {
@@ -205,6 +194,14 @@ func findOldestCutoffKey(cutoffKeys [][]byte) []byte {
 	}
 	return oldestKey
 }
+
+const (
+	defaultLogsPerRequest = 30
+	maxLogsPerRequest     = 1000
+)
+
+// Bounds one scan. A var so tests can exercise the cap without a million rows.
+var maxScanIterations = 1000000
 
 var (
 	logCleanupMu     sync.Mutex
@@ -247,7 +244,80 @@ func MaybeScheduleCleanup(host string, container string) {
 	}()
 }
 
+func NewStatCounter() map[string]uint64 {
+	return map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+}
+
+// Bounded because a CI pipeline that mints a container name per release would
+// otherwise grow this without limit.
+const maxTrackedContainers = 1000
+
+// Process-lifetime counts, unlike vars.Container_Stat_Counter which the
+// statistics worker zeroes every minute.
+var (
+	logLineCounts      = map[string]map[string]uint64{}
+	logLineCapReported bool
+)
+
+func countLogStatus(location string, statusKey string) {
+	vars.Mutex.Lock()
+	defer vars.Mutex.Unlock()
+
+	if vars.Container_Stat_Counter[location] == nil {
+		vars.Container_Stat_Counter[location] = NewStatCounter()
+	}
+	vars.Container_Stat_Counter[location][statusKey]++
+
+	total := logLineCounts[location]
+	if total == nil {
+		if len(logLineCounts) >= maxTrackedContainers {
+			if !logLineCapReported {
+				logLineCapReported = true
+				fmt.Printf("WARNING: tracking log line counts for %d containers; %s and later ones are not counted in /metrics\n", maxTrackedContainers, location)
+			}
+			return
+		}
+		total = NewStatCounter()
+		logLineCounts[location] = total
+	}
+	total[statusKey]++
+}
+
+var retentionDeleted atomic.Uint64
+
+func CountRetentionDeleted(lines int) {
+	if lines > 0 {
+		retentionDeleted.Add(uint64(lines))
+	}
+}
+
+func RetentionDeletedLines() uint64 {
+	return retentionDeleted.Load()
+}
+
+// LogLineCounts returns a deep copy: the live maps are written on every log line.
+func LogLineCounts() map[string]map[string]uint64 {
+	vars.Mutex.Lock()
+	defer vars.Mutex.Unlock()
+
+	snapshot := make(map[string]map[string]uint64, len(logLineCounts))
+	for location, levels := range logLineCounts {
+		counts := make(map[string]uint64, len(levels))
+		for level, value := range levels {
+			counts[level] = value
+		}
+		snapshot[location] = counts
+	}
+	return snapshot
+}
+
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
+	if db == nil {
+		return fmt.Errorf("no database for %s/%s", host, container)
+	}
+	if len(message_item) < 2 {
+		return fmt.Errorf("malformed log line for %s/%s", host, container)
+	}
 	if len(message_item[0]) < 30 {
 		fmt.Println("WARNING: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
 		return nil
@@ -262,45 +332,48 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 	location := host + "/" + container
 	status_key := GetLogStatusKey(message_item[1])
 	logKey := buildLogKey(message_item[0])
-	vars.Mutex.Lock()
-	if vars.Statuses_DBs[location] == nil {
-		vars.Statuses_DBs[location] = util.GetDB(host, container, "statuses")
+
+	// Resolved before taking vars.Mutex: GetDB takes DBMutex and can panic, and
+	// it already caches the handle under that lock.
+	statusesDB := util.GetDB(host, container, "statuses")
+
+	countLogStatus(location, status_key)
+
+	if statusesDB != nil {
+		if err := statusesDB.Put([]byte(logKey), []byte(status_key), nil); err != nil {
+			// The handle may have been closed by a concurrent delete; without a
+			// retry the line is invisible to every severity filter, forever.
+			if reopened := util.GetDB(host, container, "statuses"); reopened != nil {
+				reopened.Put([]byte(logKey), []byte(status_key), nil)
+			}
+		}
 	}
-	vars.Container_Stat_Counter[location][status_key]++
-	vars.Statuses_DBs[location].Put([]byte(logKey), []byte(status_key), nil)
-	vars.Mutex.Unlock()
 
 	err := db.Put([]byte(logKey), []byte(message_item[1]), nil)
-	tries := 0
-	for err != nil && tries < 10 {
-		db = util.GetDB(host, container, "logs")
-		err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
+	for tries := 0; err != nil && tries < 10; tries++ {
 		time.Sleep(10 * time.Millisecond)
-		tries++
-	}
-	if err != nil {
-		panic(err)
+		if reopened := util.GetDB(host, container, "logs"); reopened != nil {
+			db = reopened
+			err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
+		}
 	}
 	return err
 }
 
-func fitsForSearch(logLine string, message string, caseSensetivity bool) bool {
-	logLine = ansiEscapeRegex.ReplaceAllString(logLine, "")
-	message = ansiEscapeRegex.ReplaceAllString(message, "")
-	logLine = strings.Join(strings.Fields(logLine), " ")
-	message = strings.Join(strings.Fields(message), " ")
-
+func normalizeForSearch(s string, caseSensetivity bool) string {
+	s = ansiEscapeRegex.ReplaceAllString(s, "")
+	s = strings.Join(strings.Fields(s), " ")
 	if !caseSensetivity {
-		logLine = strings.ToLower(logLine)
-		message = strings.ToLower(message)
+		s = strings.ToLower(s)
 	}
-
-	return strings.Contains(logLine, message)
+	return s
 }
 
-func increaseAndMove(counter *int, move_direction func() bool) {
-	*counter++
-	move_direction()
+func fitsNormalizedSearch(logLine string, normalizedMessage string, caseSensetivity bool) bool {
+	if normalizedMessage == "" {
+		return true
+	}
+	return strings.Contains(normalizeForSearch(logLine, caseSensetivity), normalizedMessage)
 }
 
 func getMoveDirection(getPrev bool, iter iterator.Iterator) func() bool {
@@ -310,15 +383,25 @@ func getMoveDirection(getPrev bool, iter iterator.Iterator) func() bool {
 	return func() bool { return iter.Next() }
 }
 
-func searchInit(iter iterator.Iterator, startWith string) bool {
-	iter.Last()
-
-	if startWith != "" {
-		if !iter.Seek([]byte(startWith)) {
-			return startWith > getDateTimeFromKey(string(iter.Key()))
+// Positions the iterator for the requested direction. A failed Seek means no key
+// is >= startWith: walking newer there is genuinely finished, while walking older
+// should start from the newest row. goleveldb leaves a failed Seek at dirEOI,
+// where Prev() silently jumps to Last() — so the direction must be explicit.
+func searchInit(iter iterator.Iterator, startWith string, getPrev bool) bool {
+	if startWith == "" {
+		if getPrev {
+			return iter.First()
 		}
+		return iter.Last()
 	}
-	return true
+
+	if iter.Seek([]byte(startWith)) {
+		return true
+	}
+	if getPrev {
+		return false
+	}
+	return iter.Last()
 }
 
 func getDateTimeFromKey(key string) string {
@@ -339,10 +422,20 @@ returns json obj like this:
 	}
 */
 func GetLogs(getPrev bool, include bool, host string, container string, message string, limit int, startWith string, caseSensetivity bool, status *string) map[string]interface{} {
-	logs_db := util.GetDB(host, container, "logs")
+	if limit <= 0 {
+		limit = defaultLogsPerRequest
+	} else if limit > maxLogsPerRequest {
+		limit = maxLogsPerRequest
+	}
+
+	logs_db := util.GetDBIfExists(host, container, "logs")
+	if logs_db == nil {
+		return map[string]interface{}{"logs": [][]string{}, "last_processed_key": "", "is_end": true}
+	}
+
 	var statusDb *leveldb.DB
 	if status != nil {
-		statusDb = util.GetDB(host, container, "statuses")
+		statusDb = util.GetDBIfExists(host, container, "statuses")
 	}
 	iter := logs_db.NewIterator(nil, nil)
 	defer iter.Release()
@@ -353,7 +446,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	logs := [][]string{}
 	move_direction := getMoveDirection(getPrev, iter)
 
-	if !searchInit(iter, startWith) {
+	if !searchInit(iter, startWith, getPrev) {
 		to_return["is_end"] = true
 		return to_return
 	}
@@ -361,20 +454,32 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	counter := 0
 	iteration := 0
 	last_processed_key := ""
-	for counter < limit && iteration < 1000000 {
+	last_visited_key := ""
+	normalizedMessage := normalizeForSearch(message, caseSensetivity)
+	hitScanCap := false
+	for counter < limit {
+		if iteration >= maxScanIterations {
+			hitScanCap = true
+			break
+		}
 		iteration += 1
 		key := iter.Key()
 		if len(key) == 0 {
 			to_return["is_end"] = true
-			increaseAndMove(&counter, move_direction)
+			counter++
+			move_direction()
 			continue
 		} else {
 			to_return["is_end"] = false
 		}
 
 		keyStr := string(key)
+		last_visited_key = keyStr
 		timeStr := getDateTimeFromKey(keyStr)
-		if !include && (keyStr == startWith || timeStr == startWith) {
+		// Only the cursor row is skipped. Statistics cursors arrive without the
+		// " +<nanos>-<counter>" suffix, which no full key can ever equal, so
+		// they are matched on that boundary instead.
+		if !include && (keyStr == startWith || strings.HasPrefix(keyStr, startWith+" +")) {
 			move_direction()
 			continue
 		}
@@ -388,14 +493,26 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 			}
 		}
 
-		if !fitsForSearch(value, message, caseSensetivity) {
+		if !fitsNormalizedSearch(value, normalizedMessage, caseSensetivity) {
 			move_direction()
 			continue
 		}
 
-		logs = append(logs, []string{timeStr, value})
-		increaseAndMove(&counter, move_direction)
+		logs = append(logs, []string{timeStr, value, keyStr})
+		counter++
+		move_direction()
 		last_processed_key = keyStr
+	}
+
+	if hitScanCap {
+		// Cut short rather than exhausted. is_end already reflects whether the
+		// iterator ran out, so only the cursor needs filling in: hand back the
+		// last key VISITED so the next request resumes past it. An empty cursor
+		// would restart the client at the newest row and loop forever.
+		to_return["scan_capped"] = true
+		if last_processed_key == "" {
+			last_processed_key = last_visited_key
+		}
 	}
 
 	to_return["logs"] = logs
@@ -404,6 +521,16 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 }
 
 func DeleteContainer(host string, container string, fullDelete bool) {
+	// Both callers are bare goroutines, so this rejects rather than panics.
+	if !util.IsSafeName(host) || !util.IsSafeName(container) {
+		fmt.Println("ERROR: refusing to delete container with unsafe name:", host, container)
+		return
+	}
+
+	for _, dbType := range []string{"logs", "statuses", "statistics", "streamstate"} {
+		util.ResetDB(host, container, dbType)
+	}
+
 	path := "leveldb/hosts/" + host + "/containers/" + container
 	if fullDelete {
 		os.RemoveAll(path)
@@ -414,20 +541,13 @@ func DeleteContainer(host string, container string, fullDelete bool) {
 		}
 	}
 
-	if vars.ActiveDBs[container] != nil {
-		vars.ActiveDBs[container].Close()
-		vars.ActiveDBs[container] = util.GetDB(host, container, "active")
-	}
-	if vars.Statuses_DBs[host+"/"+container] != nil {
-		vars.Statuses_DBs[host+"/"+container].Close()
-		vars.Statuses_DBs[host+"/"+container] = util.GetDB(host, container, "statuses")
-	}
-	if vars.Stat_Containers_DBs[host+"/"+container] != nil {
-		vars.Stat_Containers_DBs[host+"/"+container].Close()
-		vars.Statuses_DBs[host+"/"+container] = util.GetDB(host, container, "statistics")
+	for _, dbType := range []string{"logs", "statuses", "statistics", "streamstate"} {
+		util.ResetDB(host, container, dbType)
 	}
 
 	vars.Mutex.Lock()
-	vars.Container_Stat_Counter[host+"/"+container] = map[string]uint64{"error": 0, "debug": 0, "info": 0, "warn": 0, "meta": 0, "other": 0}
+	vars.Container_Stat_Counter[host+"/"+container] = NewStatCounter()
+	// Dropped, not zeroed: frees a slot against maxTrackedContainers.
+	delete(logLineCounts, host+"/"+container)
 	vars.Mutex.Unlock()
 }

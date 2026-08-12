@@ -2,10 +2,10 @@ package util
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io/fs"
-	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -36,22 +37,19 @@ func replaceVarForAllFilesInDir(dirName string, dir_files []fs.DirEntry) {
 	}
 }
 
-func Contains(a string, list []string) bool {
-	for _, b := range list {
-		if strings.Compare(b, a) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func CreateInitUser() {
+func CreateInitUser() error {
 	admin_username := os.Getenv("ADMIN_USERNAME")
 	if admin_username == "" {
 		admin_username = "admin"
 		os.Setenv("ADMIN_USERNAME", admin_username)
 	}
-	vars.UsersDB.Put([]byte(admin_username), []byte(os.Getenv("ADMIN_PASSWORD")), nil)
+
+	admin_password := os.Getenv("ADMIN_PASSWORD")
+	if admin_password == "" {
+		return errors.New("ADMIN_PASSWORD is empty; refusing to create an administrator that would accept an empty password")
+	}
+
+	return vars.UsersDB.Put([]byte(admin_username), []byte(userdb.HashPassword(admin_password)), nil)
 }
 
 func ReplacePrefixVariableForFrontend() {
@@ -73,14 +71,30 @@ func CreateJWT(login string) string {
 	token := jwt.New(jwt.SigningMethodHS256)
 	claims := token.Claims.(jwt.MapClaims)
 	claims["exp"] = time.Now().AddDate(0, 0, 2).Unix()
-	claims["authorized"] = true
 	claims["user"] = login
 	tokenString, _ := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
 	return tokenString
 }
 
+// Every path component must be a single, literal name; anything else escapes
+// leveldb/hosts.
+func IsSafeName(s string) bool {
+	if s == "" || s == "." || s == ".." {
+		return false
+	}
+	// filepath.Base("/") is "/", so the Base comparison alone lets it through.
+	if strings.ContainsAny(s, `/\`) || strings.ContainsRune(s, 0) {
+		return false
+	}
+	return s == filepath.Base(s)
+}
+
 func GetDB(host string, container string, dbType string) *leveldb.DB {
+	if !IsSafeName(host) || !IsSafeName(container) || !IsSafeName(dbType) {
+		return nil
+	}
+
 	vars.DBMutex.RLock()
 	db := getExistingDB(host, container, dbType)
 	vars.DBMutex.RUnlock()
@@ -111,66 +125,138 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 	}
 
 	if err != nil {
-		panic(fmt.Sprintf("ERROR: unable to open db for %s/%s/%s\n%v",
-			host, container, dbType, err))
+		fmt.Printf("ERROR: unable to open db for %s/%s/%s: %v\n", host, container, dbType, err)
+		return nil
 	}
 
-	switch dbType {
-	case "logs":
-		vars.ActiveDBs[container] = db
-	case "statistics":
-		vars.Stat_Containers_DBs[host+"/"+container] = db
-	case "hosts_statistics":
-		vars.Stat_Hosts_DBs[host] = db
-	case "statuses":
-		vars.Statuses_DBs[host+"/"+container] = db
-	case "brokenlogs":
-		vars.BrokenLogs_DBs[container] = db
-	case "containersmeta":
-		vars.ContainersMeta_DBs[host+"/"+container] = db
-	case "streamstate":
-		vars.StreamState_DBs[host+"/"+container] = db
+	// Assigning into a nil map panics, unlike reading or deleting.
+	if cache := dbCaches[dbType]; cache != nil {
+		cache[host+"/"+container] = db
 	}
-
 	return db
 }
 
-func getExistingDB(host, container, dbType string) *leveldb.DB {
-	switch dbType {
-	case "logs":
-		return vars.ActiveDBs[container]
-	case "statistics":
-		return vars.Stat_Containers_DBs[host+"/"+container]
-	case "hosts_statistics":
-		return vars.Stat_Hosts_DBs[host]
-	case "statuses":
-		return vars.Statuses_DBs[host+"/"+container]
-	case "brokenlogs":
-		return vars.BrokenLogs_DBs[container]
-	case "containersmeta":
-		return vars.ContainersMeta_DBs[host+"/"+container]
-	case "streamstate":
-		return vars.StreamState_DBs[host+"/"+container]
+// GetDBIfExists is the read path: it never creates. GetDB opens-or-creates and
+// caches forever.
+func GetDBIfExists(host string, container string, dbType string) *leveldb.DB {
+	if !IsSafeName(host) || !IsSafeName(container) {
+		return nil
 	}
-	return nil
+	if info, err := os.Stat("leveldb/hosts/" + host + "/containers/" + container); err != nil || !info.IsDir() {
+		return nil
+	}
+	return GetDB(host, container, dbType)
 }
 
-func GetHost() string {
-	hostname, err := os.ReadFile("/etc/hostname")
-	var host string
-	if err != nil {
-		host, _ = os.Hostname()
-	} else {
-		host = string(hostname)
+func GetContainersMetaDB(host string) *leveldb.DB {
+	if !IsSafeName(host) {
+		return nil
 	}
 
-	if host[len(host)-1] < 32 || host[len(host)-1] > 126 {
-		host = host[:len(host)-1]
+	vars.DBMutex.RLock()
+	db := vars.ContainersMeta_DBs[host]
+	vars.DBMutex.RUnlock()
+	if db != nil {
+		return db
+	}
+
+	vars.DBMutex.Lock()
+	defer vars.DBMutex.Unlock()
+
+	if db = vars.ContainersMeta_DBs[host]; db != nil {
+		return db
+	}
+
+	db, err := leveldb.OpenFile("leveldb/hosts/"+host+"/containersMeta", nil)
+	if err != nil {
+		fmt.Printf("ERROR: unable to open containersMeta for %s: %v\n", host, err)
+		return nil
+	}
+	vars.ContainersMeta_DBs[host] = db
+	return db
+}
+
+func ResetDB(host string, container string, dbType string) {
+	if !IsSafeName(host) || !IsSafeName(container) || !IsSafeName(dbType) {
+		return
+	}
+
+	vars.DBMutex.Lock()
+	defer vars.DBMutex.Unlock()
+
+	if db := getExistingDB(host, container, dbType); db != nil {
+		db.Close()
+	}
+	delete(dbCaches[dbType], host+"/"+container)
+}
+
+// ContainersMeta_DBs is absent: GetContainersMetaDB keys it by bare host.
+var dbCaches = map[string]map[string]*leveldb.DB{
+	"logs":        vars.ActiveDBs,
+	"statistics":  vars.Stat_Containers_DBs,
+	"statuses":    vars.Statuses_DBs,
+	"brokenlogs":  vars.BrokenLogs_DBs,
+	"streamstate": vars.StreamState_DBs,
+}
+
+func getExistingDB(host, container, dbType string) *leveldb.DB {
+	return dbCaches[dbType][host+"/"+container]
+}
+
+// AGENT is documented as a boolean, so "false" must mean off.
+func IsAgentMode() bool {
+	enabled, err := strconv.ParseBool(os.Getenv("AGENT"))
+	return err == nil && enabled
+}
+
+func parseHostname(raw string, readErr error) string {
+	if readErr != nil {
+		fallback, _ := os.Hostname()
+		raw = fallback
+	}
+
+	host := strings.TrimFunc(raw, func(r rune) bool { return r < 32 || r > 126 })
+	if host == "" {
+		if fallback, err := os.Hostname(); err == nil {
+			host = strings.TrimSpace(fallback)
+		}
+	}
+	if host == "" {
+		host = "localhost"
 	}
 	return host
 }
 
+func GetHost() string {
+	hostname, err := os.ReadFile("/etc/hostname")
+	return parseHostname(string(hostname), err)
+}
+
+// LogsSizes reports bytes per host/container plus the total. The only walk of
+// the logs tree, so the size a user sees and the size the quota compares against
+// cannot drift apart. One filepath.Walk per container: never call it on a
+// request that runs often.
+func LogsSizes() (map[string]int64, int64) {
+	perContainer := map[string]int64{}
+	var total int64
+
+	hosts, _ := os.ReadDir("leveldb/hosts/")
+	for _, host := range hosts {
+		containers, _ := os.ReadDir("leveldb/hosts/" + host.Name() + "/containers")
+		for _, container := range containers {
+			bytes := int64(GetDirSize(host.Name(), container.Name()) * 1024 * 1024)
+			perContainer[host.Name()+"/"+container.Name()] = bytes
+			total += bytes
+		}
+	}
+	return perContainer, total
+}
+
 func GetDirSize(host string, container string) float64 {
+	if !IsSafeName(host) || !IsSafeName(container) {
+		return 0
+	}
+
 	var size int64
 
 	path := "leveldb/hosts/" + host + "/containers/" + container
@@ -191,59 +277,96 @@ func GetDirSize(host string, container string) float64 {
 	return float64(size) / (1024.0 * 1024.0)
 }
 
+// prunableDBs are the sub-databases retention actually deletes from. Measuring
+// anything else makes the quota unreachable: retention would strip these to
+// nothing trying to offset data it cannot touch.
+var prunableDBs = []string{"logs", "statuses", "statistics"}
+
+func GetPrunableSize(host string, container string) float64 {
+	if !IsSafeName(host) || !IsSafeName(container) {
+		return 0
+	}
+
+	var size int64
+	for _, dbType := range prunableDBs {
+		path := "leveldb/hosts/" + host + "/containers/" + container + "/" + dbType
+		filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
+			if err != nil {
+				return nil
+			}
+			if info != nil && !info.IsDir() {
+				size += info.Size()
+			}
+			return nil
+		})
+	}
+	return float64(size) / (1024.0 * 1024.0)
+}
+
+func PrunableDBs() []string {
+	return append([]string{}, prunableDBs...)
+}
+
 func GetUserFromJWT(req http.Request) (string, error) {
 	c, _ := req.Cookie("onlogs-cookie")
 	if c == nil {
 		return "", errors.New("401 - Unauthorized!")
 	}
 
+	// An empty key verifies every HMAC token.
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return "", errors.New("401 - Unauthorized!")
+	}
+
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(c.Value, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte(os.Getenv("JWT_SECRET")), nil
-	})
+		return []byte(secret), nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired())
 
-	if err != nil && strings.Compare(err.Error(), "Token is expired") != 0 {
+	if err != nil {
 		return "", err
 	}
 
-	if int64(int64(claims["exp"].(float64))) < time.Now().Unix() {
+	exp, ok := claims["exp"].(float64)
+	if !ok {
+		return "", errors.New("Token is expired")
+	}
+	if int64(exp) < time.Now().Unix() {
 		return "", errors.New("Token is expired")
 	}
 
-	return claims["user"].(string), nil
+	user, ok := claims["user"].(string)
+	if !ok || user == "" {
+		return "", errors.New("401 - Unauthorized!")
+	}
+
+	// A valid signature is not enough: deleting an account must revoke it.
+	if exists, err := vars.UsersDB.Has([]byte(user), nil); err != nil || !exists {
+		return "", errors.New("401 - Unauthorized!")
+	}
+	return user, nil
 }
 
+// Mints agent ingestion tokens, so it must be cryptographically random.
 func GenerateJWTSecret() string {
-	tokenLen := 25
-
-	letterBytes := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-_."
-	b := make([]byte, tokenLen)
-
-	s1 := rand.NewSource(time.Now().UnixNano())
-	r1 := rand.New(s1)
-	for i := range b {
-		b[i] = letterBytes[r1.Int63()%int64(len(letterBytes))]
-	}
-	token := string(b)
-
-	return token
+	return rand.Text()
 }
 
 func GetDockerContainerID(host string, container string) string {
+	if !IsSafeName(host) {
+		return ""
+	}
+
 	_, err := os.ReadDir("leveldb/hosts/" + host)
 	if err != nil {
 		return ""
 	}
 
-	containersMetaDB := vars.ContainersMeta_DBs[host]
+	containersMetaDB := GetContainersMetaDB(host)
 	if containersMetaDB == nil {
-		containersMetaDB, err := leveldb.OpenFile("leveldb/hosts/"+host+"/containersMeta", nil)
-		if err != nil {
-			panic(err)
-		}
-		vars.ContainersMeta_DBs[host] = containersMetaDB
+		return ""
 	}
-	containersMetaDB = vars.ContainersMeta_DBs[host]
 
 	iter := containersMetaDB.NewIterator(nil, nil)
 	defer iter.Release()
@@ -261,7 +384,7 @@ func GetDockerContainerID(host string, container string) string {
 
 func DeleteDockerLogs(host string, container string) error {
 	if host != GetHost() {
-		vars.ToDelete[host] = append(vars.ToDelete[host+"/"+container], container)
+		vars.QueueDelete(host, container)
 		return nil
 	}
 
@@ -293,15 +416,6 @@ func GetStorageData() map[string]float64 {
 		"free_space_percent": (free_space_GB / total_space_GB) * 100,
 	}
 }
-
-// func RunSpaceMonitoring() {
-// 	for {
-// 		to_put, _ := json.Marshal(GetStorageData())
-// 		vars.StateDB.Put([]byte("Storage data"), to_put, nil)
-
-// 		time.Sleep(time.Second * 30)
-// 	}
-// }
 
 var units = []struct {
 	Suffix     string

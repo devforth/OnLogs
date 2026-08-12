@@ -63,6 +63,17 @@
       color: inherit;
     }
   }
+  // The generic `input:focus` rule above drops the border colour, which a
+  // nested .groupModal selector would outrank; restore the ring in dark accent.
+  .groupModal {
+    .groupNameInput:focus {
+      border-color: $active-color-dark;
+    }
+    .groupModalService input[type="checkbox"] {
+      accent-color: $active-color-dark;
+      color-scheme: dark;
+    }
+  }
   .contentContainer {
     h1#title {
       color: $active-color-dark;

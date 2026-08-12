@@ -1,9 +1,9 @@
-FROM node:16-alpine AS frontbuilder
+FROM node:24-alpine AS frontbuilder
 
 WORKDIR /code/
 ADD frontend/package-lock.json .
 ADD frontend/package.json .
-RUN npm install -g npm:16 && npm ci
+RUN npm ci
 
 ADD frontend/. .
 
@@ -11,17 +11,15 @@ RUN npm run build
 
 COPY . /code/
 
-FROM alpine
+FROM golang:1.26-alpine AS backendbuilder
 
-COPY --from=frontbuilder /code/dist/ /backend/dist/
-
-FROM golang:alpine AS backendbuilder
+ARG VERSION=dev
 
 ADD backend/. /backend/
 WORKDIR /backend/
 
 RUN go mod download  \
-  && go build -o onlogs .
+  && go build -ldflags "-X github.com/devforth/OnLogs/app/metrics.Version=${VERSION}" -o onlogs .
 
 FROM alpine
 

@@ -8,8 +8,8 @@
 
   let api = new fetchApi();
   let result = true;
-  let wrong = "",
-    message = "";
+  let wrong = $state(""),
+    message = $state("");
   let cookies = document.cookie.split(";");
 
   for (const cookie of cookies) {
@@ -52,7 +52,7 @@
         name="login"
         class={wrong}
         placeholder="login"
-        on:click={() => {
+        onclick={() => {
           wrong = "";
         }}
       />
@@ -62,7 +62,7 @@
         class={wrong}
         id="password"
         placeholder="password"
-        on:click={() => {
+        onclick={() => {
           wrong = "";
         }}
       />
@@ -81,4 +81,4 @@
     </div>
   </div>
 </div>
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} />

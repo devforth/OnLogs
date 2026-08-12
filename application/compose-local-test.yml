@@ -2,7 +2,7 @@ name: onlogs-local-test
 
 services:
   docker-socket-proxy:
-    image: tecnativa/docker-socket-proxy:0.3.0
+    image: tecnativa/docker-socket-proxy:v0.5.0
     container_name: docker-proxy
     restart: unless-stopped
     volumes:
@@ -33,6 +33,7 @@ services:
       - DOCKER_HOST=http://docker-socket-proxy:2375
       - DOCKER_API_VERSION=1.46
       - MAX_LOGS_SIZE=10GB
+      - METRICS_TOKEN=local-metrics-token
     volumes:
       - onlogs-leveldb:/leveldb
       - /etc/hostname:/etc/hostname:ro

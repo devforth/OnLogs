@@ -92,12 +92,13 @@
   }
 
   .listElementButton {
-    .log-Heart {
+    .log-Heart,
+    .log-ChartFilled,
+    .log-WheelFilled {
       opacity: 1;
     }
-    .log-EmptyHeart {
-      opacity: 0;
-    }
+    .log-EmptyHeart,
+    .log-Chart,
     .log-Wheel {
       opacity: 0;
     }
@@ -105,9 +106,8 @@
 
   .serviceListItem:hover {
     opacity: 0.8;
-    .log-EmptyHeart {
-      opacity: 1;
-    }
+    .log-EmptyHeart,
+    .log-Chart,
     .log-Wheel {
       opacity: 1;
     }
@@ -139,16 +139,20 @@
   .stopedServicesBox {
     margin-top: 4px;
     margin-bottom: 4px;
+  }
 
-    .log-Pointer {
-      font-size: 10px;
-      cursor: pointer;
-      padding: 6px;
-      transform: rotate(0);
-      &.rotated {
-        transform: rotate(-90deg);
-      }
+  .log-Pointer {
+    font-size: 10px;
+    cursor: pointer;
+    padding: 6px;
+    transform: rotate(0);
+    &.rotated {
+      transform: rotate(-90deg);
     }
+  }
+
+  .hostToggle {
+    margin-left: auto;
   }
   .buttonBox {
     display: flex;

@@ -1,4 +1,5 @@
-# docker buildx create --use
-docker buildx build --platform=linux/amd64,linux/arm64 --tag "devforth/onlogs:latest" --tag "devforth/onlogs:1.3.1" --push .
-# docker run -v /var/run/docker.sock:/var/run/docker.sock --rm -it $(docker build -q -f Dockerfile .)
-# docker build . -t devforth/onlogs && docker push devforth/onlogs
+#!/bin/sh
+# Local build for testing the production image. Releases are made by CI on push
+# to main -- see .releaserc.json -- so nothing here pushes or names a version.
+set -e
+docker build --build-arg VERSION="${1:-dev}" --tag onlogs:local .

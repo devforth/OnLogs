@@ -12,16 +12,15 @@
   import Modal from "../Modal/Modal.svelte";
   import Input from "../Input/Input.svelte";
 
-  let usersList = [];
+  let usersList = $state([]);
 
-  let chosenUserLogin = "";
-  let deleteModalIsOpen = false;
-  let editModalIsOpen = false;
-  let userPasswordValue = "";
+  let chosenUserLogin = $state("");
+  let deleteModalIsOpen = $state(false);
+  let editModalIsOpen = $state(false);
+  let userPasswordValue = $state("");
 
-  export let userForAdding = "";
+  let { userForAdding = "" } = $props();
 
-  $: userForAdding && addUser(userForAdding);
 
   function addUser(u) {
     if (u) {
@@ -133,6 +132,9 @@
   onDestroy(() => {
     delUnsubscribe(), editUnsubscribe();
   });
+  $effect(() => {
+    userForAdding && addUser(userForAdding);
+  });
 </script>
 
 <div>
@@ -141,33 +143,35 @@
   {#if usersList}<div>
       <div class="usersHeaderContainer">
         <h3>Users:</h3>
-        <div class="addUserButton" on:click={showAddUserMenu}>
-          <i class="log log-Plus" />
+        <div class="addUserButton" onclick={showAddUserMenu}>
+          <i class="log log-Plus"></i>
         </div>
       </div>
       <table class="userTable" role="list">
         <thead>
-          <th scope="row">User</th><th style="opacity:0">Role</th><th
-            style="opacity:0">Manage user</th
-          >
+          <tr>
+            <th scope="col">User</th><th style="opacity:0">Role</th><th
+              style="opacity:0">Manage user</th
+            >
+          </tr>
         </thead>
 
         <tbody>
           {#each usersList as user, i}
             <tr
-              ><td><span>{user.username}</span></td><td><span /></td><td>
+              ><td><span>{user.username}</span></td><td><span></span></td><td>
                 {#if user.editable}
                 <span class="buttonSpanContainer"
                   ><span
                     class="buttonSpan"
-                    on:click={() => {
+                    onclick={() => {
                       setChosenUserLogin(user.username);
                       showUserEditing();
                     }}><Button title={"Edit"} minWidth={86} /></span
                   >
                   <span
                     class="buttonSpan"
-                    on:click={() => {
+                    onclick={() => {
                       setChosenUserLogin(user.username);
                       showUserDeleting();
                     }}><Button title={"Delete"} minWidth={86} /></span
@@ -187,7 +191,7 @@
     <span class="buttonModalContainer" style="justify-content: space-between; margin-top: 20px; margin-bottom: 0"
       ><span
         class="buttonSpan"
-        on:click={() => {
+        onclick={() => {
           removeUser(chosenUserLogin);
         }}><Button title={"Delete"} minWidth={86} highlighted /></span
       >
@@ -216,7 +220,7 @@
         <span class="buttonModalContainer" style="justify-content: space-between; margin-top: 20px; margin-bottom: 0;"
         ><span
             class="buttonSpan"
-            on:click={() => {
+            onclick={() => {
             editUser(chosenUserLogin, userPasswordValue);
             }}><Button title={"Confirm"} minWidth={86} highlighted /></span
         >

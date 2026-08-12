@@ -2,32 +2,73 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/docker"
+	"github.com/devforth/OnLogs/app/metrics"
 	"github.com/devforth/OnLogs/app/routes"
 	"github.com/devforth/OnLogs/app/streamer"
 	"github.com/devforth/OnLogs/app/util"
+	"github.com/devforth/OnLogs/app/vars"
 	"github.com/docker/docker/client"
 	"github.com/joho/godotenv"
 )
+
+func ensureJWTSecret() error {
+	if os.Getenv("JWT_SECRET") != "" {
+		return nil
+	}
+
+	if persisted, err := os.ReadFile("leveldb/JWT_secret"); err == nil && len(persisted) > 0 {
+		os.Setenv("JWT_SECRET", string(persisted))
+		return nil
+	}
+
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return fmt.Errorf("unable to generate a JWT secret: %w", err)
+	}
+	secret := hex.EncodeToString(buf)
+
+	if err := os.MkdirAll("leveldb", 0700); err != nil {
+		return fmt.Errorf("unable to create leveldb directory for the JWT secret: %w", err)
+	}
+	if err := os.WriteFile("leveldb/JWT_secret", []byte(secret), 0600); err != nil {
+		return fmt.Errorf("unable to persist the generated JWT secret: %w", err)
+	}
+
+	os.Setenv("JWT_SECRET", secret)
+	return nil
+}
+
+// gorilla clears the connection deadlines after hijacking (server.go:251), so
+// WriteTimeout does not reach the websocket at /api/v1/getLogsStream.
+func newServer(port string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              ":" + port,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+}
 
 func init_config() {
 	if os.Getenv("PORT") == "" {
 		os.Setenv("PORT", "2874")
 	}
 
-	if os.Getenv("JWT_SECRET") == "" {
-		token, err := os.ReadFile("leveldb/JWT_secret")
-		if err != nil {
-			os.WriteFile("leveldb/JWT_secret", []byte(os.Getenv("JWT_SECRET")), 0700)
-			token, _ = os.ReadFile("leveldb/JWT_secret")
-		}
-		os.Setenv("JWT_SECRET", string(token))
+	if err := ensureJWTSecret(); err != nil {
+		fmt.Println("FATAL:", err)
+		os.Exit(1)
 	}
 
 	if os.Getenv("DOCKER_HOST") == "" {
@@ -37,6 +78,17 @@ func init_config() {
 	if os.Getenv("MAX_LOGS_SIZE") == "" {
 		os.Setenv("MAX_LOGS_SIZE", "10GB")
 	}
+	if _, err := util.ParseHumanReadableSize(os.Getenv("MAX_LOGS_SIZE")); err != nil {
+		fmt.Printf("FATAL: MAX_LOGS_SIZE=%q is not a valid size (%v); log retention would never run.\n",
+			os.Getenv("MAX_LOGS_SIZE"), err)
+		os.Exit(1)
+	}
+
+	if err := routes.SetTrustedProxies(os.Getenv("TRUSTED_PROXIES")); err != nil {
+		fmt.Printf("FATAL: TRUSTED_PROXIES=%q is invalid (%v); refusing to start with a rate limiter that cannot tell clients apart.\n",
+			os.Getenv("TRUSTED_PROXIES"), err)
+		os.Exit(1)
+	}
 
 	fmt.Println("INFO: OnLogs configs done!")
 }
@@ -44,6 +96,16 @@ func init_config() {
 func main() {
 	godotenv.Load(".env")
 	init_config()
+
+	if err := vars.CheckDatabases(); err != nil {
+		fmt.Println("FATAL:", err)
+		os.Exit(1)
+	}
+
+	if os.Getenv("JWT_SECRET") == "" {
+		fmt.Println("FATAL: JWT_SECRET is empty; refusing to start. Unset it to have one generated, or set a non-empty value.")
+		os.Exit(1)
+	}
 
 	cli, err := client.NewClientWithOpts(
 		client.FromEnv,
@@ -60,9 +122,7 @@ func main() {
 		Client: cli,
 	}
 
-	daemonService := &daemon.DaemonService{
-		DockerClient: dockerService,
-	}
+	daemonService := daemon.NewDaemonService(dockerService)
 
 	streamController := &streamer.StreamController{
 		DaemonService: daemonService,
@@ -70,15 +130,22 @@ func main() {
 
 	bgContext := context.Background()
 
-	if os.Getenv("AGENT") != "" {
+	if util.IsAgentMode() {
 		streamController.StreamLogs(bgContext)
 	}
 
 	go db.DeleteUnusedTokens()
+	go metrics.StartSizeRefresher(bgContext)
 	go streamController.StreamLogs(bgContext)
-	// go util.RunSpaceMonitoring()
 	util.ReplacePrefixVariableForFrontend()
-	util.CreateInitUser()
+	if err := util.CreateInitUser(); err != nil {
+		if os.Getenv("DISABLE_AUTH") == "true" {
+			fmt.Println("WARNING:", err, "(DISABLE_AUTH=true, continuing without an administrator account)")
+		} else {
+			fmt.Println("FATAL:", err)
+			os.Exit(1)
+		}
+	}
 
 	// Initialize the "Controller" with its dependencies
 	routerCtrl := &routes.RouteController{
@@ -93,15 +160,18 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/askForDelete", routerCtrl.AskForDelete)
 	http.HandleFunc(pathPrefix+"/api/v1/changeFavorite", routerCtrl.ChangeFavourite)
 	http.HandleFunc(pathPrefix+"/api/v1/checkCookie", routerCtrl.CheckCookie)
+	http.HandleFunc(pathPrefix+"/api/v1/createGroup", routerCtrl.CreateGroup)
 	http.HandleFunc(pathPrefix+"/api/v1/createUser", routerCtrl.CreateUser)
 	http.HandleFunc(pathPrefix+"/api/v1/deleteContainer", routerCtrl.DeleteContainer)
 	http.HandleFunc(pathPrefix+"/api/v1/deleteContainerLogs", routerCtrl.DeleteContainerLogs)
 	http.HandleFunc(pathPrefix+"/api/v1/deleteDockerLogs", routerCtrl.DeleteDockerLogs)
+	http.HandleFunc(pathPrefix+"/api/v1/deleteGroup", routerCtrl.DeleteGroup)
 	http.HandleFunc(pathPrefix+"/api/v1/deleteUser", routerCtrl.DeleteUser)
-	http.HandleFunc(pathPrefix+"/api/v1/editHostname", routerCtrl.EditHostname)
 	http.HandleFunc(pathPrefix+"/api/v1/editUser", routerCtrl.EditUser)
 	http.HandleFunc(pathPrefix+"/api/v1/getChartData", routerCtrl.GetChartData)
 	http.HandleFunc(pathPrefix+"/api/v1/getDockerSize", routerCtrl.GetDockerSize)
+	http.HandleFunc(pathPrefix+"/api/v1/getGroups", routerCtrl.GetGroups)
+	http.HandleFunc(pathPrefix+"/api/v1/getHostAliases", routerCtrl.GetHostAliases)
 	http.HandleFunc(pathPrefix+"/api/v1/getHosts", routerCtrl.GetHosts)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogWithPrev", routerCtrl.GetLogWithPrev)
 	http.HandleFunc(pathPrefix+"/api/v1/getLogs", routerCtrl.GetLogs)
@@ -116,8 +186,11 @@ func main() {
 	http.HandleFunc(pathPrefix+"/api/v1/getUsers", routerCtrl.GetUsers)
 	http.HandleFunc(pathPrefix+"/api/v1/login", routerCtrl.Login)
 	http.HandleFunc(pathPrefix+"/api/v1/logout", routerCtrl.Logout)
+	http.HandleFunc(pathPrefix+"/api/v1/metrics", metrics.Handler(daemonService))
+	http.HandleFunc(pathPrefix+"/api/v1/setHostAlias", routerCtrl.SetHostAlias)
+	http.HandleFunc(pathPrefix+"/api/v1/updateGroup", routerCtrl.UpdateGroup)
 	http.HandleFunc(pathPrefix+"/api/v1/updateUserSettings", routerCtrl.UpdateUserSettings)
 
 	fmt.Println("Listening on port:", string(os.Getenv("PORT"))+"...")
-	fmt.Println("ONLOGS: ", http.ListenAndServe(":"+string(os.Getenv("PORT")), nil))
+	fmt.Println("ONLOGS: ", newServer(os.Getenv("PORT"), nil).ListenAndServe())
 }
