@@ -11,10 +11,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
 
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@v7
       with:
         go-version: 1.26.x
 
@@ -29,7 +29,7 @@ jobs:
         echo "BRANCH=$(echo ${BRANCH_NAME})" >> $GITHUB_ENV
 
     - name: Create failing badge
-      uses: schneegans/dynamic-badges-action@v1.0.0
+      uses: schneegans/dynamic-badges-action@v1.9.0
       with:
         auth: ${{ secrets.GIST_SECRET }}
         gistID: 7a0933f8cba0bddbcc95c8b850e32663
@@ -56,7 +56,7 @@ jobs:
         go test -race ./...
 
     - name: Set up Node
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
         node-version: 24.x
 
@@ -74,7 +74,7 @@ jobs:
         echo "COVERAGE=$total_percent" >> $GITHUB_ENV
 
     - name: Create passing badge
-      uses: schneegans/dynamic-badges-action@v1.0.0
+      uses: schneegans/dynamic-badges-action@v1.9.0
       if: ${{ env.COVERAGE!=null }}
       with:
         auth: ${{ secrets.GIST_SECRET }}
@@ -86,7 +86,7 @@ jobs:
         namedLogo: checkmarx
 
     - name: Create coverage badge
-      uses: schneegans/dynamic-badges-action@v1.0.0
+      uses: schneegans/dynamic-badges-action@v1.9.0
       if: ${{ env.COVERAGE!=null }}
       with:
         auth: ${{ secrets.GIST_SECRET }}
@@ -114,14 +114,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24.x
 
