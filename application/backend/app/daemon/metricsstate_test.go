@@ -24,7 +24,7 @@ func TestDroppedReplayTotalsSurviveFinalize(t *testing.T) {
 		t.Fatalf("before finalize: got %d, want 3", got)
 	}
 
-	if !h.finalizeStream("c", 7) {
+	if owned, _ := h.finalizeStream("c", 7); !owned {
 		t.Fatal("finalizeStream did not claim the stream")
 	}
 

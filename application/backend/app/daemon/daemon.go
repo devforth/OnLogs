@@ -40,16 +40,23 @@ const (
 	truncatedLineMark = " [ONLOGS: truncated, the line was over 1 MiB]"
 )
 
+var drainTimeout = time.Minute
+
+var errDrainTimeout = errors.New("drain timeout")
+
 type DaemonService struct {
 	DockerClient *docker.DockerService
 
 	streamsMu          sync.Mutex
-	streamCancels      map[string]context.CancelFunc
+	streamCancels      map[string]context.CancelCauseFunc
 	streamIDs          map[string]uint64
 	streamSeq          uint64
 	recentFingerprints map[string][]string
 	recentSet          map[string]map[string]struct{}
 	droppedReplays     map[string]int
+
+	// Stopped streams still draining, with the context of a start that came meanwhile.
+	draining map[string]context.Context
 
 	// droppedReplays is cleared when a stream ends; these two are for /metrics,
 	// which needs a total that survives a restart and a cursor readable without
@@ -61,8 +68,9 @@ type DaemonService struct {
 func NewDaemonService(dockerClient *docker.DockerService) *DaemonService {
 	return &DaemonService{
 		DockerClient:        dockerClient,
-		streamCancels:       map[string]context.CancelFunc{},
+		streamCancels:       map[string]context.CancelCauseFunc{},
 		streamIDs:           map[string]uint64{},
+		draining:            map[string]context.Context{},
 		recentFingerprints:  map[string][]string{},
 		recentSet:           map[string]map[string]struct{}{},
 		droppedReplays:      map[string]int{},
@@ -360,9 +368,9 @@ func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.Reader, onLi
 	return nil
 }
 
-func (h *DaemonService) finalizeStream(containerName string, streamID uint64) bool {
+func (h *DaemonService) finalizeStream(containerName string, streamID uint64) (bool, context.Context) {
 	if streamID == 0 {
-		return true
+		return true, nil
 	}
 
 	h.streamsMu.Lock()
@@ -370,13 +378,15 @@ func (h *DaemonService) finalizeStream(containerName string, streamID uint64) bo
 
 	currentID, exists := h.streamIDs[containerName]
 	if !exists || currentID != streamID {
-		return false
+		return false, nil
 	}
+	restart := h.draining[containerName]
+	delete(h.draining, containerName)
 
 	// Dropping the CancelFunc without calling it leaks streamCtx and the
 	// watchdog goroutine parked on <-ctx.Done() for every stream that ends.
 	if cancel, ok := h.streamCancels[containerName]; ok {
-		defer cancel()
+		defer cancel(nil)
 	}
 	delete(h.streamCancels, containerName)
 	delete(h.streamIDs, containerName)
@@ -386,7 +396,18 @@ func (h *DaemonService) finalizeStream(containerName string, streamID uint64) bo
 	// droppedReplayTotals deliberately survives; the cursor does not, since a
 	// stopped stream has no progress to fall behind on.
 	delete(h.cursorTimestamps, util.GetHost()+"/"+containerName)
-	return true
+	return true, restart
+}
+
+func (h *DaemonService) endStream(containerName string, streamID uint64) {
+	owned, restart := h.finalizeStream(containerName, streamID)
+	if !owned {
+		return
+	}
+	vars.RemoveActiveStream(containerName)
+	if restart != nil {
+		h.EnsureStream(restart, containerName)
+	}
 }
 
 func (h *DaemonService) runContainerStream(ctx context.Context, containerName string, toHost bool, streamID uint64) {
@@ -407,9 +428,7 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 	)
 	if err != nil {
 		fmt.Println("ERROR: unable to attach logs stream for", containerName, ":", err)
-		if h.finalizeStream(containerName, streamID) {
-			vars.RemoveActiveStream(containerName)
-		}
+		h.endStream(containerName, streamID)
 		return
 	}
 	defer rc.Close()
@@ -432,7 +451,10 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 		h.ingestLine(host, containerName, currentDB, token, toHost, storedThrough, line)
 	}, demux)
 
-	if ctx.Err() == nil {
+	if cause := context.Cause(ctx); cause == nil || cause == errDrainTimeout {
+		if cause != nil {
+			streamErr = cause
+		}
 		reason := "(EOF)"
 		if streamErr != nil {
 			reason = "(" + streamErr.Error() + ")"
@@ -440,19 +462,21 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 		noteMeta(currentDB, host, containerName, token, toHost, "ONLOGS: Container listening stopped! "+reason)
 	}
 
-	if h.finalizeStream(containerName, streamID) {
-		vars.RemoveActiveStream(containerName)
-	}
+	h.endStream(containerName, streamID)
 }
 
 func (h *DaemonService) EnsureStream(ctx context.Context, containerName string) {
 
 	h.streamsMu.Lock()
 	if _, exists := h.streamCancels[containerName]; exists {
+		if _, draining := h.draining[containerName]; draining {
+			h.draining[containerName] = ctx
+			vars.AddActiveStream(containerName)
+		}
 		h.streamsMu.Unlock()
 		return
 	}
-	streamCtx, cancel := context.WithCancel(ctx)
+	streamCtx, cancel := context.WithCancelCause(ctx)
 	h.streamSeq++
 	streamID := h.streamSeq
 	h.streamCancels[containerName] = cancel
@@ -472,15 +496,12 @@ func (h *DaemonService) StopStream(containerName string) {
 
 	h.streamsMu.Lock()
 	cancel, exists := h.streamCancels[containerName]
-	if exists {
-		delete(h.streamCancels, containerName)
-		delete(h.streamIDs, containerName)
+	if _, draining := h.draining[containerName]; exists && !draining {
+		h.draining[containerName] = nil
+		time.AfterFunc(drainTimeout, func() { cancel(errDrainTimeout) })
 	}
 	h.streamsMu.Unlock()
 
-	if exists {
-		cancel()
-	}
 	vars.RemoveActiveStream(containerName)
 }
 
