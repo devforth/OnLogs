@@ -23,6 +23,7 @@ func TestSharedStateSurvivesConcurrentAccess(t *testing.T) {
 		func() { _ = DockerContainerList() },
 		func() { _ = AgentContainers("host") },
 		func() { _ = TakeQueuedDeletes("host") },
+		func() { _ = PendingDeletes("host", []string{}, nil) },
 	}
 
 	for _, fn := range append(append([]func(){}, writers...), readers...) {

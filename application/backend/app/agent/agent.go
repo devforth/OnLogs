@@ -3,16 +3,25 @@ package agent
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
+	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/util"
 )
 
+// Above the 30s dial timeout, so an unreachable master still fails as a dial error.
+var client = &http.Client{Timeout: time.Minute}
+
 func post(path string, body map[string]any) (*http.Response, error) {
 	payload, _ := json.Marshal(body)
-	return http.Post(os.Getenv("HOST")+path, "application/json", bytes.NewBuffer(payload))
+	return client.Post(os.Getenv("HOST")+path, "application/json", bytes.NewBuffer(payload))
 }
 
 func identity() map[string]any {
@@ -38,23 +47,33 @@ func SendInitRequest(containers []string) {
 	}
 }
 
-func SendLogMessage(token string, container string, message_item []string) bool {
+func sendLog(token, container, timestamp, message, eventID string) error {
 	resp, err := post("/api/v1/addLogLine", map[string]any{
 		"Host":      util.GetHost(),
 		"Token":     token,
-		"LogLine":   []string{message_item[0], message_item[1]},
+		"LogLine":   []string{timestamp, message},
 		"Container": container,
+		"EventID":   eventID,
 	})
-	if err == nil {
-		defer resp.Body.Close()
+	if err != nil {
+		return err
 	}
-	if err != nil || resp.StatusCode != 200 {
-		if buffer := util.GetDB(util.GetHost(), container, "brokenlogs"); buffer != nil {
-			buffer.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
-		}
-		return false
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return errors.New(resp.Status)
 	}
-	return true
+	return nil
+}
+
+func SendLogMessage(token string, container string, message_item []string) bool {
+	eventID := containerdb.NewEventID()
+	if sendLog(token, container, message_item[0], message_item[1], eventID) == nil {
+		return true
+	}
+	if buffer := util.GetDB(util.GetHost(), container, "brokenlogs"); buffer != nil {
+		buffer.Put([]byte(message_item[0]+" +"+eventID), []byte(message_item[1]), nil)
+	}
+	return false
 }
 
 func TryResend() {
@@ -67,7 +86,6 @@ func TryResend() {
 	}
 }
 
-// Returns false when the master is still unreachable, so the caller stops.
 func resendContainerBuffer(token string, container string) bool {
 	buffer := util.GetDB(util.GetHost(), container, "brokenlogs")
 	if buffer == nil {
@@ -79,9 +97,11 @@ func resendContainerBuffer(token string, container string) bool {
 
 	for iter.Next() {
 		key := append([]byte{}, iter.Key()...)
-		value := append([]byte{}, iter.Value()...)
-		if !SendLogMessage(token, container, []string{string(key), string(value)}) {
-			return false
+		// Entries queued by older agents are keyed by the bare timestamp.
+		timestamp, eventID, _ := strings.Cut(string(key), " +")
+		if err := sendLog(token, container, timestamp, string(iter.Value()), eventID); err != nil {
+			var opErr *net.OpError
+			return !errors.As(err, &opErr) || opErr.Op != "dial"
 		}
 		buffer.Delete(key, nil)
 	}
@@ -98,20 +118,71 @@ func SendUpdate(containers []string) {
 	AskForDelete()
 }
 
-func AskForDelete() {
-	resp, err := post("/api/v1/askForDelete", identity())
+var (
+	deletesDone   []string
+	deletesFailed = map[string]string{}
+)
+
+type deleteReply struct {
+	Services []string
+	Commands []struct{ ID, Container string }
+}
+
+func pollDeletes() (deleteReply, bool) {
+	body := identity()
+	body["Done"] = append([]string{}, deletesDone...)
+	body["Failed"] = deletesFailed
+
+	var reply deleteReply
+	resp, err := post("/api/v1/askForDelete", body)
 	if err != nil {
-		return
+		return reply, false
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&reply) != nil {
+		return reply, false
+	}
+	deletesDone, deletesFailed = nil, map[string]string{}
+	return reply, true
+}
 
-	body, _ := io.ReadAll(resp.Body)
-	if string(body) != "" {
-		var toDelete map[string][]string
-		json.Unmarshal(body, &toDelete)
+func deleteDockerLogs(container string) error {
+	err := util.DeleteDockerLogs(util.GetHost(), container)
+	if err != nil {
+		fmt.Println("ERROR: unable to delete docker logs of "+container+":", err)
+	}
+	return err
+}
 
-		for _, container := range toDelete["Services"] {
-			util.DeleteDockerLogs(util.GetHost(), container)
+func AskForDelete() {
+	tried := map[string]bool{}
+	for {
+		reply, ok := pollDeletes()
+		if !ok {
+			return
+		}
+		if reply.Commands == nil {
+			// An older master sends bare names and has already forgotten them.
+			for _, container := range reply.Services {
+				deleteDockerLogs(container)
+			}
+			return
+		}
+
+		fresh := false
+		for _, command := range reply.Commands {
+			if tried[command.ID] {
+				continue
+			}
+			tried[command.ID], fresh = true, true
+			if err := deleteDockerLogs(command.Container); err != nil {
+				deletesFailed[command.ID] = err.Error()
+			} else {
+				deletesDone = append(deletesDone, command.ID)
+			}
+		}
+		if !fresh {
+			return
 		}
 	}
 }

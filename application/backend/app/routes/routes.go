@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -204,12 +205,16 @@ func (h *RouteController) CheckCookie(w http.ResponseWriter, req *http.Request) 
 	ok(w)
 }
 
+// Older agents send no id.
+var eventIDPattern = regexp.MustCompile(`^([0-9]{1,20}-[0-9]{1,20})?$`)
+
 func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 	var logItem struct {
 		Token     string
 		Host      string
 		Container string
 		LogLine   []string
+		EventID   string
 	}
 	if !decodeBody(w, req, &logItem) {
 		return
@@ -220,16 +225,20 @@ func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !util.IsSafeName(logItem.Host) || !util.IsSafeName(logItem.Container) || len(logItem.LogLine) < 2 {
+	if !util.IsSafeName(logItem.Host) || !util.IsSafeName(logItem.Container) || len(logItem.LogLine) < 2 ||
+		!eventIDPattern.MatchString(logItem.EventID) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	statistics.EnsureWorker(context.Background(), logItem.Host, logItem.Container)
-	err := containerdb.PutLogMessage(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine)
+	duplicate, err := containerdb.PutLogEvent(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine, logItem.EventID)
 	if err != nil {
 		defer w.WriteHeader(http.StatusInternalServerError)
 		panic(err)
+	}
+	if duplicate {
+		return
 	}
 
 	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
@@ -537,6 +546,7 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 	viewer, _ := util.GetUserFromJWT(*req)
 	ctx := req.Context()
 	activeContainers := h.DaemonService.GetContainersList(ctx)
+	localHost := util.GetHost()
 
 	hosts, _ := os.ReadDir("leveldb/hosts/")
 	for _, host := range hosts {
@@ -544,7 +554,7 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
 			isFavorite, _ := vars.FavsDB.Has(favouriteKey(viewer, host.Name(), container.Name()), nil)
-			if slices.Contains(activeContainers, container.Name()) || slices.Contains(vars.AgentContainers(host.Name()), container.Name()) {
+			if (host.Name() == localHost && slices.Contains(activeContainers, container.Name())) || slices.Contains(vars.AgentContainers(host.Name()), container.Name()) {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
 			} else {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true, "isFavorite": isFavorite})
@@ -958,6 +968,8 @@ func (h *RouteController) AskForDelete(w http.ResponseWriter, req *http.Request)
 	var logItem struct {
 		Hostname string
 		Token    string
+		Done     []string
+		Failed   map[string]string
 	}
 	if !decodeBody(w, req, &logItem) {
 		return
@@ -968,9 +980,17 @@ func (h *RouteController) AskForDelete(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	to_delete := vars.TakeQueuedDeletes(logItem.Hostname)
-
-	writeJSON(w, http.StatusOK, map[string]interface{}{"Services": to_delete})
+	// Agents that acknowledge always send Done, even empty.
+	if logItem.Done == nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{"Services": vars.TakeQueuedDeletes(logItem.Hostname)})
+		return
+	}
+	commands := vars.PendingDeletes(logItem.Hostname, logItem.Done, logItem.Failed)
+	services := []string{}
+	for _, command := range commands {
+		services = append(services, command.Container)
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"Services": services, "Commands": commands})
 }
 
 func (h *RouteController) DeleteContainer(w http.ResponseWriter, req *http.Request) {
