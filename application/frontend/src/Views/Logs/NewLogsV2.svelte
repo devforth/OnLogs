@@ -85,7 +85,9 @@
   // Deliberately an object field: assigning a `let` here would retrigger the very
   // reactive blocks this is meant to hold back.
   const viewFlags = createLogsViewFlags();
-  let pauseWS = false;
+  // Generation of the newest-page load holding live rows back, 0 when none.
+  let pauseWS = 0;
+  let heldWS = [];
   let newLogsAmount = $state(1);
   let controller = null;
   let signal = null;
@@ -166,6 +168,7 @@
     visibleLogs = [];
     previousLogs = [];
     logsFromWS = [];
+    heldWS = [];
   }
 
   async function getFullLogsSet() {
@@ -175,7 +178,7 @@
 
     const initialService = $lastChosenService;
     const generation = ++logsLoadGeneration;
-    pauseWS = true;
+    pauseWS = generation;
 
     let acc = [];
     let total_logs_amount = 0;
@@ -224,12 +227,17 @@
 
     autoscroll = true;
     logsFromWS = [];
+    pauseWS = 0;
+    heldWS.splice(0).forEach((row) => addLogFromWS(row, true));
     } catch (e) {
       console.error(e);
     } finally {
       isSearching.set(false);
       isPending.set(false);
-      pauseWS = false;
+      if (pauseWS === generation) {
+        pauseWS = 0;
+        heldWS.splice(0).forEach((row) => addLogFromWS(row));
+      }
     }
   }
 
@@ -343,11 +351,16 @@
     }, 5000);
   }
 
-  function addLogFromWS(logfromWS) {
+  function addLogFromWS(logfromWS, atBottom = false) {
+    if (pauseWS) {
+      heldWS.push(logfromWS);
+      return;
+    }
     if (allLogs.some((row) => sameLine(row, logfromWS))) {
       return;
     }
     if (
+      atBottom ||
       (!mouseDownBlockFetch && endOffLogsIntersect) ||
       (allLogs.length < 3 * limit && endOffLogsIntersect)
     ) {
