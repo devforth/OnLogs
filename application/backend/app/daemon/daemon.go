@@ -325,7 +325,7 @@ func scanLogs(ctx context.Context, reader io.Reader, onLine func(string)) error 
 	return nil
 }
 
-func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.ReadCloser, onLine func(string), demux bool) error {
+func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.Reader, onLine func(string), demux bool) error {
 	if !demux {
 		return scanLogs(ctx, rc, onLine)
 	}
@@ -358,14 +358,6 @@ func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.ReadCloser, 
 		return copyErr
 	}
 	return nil
-}
-
-func (h *DaemonService) isContainerTTY(ctx context.Context, containerName string) bool {
-	res, err := h.DockerClient.Client.ContainerInspect(ctx, containerName)
-	if err != nil || res.Config == nil {
-		return false
-	}
-	return res.Config.Tty
 }
 
 func (h *DaemonService) finalizeStream(containerName string, streamID uint64) bool {
@@ -431,9 +423,14 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 	token := os.Getenv("ONLOGS_TOKEN")
 	noteMeta(currentDB, host, containerName, token, toHost, "ONLOGS: Container listening started!")
 
-	streamErr := h.streamDockerLogs(ctx, rc, func(line string) {
+	// TTY streams start with a timestamp digit, multiplexed ones with a type byte (0-3).
+	br := bufio.NewReader(rc)
+	head, _ := br.Peek(1)
+	demux := len(head) == 1 && stdcopy.StdType(head[0]) <= stdcopy.Systemerr
+
+	streamErr := h.streamDockerLogs(ctx, br, func(line string) {
 		h.ingestLine(host, containerName, currentDB, token, toHost, storedThrough, line)
-	}, !h.isContainerTTY(ctx, containerName))
+	}, demux)
 
 	if ctx.Err() == nil {
 		reason := "(EOF)"
