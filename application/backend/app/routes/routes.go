@@ -546,6 +546,7 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 	viewer, _ := util.GetUserFromJWT(*req)
 	ctx := req.Context()
 	activeContainers := h.DaemonService.GetContainersList(ctx)
+	localHost := util.GetHost()
 
 	hosts, _ := os.ReadDir("leveldb/hosts/")
 	for _, host := range hosts {
@@ -553,7 +554,7 @@ func (h *RouteController) GetHosts(w http.ResponseWriter, req *http.Request) {
 		allContainers := []map[string]interface{}{}
 		for _, container := range containers {
 			isFavorite, _ := vars.FavsDB.Has(favouriteKey(viewer, host.Name(), container.Name()), nil)
-			if slices.Contains(activeContainers, container.Name()) || slices.Contains(vars.AgentContainers(host.Name()), container.Name()) {
+			if (host.Name() == localHost && slices.Contains(activeContainers, container.Name())) || slices.Contains(vars.AgentContainers(host.Name()), container.Name()) {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": false, "isFavorite": isFavorite})
 			} else {
 				allContainers = append(allContainers, map[string]interface{}{"serviceName": container.Name(), "isDisabled": true, "isFavorite": isFavorite})

@@ -160,6 +160,77 @@ func TestGetHosts(t *testing.T) {
 	}
 }
 
+func TestGetHostsTakesRemoteStatusFromTheAgentReport(t *testing.T) {
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		io.WriteString(w, `[{"Id":"id-web","Names":["/web"],"State":"running"}]`)
+	}))
+	defer api.Close()
+	cli, err := client.NewClientWithOpts(client.WithHost(api.URL), client.WithVersion("1.45"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cli.Close()
+	ds := &docker.DockerService{Client: cli}
+	ctrl := &RouteController{DockerService: ds, DaemonService: daemon.NewDaemonService(ds)}
+
+	local, remote := util.GetHost(), "statusagenthost"
+	token := db.CreateOnLogsToken()
+	os.MkdirAll("leveldb/hosts/"+local+"/containers/web", 0o700)
+	t.Cleanup(func() {
+		vars.SetAgentContainers(remote, nil)
+		os.RemoveAll("leveldb/hosts/" + remote)
+		os.RemoveAll("leveldb/hosts/" + local + "/containers/web")
+		_ = vars.TokensDB.Delete([]byte(token), nil)
+	})
+
+	report := func(services ...string) {
+		t.Helper()
+		body := map[string]any{"Hostname": remote, "Token": token, "Services": services}
+		if code, _ := call(t, ctrl.AddHost, authedRequest(t, "", "POST", "/api/v1/addHost", body)); code != http.StatusOK {
+			t.Fatalf("addHost returned %d", code)
+		}
+	}
+	disabled := func() map[string]bool {
+		t.Helper()
+		_, body := call(t, ctrl.GetHosts, authedRequest(t, "testuser", "GET", "/api/v1/getHosts", nil))
+		var hosts []struct {
+			Host     string `json:"host"`
+			Services []struct {
+				ServiceName string `json:"serviceName"`
+				IsDisabled  bool   `json:"isDisabled"`
+			} `json:"services"`
+		}
+		if err := json.Unmarshal(body, &hosts); err != nil {
+			t.Fatalf("unmarshal: %v -- body %s", err, body)
+		}
+		res := map[string]bool{}
+		for _, h := range hosts {
+			for _, s := range h.Services {
+				res[h.Host+"/"+s.ServiceName] = s.IsDisabled
+			}
+		}
+		return res
+	}
+
+	report("web", "worker")
+	if got := disabled(); got[remote+"/web"] || got[remote+"/worker"] {
+		t.Fatalf("services the agent reports are shown stopped: %v", got)
+	}
+
+	report("worker")
+	got := disabled()
+	if !got[remote+"/web"] {
+		t.Error("a container the agent no longer reports stays active because the master runs one with the same name")
+	}
+	if got[remote+"/worker"] {
+		t.Error("a container the agent still reports is shown stopped")
+	}
+	if off, ok := got[local+"/web"]; !ok || off {
+		t.Errorf("the master's own running container is not shown active: %v", got)
+	}
+}
+
 func TestSizeEndpointsReportAnEmptyStore(t *testing.T) {
 	cases := []struct {
 		name    string
