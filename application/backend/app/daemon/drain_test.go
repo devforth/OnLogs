@@ -23,6 +23,8 @@ func newDrainService(t *testing.T, name string, logs http.HandlerFunc) *DaemonSe
 	t.Setenv("AGENT", "false")
 	t.Setenv("MAX_LOGS_SIZE", "10GB")
 	srv := httptest.NewServer(logs)
+	// A cancel racing a kept-alive response's end can strand the body read.
+	srv.Config.SetKeepAlivesEnabled(false)
 	cli, err := client.NewClientWithOpts(client.WithHost(srv.URL), client.WithVersion("1.45"))
 	if err != nil {
 		t.Fatal(err)
@@ -146,6 +148,45 @@ func TestStartWhileDrainingAttachesTheNewRun(t *testing.T) {
 	close(release)
 
 	waitUntil(t, "new run stored", func() bool { return storedMessages(name)[newRun[len(newRun)-1].text] == 1 })
+	counts := storedMessages(name)
+	for _, rec := range append(append([]logRecord{}, oldRun...), newRun...) {
+		if counts[rec.text] != 1 {
+			t.Errorf("%q stored %d times", rec.text, counts[rec.text])
+		}
+	}
+}
+
+func TestRunThatStartsAndExitsDuringADrainIsStored(t *testing.T) {
+	name := "drain-short-run"
+	base := time.Now().Add(-10 * time.Second)
+	oldRun := append([]logRecord{{base, "old-first"}}, records(base, 1, "old", 20)...)
+	newRun := records(base, 1000, "new", 20)
+	attached, release := make(chan struct{}), make(chan struct{})
+	var requests atomic.Int32
+	d := newDrainService(t, name, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.docker.multiplexed-stream")
+		if requests.Add(1) == 1 {
+			writeRecords(w, oldRun[0])
+			close(attached)
+			<-release
+			writeRecords(w, oldRun[1:]...)
+			return
+		}
+		writeRecords(w, append(append([]logRecord{}, oldRun...), newRun...)...)
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	d.EnsureStream(ctx, name)
+	<-attached
+	d.StopStream(name)
+	d.EnsureStream(ctx, name)
+	d.StopStream(name)
+	close(release)
+
+	waitUntil(t, "the run that started and exited during the drain to be read", func() bool {
+		return requests.Load() == 2 && !streamRegistered(d, name)
+	})
 	counts := storedMessages(name)
 	for _, rec := range append(append([]logRecord{}, oldRun...), newRun...) {
 		if counts[rec.text] != 1 {

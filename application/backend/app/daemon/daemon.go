@@ -396,6 +396,7 @@ func (h *DaemonService) finalizeStream(containerName string, streamID uint64) (b
 	// droppedReplayTotals deliberately survives; the cursor does not, since a
 	// stopped stream has no progress to fall behind on.
 	delete(h.cursorTimestamps, util.GetHost()+"/"+containerName)
+	vars.RemoveActiveStream(containerName)
 	return true, restart
 }
 
@@ -404,7 +405,6 @@ func (h *DaemonService) endStream(containerName string, streamID uint64) {
 	if !owned {
 		return
 	}
-	vars.RemoveActiveStream(containerName)
 	if restart != nil {
 		h.EnsureStream(restart, containerName)
 	}
@@ -481,9 +481,9 @@ func (h *DaemonService) EnsureStream(ctx context.Context, containerName string) 
 	streamID := h.streamSeq
 	h.streamCancels[containerName] = cancel
 	h.streamIDs[containerName] = streamID
-	h.streamsMu.Unlock()
-
+	// The marker changes under streamsMu, with the ownership it reflects.
 	vars.AddActiveStream(containerName)
+	h.streamsMu.Unlock()
 
 	if util.IsAgentMode() {
 		go h.runContainerStream(streamCtx, containerName, true, streamID)
@@ -500,9 +500,8 @@ func (h *DaemonService) StopStream(containerName string) {
 		h.draining[containerName] = nil
 		time.AfterFunc(drainTimeout, func() { cancel(errDrainTimeout) })
 	}
-	h.streamsMu.Unlock()
-
 	vars.RemoveActiveStream(containerName)
+	h.streamsMu.Unlock()
 }
 
 // runningNames keeps only containers docker reports as running. Attaching to an
