@@ -211,8 +211,12 @@ var (
 	logKeyCounter    atomic.Uint64
 )
 
+func NewEventID() string {
+	return strconv.FormatInt(time.Now().UnixNano(), 10) + "-" + strconv.FormatUint(logKeyCounter.Add(1), 10)
+}
+
 func buildLogKey(timestamp string) string {
-	return timestamp + " +" + strconv.FormatInt(time.Now().UnixNano(), 10) + "-" + strconv.FormatUint(logKeyCounter.Add(1), 10)
+	return timestamp + " +" + NewEventID()
 }
 
 func MaybeScheduleCleanup(host string, container string) {
@@ -312,15 +316,22 @@ func LogLineCounts() map[string]map[string]uint64 {
 }
 
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
+	_, err := PutLogEvent(db, host, container, message_item, "")
+	return err
+}
+
+var eventMu sync.Mutex
+
+func PutLogEvent(db *leveldb.DB, host string, container string, message_item []string, eventID string) (duplicate bool, err error) {
 	if db == nil {
-		return fmt.Errorf("no database for %s/%s", host, container)
+		return false, fmt.Errorf("no database for %s/%s", host, container)
 	}
 	if len(message_item) < 2 {
-		return fmt.Errorf("malformed log line for %s/%s", host, container)
+		return false, fmt.Errorf("malformed log line for %s/%s", host, container)
 	}
 	if len(message_item[0]) < 30 {
 		fmt.Println("WARNING: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
-		return nil
+		return false, nil
 	}
 
 	if host == "" {
@@ -331,7 +342,17 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 
 	location := host + "/" + container
 	status_key := GetLogStatusKey(message_item[1])
-	logKey := buildLogKey(message_item[0])
+	var logKey string
+	if eventID == "" {
+		logKey = buildLogKey(message_item[0])
+	} else {
+		logKey = message_item[0] + " +" + eventID
+		eventMu.Lock()
+		defer eventMu.Unlock()
+		if stored, _ := db.Has([]byte(logKey), nil); stored {
+			return true, nil
+		}
+	}
 
 	// Resolved before taking vars.Mutex: GetDB takes DBMutex and can panic, and
 	// it already caches the handle under that lock.
@@ -349,7 +370,7 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 		}
 	}
 
-	err := db.Put([]byte(logKey), []byte(message_item[1]), nil)
+	err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
 	for tries := 0; err != nil && tries < 10; tries++ {
 		time.Sleep(10 * time.Millisecond)
 		if reopened := util.GetDB(host, container, "logs"); reopened != nil {
@@ -357,7 +378,7 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 			err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
 		}
 	}
-	return err
+	return false, err
 }
 
 func normalizeForSearch(s string, caseSensetivity bool) string {

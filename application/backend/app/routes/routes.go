@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -204,12 +205,16 @@ func (h *RouteController) CheckCookie(w http.ResponseWriter, req *http.Request) 
 	ok(w)
 }
 
+// Older agents send no id.
+var eventIDPattern = regexp.MustCompile(`^([0-9]{1,20}-[0-9]{1,20})?$`)
+
 func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 	var logItem struct {
 		Token     string
 		Host      string
 		Container string
 		LogLine   []string
+		EventID   string
 	}
 	if !decodeBody(w, req, &logItem) {
 		return
@@ -220,16 +225,20 @@ func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !util.IsSafeName(logItem.Host) || !util.IsSafeName(logItem.Container) || len(logItem.LogLine) < 2 {
+	if !util.IsSafeName(logItem.Host) || !util.IsSafeName(logItem.Container) || len(logItem.LogLine) < 2 ||
+		!eventIDPattern.MatchString(logItem.EventID) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	statistics.EnsureWorker(context.Background(), logItem.Host, logItem.Container)
-	err := containerdb.PutLogMessage(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine)
+	duplicate, err := containerdb.PutLogEvent(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine, logItem.EventID)
 	if err != nil {
 		defer w.WriteHeader(http.StatusInternalServerError)
 		panic(err)
+	}
+	if duplicate {
+		return
 	}
 
 	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})

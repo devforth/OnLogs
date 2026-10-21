@@ -11,8 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/daemon"
+	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/docker"
+	"github.com/devforth/OnLogs/app/statistics"
 	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
@@ -290,5 +293,51 @@ func TestGetChartData(t *testing.T) {
 		res["now"]["error"] != 2 || res["now"]["info"] != 3 ||
 		res["now"]["other"] != 4 || res["now"]["warn"] != 5 {
 		t.Error("Wrong value!\n", res[datetime])
+	}
+}
+
+func TestAddLogLineStoresEachEventIDOnce(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("MAX_LOGS_SIZE", "1GB")
+	token := db.CreateOnLogsToken()
+	host, container := "eventidhost", "eventidcontainer"
+	countedBefore := containerdb.LogLineCounts()[host+"/"+container]["other"]
+	t.Cleanup(func() {
+		statistics.StopWorker(host, container)
+		for _, kind := range []string{"logs", "statuses", "statistics"} {
+			util.ResetDB(host, container, kind)
+		}
+		_ = vars.TokensDB.Delete([]byte(token), nil)
+	})
+
+	post := func(eventID string) int {
+		body := map[string]any{"Token": token, "Host": host, "Container": container,
+			"LogLine": []string{"2026-10-19T12:00:00.000000001Z", "same line"}}
+		if eventID != "" {
+			body["EventID"] = eventID
+		}
+		code, _ := call(t, testCtrl.AddLogLine, authedRequest(t, "", "POST", "/api/v1/addLogLine", body))
+		return code
+	}
+	for _, id := range []string{"100-1", "100-1", "100-2", "", ""} {
+		if code := post(id); code != http.StatusOK {
+			t.Fatalf("event %q rejected: status %d", id, code)
+		}
+	}
+	if code := post("../1"); code != http.StatusBadRequest {
+		t.Errorf("malformed event id accepted: status %d", code)
+	}
+
+	rows := 0
+	iter := util.GetDB(host, container, "logs").NewIterator(nil, nil)
+	for iter.Next() {
+		rows++
+	}
+	iter.Release()
+	if rows != 4 {
+		t.Errorf("expected 4 stored rows, got %d", rows)
+	}
+	if counted := containerdb.LogLineCounts()[host+"/"+container]["other"] - countedBefore; counted != 4 {
+		t.Errorf("expected 4 counted lines, got %d", counted)
 	}
 }

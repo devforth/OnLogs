@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/devforth/OnLogs/app/util"
+	leveldbUtil "github.com/syndtr/goleveldb/leveldb/util"
 )
 
 func TestSendLogMessageBuffersInsteadOfPanicking(t *testing.T) {
@@ -27,12 +28,13 @@ func TestSendLogMessageBuffersInsteadOfPanicking(t *testing.T) {
 	if buffer == nil {
 		t.Fatal("no broken-logs buffer was opened")
 	}
-	value, err := buffer.Get([]byte("2026-02-10T12:56:09.230421754Z"), nil)
-	if err != nil {
-		t.Fatalf("the undelivered line was not buffered: %v", err)
+	iter := buffer.NewIterator(leveldbUtil.BytesPrefix([]byte("2026-02-10T12:56:09.230421754Z +")), nil)
+	defer iter.Release()
+	if !iter.Next() {
+		t.Fatal("the undelivered line was not buffered")
 	}
-	if string(value) != "a line" {
-		t.Fatalf("buffered the wrong value: %q", value)
+	if string(iter.Value()) != "a line" {
+		t.Fatalf("buffered the wrong value: %q", iter.Value())
 	}
 }
 

@@ -6,7 +6,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
+	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/util"
 )
 
@@ -38,23 +40,30 @@ func SendInitRequest(containers []string) {
 	}
 }
 
-func SendLogMessage(token string, container string, message_item []string) bool {
+func sendLog(token, container, timestamp, message, eventID string) bool {
 	resp, err := post("/api/v1/addLogLine", map[string]any{
 		"Host":      util.GetHost(),
 		"Token":     token,
-		"LogLine":   []string{message_item[0], message_item[1]},
+		"LogLine":   []string{timestamp, message},
 		"Container": container,
+		"EventID":   eventID,
 	})
-	if err == nil {
-		defer resp.Body.Close()
-	}
-	if err != nil || resp.StatusCode != 200 {
-		if buffer := util.GetDB(util.GetHost(), container, "brokenlogs"); buffer != nil {
-			buffer.Put([]byte(message_item[0]), []byte(message_item[1]), nil)
-		}
+	if err != nil {
 		return false
 	}
-	return true
+	defer resp.Body.Close()
+	return resp.StatusCode == 200
+}
+
+func SendLogMessage(token string, container string, message_item []string) bool {
+	eventID := containerdb.NewEventID()
+	if sendLog(token, container, message_item[0], message_item[1], eventID) {
+		return true
+	}
+	if buffer := util.GetDB(util.GetHost(), container, "brokenlogs"); buffer != nil {
+		buffer.Put([]byte(message_item[0]+" +"+eventID), []byte(message_item[1]), nil)
+	}
+	return false
 }
 
 func TryResend() {
@@ -79,8 +88,9 @@ func resendContainerBuffer(token string, container string) bool {
 
 	for iter.Next() {
 		key := append([]byte{}, iter.Key()...)
-		value := append([]byte{}, iter.Value()...)
-		if !SendLogMessage(token, container, []string{string(key), string(value)}) {
+		// Entries queued by older agents are keyed by the bare timestamp.
+		timestamp, eventID, _ := strings.Cut(string(key), " +")
+		if !sendLog(token, container, timestamp, string(iter.Value()), eventID) {
 			return false
 		}
 		buffer.Delete(key, nil)
