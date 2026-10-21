@@ -765,7 +765,15 @@ func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request
 		fmt.Println(err)
 		return
 	}
-	vars.AddConnection(container, ws)
+	user, err := util.GetUserFromJWT(*req)
+	if err != nil && os.Getenv("DISABLE_AUTH") != "true" {
+		ws.Close()
+		return
+	}
+	vars.AddConnection(container, user, ws)
+	if _, err := util.GetUserFromJWT(*req); user != "" && err != nil {
+		ws.Close()
+	}
 }
 
 func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {

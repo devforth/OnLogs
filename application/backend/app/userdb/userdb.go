@@ -105,7 +105,11 @@ func revokeSessions(login string) error {
 	if err != nil {
 		return err
 	}
-	return vars.SessionsDB.Put([]byte(login), []byte(strconv.FormatUint(gen+1, 10)), nil)
+	if err := vars.SessionsDB.Put([]byte(login), []byte(strconv.FormatUint(gen+1, 10)), nil); err != nil {
+		return err
+	}
+	vars.CloseUserConnections(login)
+	return nil
 }
 
 func CheckUserPassword(login string, gotPassword string) bool {
