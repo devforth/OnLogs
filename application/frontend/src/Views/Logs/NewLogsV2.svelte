@@ -232,6 +232,7 @@
       return;
     }
 
+    logsLoadGeneration += 1;
     allLogs = dedupeLogs(acc);
     const allLogsCopy = [...allLogs];
     newLogs = allLogsCopy.splice(0, limit);
@@ -580,6 +581,20 @@
   function setInitialScroll(val) {
     initialScroll = val;
   }
+
+  function pageQuery() {
+    return {
+      generation: logsLoadGeneration,
+      containerName: $lastChosenService,
+      hostName: $lastChosenHost,
+      search: searchText,
+      caseSens: !$store.caseInSensitive,
+      status: $chosenStatus,
+    };
+  }
+  const isCurrentQuery = (query) =>
+    Object.entries(pageQuery()).every(([key, value]) => query[key] === value);
+
   const fetchedLogs = async (doNotScroll, customStartWith) => {
     if ($isFeatching || scrollDirection !== "up") {
       return;
@@ -588,8 +603,7 @@
     stopLogsUnfetch = false;
     controller = new AbortController();
     signal = controller.signal;
-    const initialService = $lastChosenService;
-    const generation = logsLoadGeneration;
+    const query = pageQuery();
     isFeatching.set(true);
 
     try {
@@ -605,13 +619,9 @@
       while (total_logs_amount < limit && !is_all_logs_processed) {
         isSearching.set(true);
         const response = await getLogs({
-          containerName: $lastChosenService,
-          search: searchText,
+          ...query,
           limit,
-          status: $chosenStatus,
-          caseSens: !$store.caseInSensitive,
           startWith: last_key,
-          hostName: $lastChosenHost,
           signal,
         });
 
@@ -621,11 +631,7 @@
         is_all_logs_processed = response.is_end;
         last_key = response.last_processed_key;
 
-        if (
-          initialService !== $lastChosenService ||
-          generation !== logsLoadGeneration ||
-          (!data.length && !response.scan_capped)
-        ) {
+        if (!isCurrentQuery(query) || (!data.length && !response.scan_capped)) {
           break;
         }
         if (!data.length) {
@@ -650,7 +656,7 @@
 
         if (data.length === limit && !doNotScroll) {
           setTimeout(() => {
-            scrollToNewLogsEnd(".newLogsEnd");
+            isCurrentQuery(query) && scrollToNewLogsEnd(".newLogsEnd");
           }, 50);
         }
       }
@@ -667,8 +673,7 @@
 
   const fetchedTopLogs = async (customStartWith) => {
 
-    const initialService = $lastChosenService;
-    const generation = logsLoadGeneration;
+    const query = pageQuery();
 
     if (controller) {
       controller.abort();
@@ -693,19 +698,14 @@
       while (limit > total_received_logs_count && !is_all_logs_processed) {
         isSearching.set(true);
         const data = await getLogs({
-          containerName: $lastChosenService,
-          search: searchText,
+          ...query,
           limit: limit - total_received_logs_count,
-          status: $chosenStatus,
-
-          caseSens: !$store.caseInSensitive,
           startWith: last_key,
-          hostName: $lastChosenHost,
         });
         is_all_logs_processed = data.is_end;
         last_key = data.last_processed_key;
         total_received_logs_count += data.logs.length;
-        if (generation !== logsLoadGeneration || (!data.logs.length && !data.scan_capped)) {
+        if (!isCurrentQuery(query) || (!data.logs.length && !data.scan_capped)) {
           break;
         }
         total_logs = [...data.logs.reverse(), ...total_logs];
@@ -713,7 +713,7 @@
       isSearching.set(false);
       isFeatching.set(false);
 
-      if (initialService === $lastChosenService && generation === logsLoadGeneration) {
+      if (isCurrentQuery(query)) {
         // Nothing older left: stop asking, or the top loader repeats the same
         // request every tick forever.
         startOfHistoryReached = is_all_logs_processed && !total_logs.length;
@@ -738,8 +738,7 @@
   const unfetchedLogs = async () => {
     if (!$isFeatching) {
       if (scrollDirection === "down" && !scrollFromButton && !stopLogsUnfetch) {
-        const initialService = $lastChosenService;
-        const generation = logsLoadGeneration;
+        const query = pageQuery();
         isFeatching.set(true);
 
         let last_key = logKey(allLogs.at(-1));
@@ -749,26 +748,21 @@
         while (total_received_logs_count < limit && !is_all_logs_processed) {
           isSearching.set(true);
           const data = await getPrevLogs({
-            containerName: $lastChosenService,
-            search: searchText,
+            ...query,
             limit: limit - total_received_logs_count,
-            status: $chosenStatus,
-
-            caseSens: !$store.caseInSensitive,
             startWith: last_key,
-            hostName: $lastChosenHost,
           });
           total_received_logs_count += data.logs.length;
           is_all_logs_processed = data.is_end;
           last_key = data.last_processed_key;
-          if (generation !== logsLoadGeneration || (!data.logs.length && !data.scan_capped)) {
+          if (!isCurrentQuery(query) || (!data.logs.length && !data.scan_capped)) {
             break;
           }
           total_logs = [...total_logs, ...data.logs];
         }
         isSearching.set(false);
         isFeatching.set(false);
-        if (initialService === $lastChosenService && generation === logsLoadGeneration) {
+        if (isCurrentQuery(query)) {
             total_logs = total_logs.filter(
               (row) => !allLogs.some((shown) => sameRow(shown, row))
             );
@@ -850,7 +844,7 @@
         newLogsAmount = data.length;
         isFeatching.set(false);
 
-        scrollToSpecificLog(".fetchFromStart", {
+        data.length && scrollToSpecificLog(".fetchFromStart", {
           behavior: "auto",
           block: "start",
           inline: "center",
