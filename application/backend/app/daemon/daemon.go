@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -32,6 +33,11 @@ const (
 	overlapBackfill     = 2 * time.Second
 	initialBackfill     = 30 * time.Second
 	maxRecentLogEntries = 500
+
+	maxLogLine = 1024 * 1024
+	// Keeps an agent's JSON request under the master's 1 MiB body limit.
+	keptLongLine      = 128 * 1024
+	truncatedLineMark = " [ONLOGS: truncated, the line was over 1 MiB]"
 )
 
 type DaemonService struct {
@@ -287,7 +293,23 @@ func (h *DaemonService) saveCursor(host, containerName string, ts time.Time) {
 func scanLogs(ctx context.Context, reader io.Reader, onLine func(string)) error {
 	scanner := bufio.NewScanner(reader)
 	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 1024*1024)
+	scanner.Buffer(buf, maxLogLine)
+	discarding := false
+	scanner.Split(func(data []byte, atEOF bool) (int, []byte, error) {
+		if discarding {
+			i := bytes.IndexByte(data, '\n')
+			if i < 0 {
+				return len(data), nil, nil
+			}
+			discarding = false
+			return i + 1, nil, nil
+		}
+		if len(data) >= maxLogLine && bytes.IndexByte(data, '\n') < 0 {
+			discarding = true
+			return len(data), append(data[:keptLongLine:keptLongLine], truncatedLineMark...), nil
+		}
+		return bufio.ScanLines(data, atEOF)
+	})
 	for scanner.Scan() {
 		select {
 		case <-ctx.Done():
@@ -321,10 +343,10 @@ func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.ReadCloser, 
 
 	// Release the writer before waiting on it. StdCopy may be parked in
 	// pw.Write, and neither closing rc nor cancelling ctx unblocks a blocked
-	// write -- so without this, an early return from scanLogs (cancellation, or
-	// a line over the scanner's 1 MiB limit) leaves StdCopy stuck, this function
-	// never returns, finalizeStream never runs, and EnsureStream refuses to
-	// restart that container for the life of the process.
+	// write -- so without this, an early return from scanLogs (cancellation)
+	// leaves StdCopy stuck, this function never returns, finalizeStream never
+	// runs, and EnsureStream refuses to restart that container for the life of
+	// the process.
 	_ = pr.CloseWithError(io.ErrClosedPipe)
 
 	copyErr := <-copyDone
