@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -117,20 +118,71 @@ func SendUpdate(containers []string) {
 	AskForDelete()
 }
 
-func AskForDelete() {
-	resp, err := post("/api/v1/askForDelete", identity())
+var (
+	deletesDone   []string
+	deletesFailed = map[string]string{}
+)
+
+type deleteReply struct {
+	Services []string
+	Commands []struct{ ID, Container string }
+}
+
+func pollDeletes() (deleteReply, bool) {
+	body := identity()
+	body["Done"] = append([]string{}, deletesDone...)
+	body["Failed"] = deletesFailed
+
+	var reply deleteReply
+	resp, err := post("/api/v1/askForDelete", body)
 	if err != nil {
-		return
+		return reply, false
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&reply) != nil {
+		return reply, false
+	}
+	deletesDone, deletesFailed = nil, map[string]string{}
+	return reply, true
+}
 
-	body, _ := io.ReadAll(resp.Body)
-	if string(body) != "" {
-		var toDelete map[string][]string
-		json.Unmarshal(body, &toDelete)
+func deleteDockerLogs(container string) error {
+	err := util.DeleteDockerLogs(util.GetHost(), container)
+	if err != nil {
+		fmt.Println("ERROR: unable to delete docker logs of "+container+":", err)
+	}
+	return err
+}
 
-		for _, container := range toDelete["Services"] {
-			util.DeleteDockerLogs(util.GetHost(), container)
+func AskForDelete() {
+	tried := map[string]bool{}
+	for {
+		reply, ok := pollDeletes()
+		if !ok {
+			return
+		}
+		if reply.Commands == nil {
+			// An older master sends bare names and has already forgotten them.
+			for _, container := range reply.Services {
+				deleteDockerLogs(container)
+			}
+			return
+		}
+
+		fresh := false
+		for _, command := range reply.Commands {
+			if tried[command.ID] {
+				continue
+			}
+			tried[command.ID], fresh = true, true
+			if err := deleteDockerLogs(command.Container); err != nil {
+				deletesFailed[command.ID] = err.Error()
+			} else {
+				deletesDone = append(deletesDone, command.ID)
+			}
+		}
+		if !fresh {
+			return
 		}
 	}
 }

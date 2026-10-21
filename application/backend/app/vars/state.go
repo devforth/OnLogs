@@ -1,7 +1,10 @@
 package vars
 
 import (
+	"crypto/rand"
 	"errors"
+	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -74,24 +77,58 @@ func AgentContainers(host string) []string {
 	return append([]string{}, AgentsActiveContainers[host]...)
 }
 
+const maxDeleteAttempts = 3
+
+type DeleteCommand struct {
+	ID        string
+	Container string
+	failures  int
+}
+
 // QueueDelete records a container whose docker logs a remote agent should clear.
 func QueueDelete(host string, container string) {
 	stateMutex.Lock()
 	defer stateMutex.Unlock()
-	ToDelete[host] = append(ToDelete[host], container)
+	ToDelete[host] = append(ToDelete[host], DeleteCommand{ID: rand.Text(), Container: container})
 }
 
-// TakeQueuedDeletes returns and clears the queue for a host.
+// For older agents, which never acknowledge deletes.
 func TakeQueuedDeletes(host string) []string {
 	stateMutex.Lock()
 	defer stateMutex.Unlock()
 
-	queued := ToDelete[host]
-	if len(queued) == 0 {
-		return []string{}
+	queued := []string{}
+	for _, command := range ToDelete[host] {
+		queued = append(queued, command.Container)
 	}
 	delete(ToDelete, host)
 	return queued
+}
+
+func PendingDeletes(host string, done []string, failed map[string]string) []DeleteCommand {
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+
+	pending := []DeleteCommand{}
+	for _, command := range ToDelete[host] {
+		if slices.Contains(done, command.ID) {
+			continue
+		}
+		if err, ok := failed[command.ID]; ok {
+			command.failures++
+			if command.failures >= maxDeleteAttempts {
+				fmt.Printf("ERROR: gave up deleting docker logs of %s on %s: %q\n", command.Container, host, err)
+				continue
+			}
+		}
+		pending = append(pending, command)
+	}
+	if len(pending) == 0 {
+		delete(ToDelete, host)
+	} else {
+		ToDelete[host] = pending
+	}
+	return slices.Clone(pending)
 }
 
 // CheckDatabases reports the package-level LevelDB handles that failed to open.

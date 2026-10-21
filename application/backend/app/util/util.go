@@ -382,6 +382,8 @@ func GetDockerContainerID(host string, container string) string {
 	return ""
 }
 
+var DockerContainersDir = "/var/lib/docker/containers/"
+
 func DeleteDockerLogs(host string, container string) error {
 	if host != GetHost() {
 		vars.QueueDelete(host, container)
@@ -389,18 +391,10 @@ func DeleteDockerLogs(host string, container string) error {
 	}
 
 	containerID := GetDockerContainerID(host, container)
-	files, err := os.ReadDir("/var/lib/docker/containers/" + containerID)
-	if err != nil || len(files) == 0 {
-		return err
+	if containerID == "" {
+		return errors.New("no docker container id for " + container)
 	}
-
-	for _, file := range files {
-		if file.Name() == containerID+"-json.log" {
-			os.WriteFile("/var/lib/docker/containers/"+containerID+"/"+containerID+"-json.log", nil, 0640)
-		}
-	}
-
-	return nil
+	return os.Truncate(DockerContainersDir+containerID+"/"+containerID+"-json.log", 0)
 }
 
 func GetStorageData() map[string]float64 {

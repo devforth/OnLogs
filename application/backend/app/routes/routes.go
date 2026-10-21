@@ -967,6 +967,8 @@ func (h *RouteController) AskForDelete(w http.ResponseWriter, req *http.Request)
 	var logItem struct {
 		Hostname string
 		Token    string
+		Done     []string
+		Failed   map[string]string
 	}
 	if !decodeBody(w, req, &logItem) {
 		return
@@ -977,9 +979,17 @@ func (h *RouteController) AskForDelete(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	to_delete := vars.TakeQueuedDeletes(logItem.Hostname)
-
-	writeJSON(w, http.StatusOK, map[string]interface{}{"Services": to_delete})
+	// Agents that acknowledge always send Done, even empty.
+	if logItem.Done == nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{"Services": vars.TakeQueuedDeletes(logItem.Hostname)})
+		return
+	}
+	commands := vars.PendingDeletes(logItem.Hostname, logItem.Done, logItem.Failed)
+	services := []string{}
+	for _, command := range commands {
+		services = append(services, command.Container)
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{"Services": services, "Commands": commands})
 }
 
 func (h *RouteController) DeleteContainer(w http.ResponseWriter, req *http.Request) {

@@ -21,7 +21,7 @@ var (
 	DockerContainers       = []string{}
 	AgentsActiveContainers = map[string][]string{}
 
-	ToDelete = map[string][]string{}
+	ToDelete = map[string][]DeleteCommand{}
 
 	// Reachable only through AddConnection/Broadcast/ConnectionCount so it
 	// cannot be touched without the lock.
