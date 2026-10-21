@@ -17,8 +17,12 @@ import (
 // Held by a flush across save and reset, and by readers of both sources.
 var flushMu sync.RWMutex
 
+// One flush per location: two reading the same cursor count lines twice.
+var flushLocks sync.Map
+
 var (
 	afterStatsRead   func()
+	beforeStatsSave  func(location string)
 	beforeStatsReset func(location string)
 )
 
@@ -43,6 +47,9 @@ func restartStats(host string, container string) {
 	if container != "" {
 		location += "/" + container
 	}
+	lock, _ := flushLocks.LoadOrStore(location, new(sync.Mutex))
+	lock.(*sync.Mutex).Lock()
+	defer lock.(*sync.Mutex).Unlock()
 
 	last_stat_time := getLastStatTime(current_db)
 	if last_stat_time == "" {
@@ -62,6 +69,9 @@ func restartStats(host string, container string) {
 		// Nothing new: saving would rewrite the previous interval's record with
 		// an empty one and move the cursor off the log timeline onto the clock.
 		if last_stat_time != new_datetime {
+			if beforeStatsSave != nil {
+				beforeStatsSave(location)
+			}
 			saveStats(current_db, calc_stat, new_datetime)
 		}
 	}

@@ -10,3 +10,9 @@ func SetBeforeStatsReset(hook func(location string)) {
 	defer flushMu.Unlock()
 	beforeStatsReset = hook
 }
+
+func SetBeforeStatsSave(hook func(location string)) {
+	flushMu.Lock()
+	defer flushMu.Unlock()
+	beforeStatsSave = hook
+}
