@@ -91,7 +91,7 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 | AGENT             | Toggles agent mode. If enabled, there will be no web interface available, and all logs will be sent  and stored on HOST. Parsed as a boolean, so `false`, `0` and an unset value all mean off | `false` | -
 | HOST               | Url to OnLogs host from protocol to domain name. |                    | if `AGENT=true`
 | ONLOGS_TOKEN       | Token that will use an agent to authorize and connect to HOST | Generates with OnLogs interface   | if `AGENT=true`
-| MAX_LOGS_SIZE | Maximum allowed total logs size before cleanup triggers. Accepts human-readable formats like 5GB, 500MB, 1.5GB etc. When exceeded, 10% of logs (by count) will be removed proportionally across containers starting from oldest. Validated at startup: an unparseable value stops OnLogs rather than silently disabling retention | 10GB | -
+| MAX_LOGS_SIZE | Maximum allowed total logs size before cleanup triggers. Accepts human-readable formats like 5GB, 500MB, 1.5GB etc. Counts only stored logs, their severity index and statistics, not stream cursors or agent buffers. When exceeded, 10% of logs (by count) will be removed proportionally across containers starting from oldest. Validated at startup: an unparseable value stops OnLogs rather than silently disabling retention | 10GB | -
 | DISABLE_AUTH | Option to completely disable built in authentication in the application. When this option is set to `true` the app will behave like if the Administrator is logged in. The option to manage users will be removed. | false | -
 | METRICS_TOKEN | Bearer token for the Prometheus endpoint at `/api/v1/metrics`. While it is unset the endpoint returns `401` and exposes nothing, so metrics are off by default. See [Metrics](#metrics) | | only for `/api/v1/metrics`
 | TRUSTED_PROXIES | Peers allowed to name the client through `X-Forwarded-For` / `X-Real-IP`, as comma separated IPs and CIDR ranges. See [Behind a reverse proxy](#behind-a-reverse-proxy) | | only if behind nginx/traefik
@@ -136,7 +136,7 @@ scrape_configs:
 | `onlogs_stream_up` | host, container | 1 while a container's stream is attached |
 | `onlogs_stream_cursor_timestamp_seconds` | host, container | Newest line ingested |
 | `onlogs_dropped_replay_lines_total` | host, container | Lines dropped as replays |
-| `onlogs_logs_size_bytes` / `_limit_bytes` | | Stored size, and `MAX_LOGS_SIZE` |
+| `onlogs_logs_size_bytes` / `_limit_bytes` | | Stored size on disk, and `MAX_LOGS_SIZE`. The size can exceed the limit by stream cursors and agent buffers, which the quota does not count |
 | `onlogs_container_db_size_bytes` | host, container | Stored size per container |
 | `onlogs_retention_deleted_lines_total` | | Lines deleted by the quota |
 | `onlogs_filesystem_size_bytes` / `_avail_bytes` | | The filesystem holding the logs |

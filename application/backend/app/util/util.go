@@ -232,10 +232,10 @@ func GetHost() string {
 	return parseHostname(string(hostname), err)
 }
 
-// LogsSizes reports bytes per host/container plus the total. The only walk of
-// the logs tree, so the size a user sees and the size the quota compares against
-// cannot drift apart. One filepath.Walk per container: never call it on a
-// request that runs often.
+// LogsSizes reports on-disk bytes per host/container plus the total. It counts
+// whole directories, so it can exceed MAX_LOGS_SIZE by data retention cannot
+// delete (stream cursors, agent buffers). One filepath.Walk per container: never
+// call it on a request that runs often.
 func LogsSizes() (map[string]int64, int64) {
 	perContainer := map[string]int64{}
 	var total int64

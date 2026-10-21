@@ -99,7 +99,7 @@ func checkAndManageLogSize(host string, container string) error {
 	for {
 		var totalSize int64
 		if err := forEachContainer(func(h, c string) {
-			totalSize += int64(util.GetDirSize(h, c) * 1024 * 1024)
+			totalSize += int64(util.GetPrunableSize(h, c) * 1024 * 1024)
 		}); err != nil {
 			return err
 		}

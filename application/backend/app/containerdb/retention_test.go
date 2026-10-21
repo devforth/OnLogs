@@ -1,8 +1,10 @@
 package containerdb
 
 import (
+	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
@@ -65,5 +67,59 @@ func TestPrunableDBsCoverEverythingRetentionMeasures(t *testing.T) {
 		if !found {
 			t.Errorf("%q is measured by retention but never pruned", expected)
 		}
+	}
+}
+
+func TestRetentionKeepsLogsWhileDeletableDataFitsTheQuota(t *testing.T) {
+	t.Chdir(t.TempDir())
+	host, container := "QuotaHost", "QuotaContainer"
+
+	logCleanupMu.Lock()
+	saved := nextCleanup
+	nextCleanup = time.Now().Add(time.Hour)
+	logCleanupMu.Unlock()
+	t.Cleanup(func() {
+		logCleanupMu.Lock()
+		nextCleanup = saved
+		logCleanupMu.Unlock()
+	})
+
+	logsDB := util.GetDB(host, container, "logs")
+	if logsDB == nil {
+		t.Fatal("could not open the logs database")
+	}
+	t.Cleanup(func() { DeleteContainer(host, container, true) })
+	base := time.Date(2026, 2, 10, 12, 0, 0, 0, time.UTC)
+	for i := 0; i < 250; i++ {
+		ts := base.Add(time.Duration(i) * time.Second).Format("2006-01-02T15:04:05.000000000Z")
+		if err := PutLogMessage(logsDB, host, container, []string{ts, fmt.Sprintf("ERROR line %d", i)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	dir := "leveldb/hosts/" + host + "/containers/" + container
+	if err := os.MkdirAll(dir+"/brokenlogs", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dir+"/brokenlogs/ballast", make([]byte, 8*1024*1024), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("MAX_LOGS_SIZE", "4MB")
+	if prunable := util.GetPrunableSize(host, container); prunable >= 4 {
+		t.Fatalf("precondition: prunable data is %.2f MiB, not under the 4MB limit", prunable)
+	}
+	if err := checkAndManageLogSize(host, container); err != nil {
+		t.Fatal(err)
+	}
+
+	rows := 0
+	iter := logsDB.NewIterator(nil, nil)
+	for iter.Next() {
+		rows++
+	}
+	iter.Release()
+	if rows != 250 {
+		t.Errorf("retention deleted %d rows to offset data it cannot delete", 250-rows)
 	}
 }
