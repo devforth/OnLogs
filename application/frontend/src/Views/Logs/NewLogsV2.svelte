@@ -38,6 +38,7 @@
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
   import {
     getLogLineStatus,
+    fitsSearch,
     transformLogString,
     transformLogStringForTimeBudget,
     getLogs,
@@ -475,20 +476,8 @@
           ) {
             return;
           } else {
-            if (searchText === "") {
+            if (fitsSearch(logfromWS[1], searchText, !$store.caseInSensitive)) {
               addLogFromWS(logfromWS);
-            } else {
-              if ($store.caseInSensitive) {
-                if (logfromWS[1].includes(searchText)) {
-                  addLogFromWS(logfromWS);
-                }
-              } else {
-                if (
-                  logfromWS[1].toLowerCase().includes(searchText.toLowerCase())
-                ) {
-                  addLogFromWS(logfromWS);
-                }
-              }
             }
           }
         }
