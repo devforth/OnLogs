@@ -52,6 +52,10 @@
   let previousLogs = [];
   let allLogs = $state([]);
   let webSocket = null;
+  let wsRetryTimer = null;
+  let wsRetryDelay = 0;
+  let wsDown = $state(false);
+  let wsCatchUp = $state(false);
   let logsFromWS = $state([]);
 
   let elements = $state([]);
@@ -244,6 +248,7 @@
   }
 
   async function checkIfHashIsInUrl() {
+    WSisMuted.set(false);
     getLogsFromWS();
     topFetchIsStarted = true;
     let timeStamp = "";
@@ -407,12 +412,29 @@
     }
     let messageCount = 0;
     let startTime = Date.now();
-    WSisMuted.set(false);
 
-    webSocket = new WebSocket(
+    const socket = new WebSocket(
       `${api.wsUrl}getLogsStream?host=${$lastChosenHost}&id=${$lastChosenService}`
     );
+    webSocket = socket;
 
+    socket.onopen = () => {
+      wsRetryDelay = 0;
+      if (wsDown) {
+        wsDown = false;
+        wsCatchUp = true;
+      }
+    };
+    socket.onclose = () => {
+      // closeWS detaches the socket first, so a deliberate close stops here.
+      if (webSocket !== socket) {
+        return;
+      }
+      webSocket = null;
+      wsDown = true;
+      wsRetryDelay = Math.min(wsRetryDelay * 2 || 1000, 30000);
+      wsRetryTimer = setTimeout(getLogsFromWS, wsRetryDelay);
+    };
     webSocket.onmessage = (event) => {
       if (event.data !== "PING") {
         const logfromWS = JSON.parse(event.data);
@@ -532,8 +554,14 @@
   }
 
   function closeWS() {
+    clearTimeout(wsRetryTimer);
+    wsRetryDelay = 0;
+    wsDown = false;
+    wsCatchUp = false;
     if (webSocket) {
-      webSocket.close();
+      const socket = webSocket;
+      webSocket = null;
+      socket.close();
     }
   }
 
@@ -968,7 +996,8 @@
   });
   $effect(() => {
     (async () => {
-      if (logsFromWS.length && endOffLogsIntersect) {
+      if ((logsFromWS.length || wsCatchUp) && endOffLogsIntersect) {
+        wsCatchUp = false;
         await getFullLogsSet();
         logsFromWS = [];
       }
@@ -977,6 +1006,7 @@
 </script>
 
 <LogsViewHeder bind:searchText {searchResetVersion} />
+{#if wsDown}<p class="liveTailDown">Live tail disconnected. Reconnecting…</p>{/if}
 {#if pinedDate}<div>
     {#if pinedBadgeIsVisible || endOffLogsIntersect}<div
         transition:fade={{ duration: 250 }}
