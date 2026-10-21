@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -22,6 +24,7 @@ import (
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
 const (
@@ -174,7 +177,7 @@ func TestLogsSharingATimestampSurviveAnOutageAndReattach(t *testing.T) {
 func TestResendKeepsALogQueuedWhileItsTimestampTwinWasInFlight(t *testing.T) {
 	f := newDeliveryFixture(t)
 	f.serve(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) })
-	if agent.SendLogMessage(f.token, f.container, []string{sharedTS, "old-pending"}) {
+	if sent, _ := agent.SendLogMessage(f.token, f.container, []string{sharedTS, "old-pending"}); sent {
 		t.Fatal("expected initial failure")
 	}
 
@@ -198,7 +201,7 @@ func TestResendKeepsALogQueuedWhileItsTimestampTwinWasInFlight(t *testing.T) {
 		close(release)
 		t.Fatal("retry never reached receiver")
 	}
-	if agent.SendLogMessage(f.token, f.container, []string{sharedTS, "new-pending"}) {
+	if sent, _ := agent.SendLogMessage(f.token, f.container, []string{sharedTS, "new-pending"}); sent {
 		close(release)
 		t.Fatal("expected new send failure")
 	}
@@ -238,7 +241,7 @@ func TestLostAcknowledgementStoresTheEventOnce(t *testing.T) {
 		}
 		f.persist(w, item)
 	})
-	if agent.SendLogMessage(f.token, f.container, []string{sharedTS, "one-event"}) {
+	if sent, _ := agent.SendLogMessage(f.token, f.container, []string{sharedTS, "one-event"}); sent {
 		t.Fatal("transport failure was not exercised")
 	}
 	agent.TryResend()
@@ -329,4 +332,112 @@ func countOf(values []string, want string) int {
 		}
 	}
 	return n
+}
+
+func assertReplayedAfterQueueRecovers(t *testing.T, breakQueue func(f *deliveryFixture) (restore func())) {
+	f := newDeliveryFixture(t)
+	restore := breakQueue(f)
+	f.serve(func(w http.ResponseWriter, r *http.Request) {
+		item := f.decode(r)
+		if item.LogLine[1] == "unqueued" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		f.persist(w, item)
+	})
+	lines := []string{sharedTS + " unqueued", newerTS + " newer-marker"}
+	f.stream(lines...)
+
+	state := util.GetDB(util.GetHost(), f.container, "streamstate")
+	if state == nil {
+		t.Fatal("could not open the stream state")
+	}
+	if cursor, err := state.Get([]byte("last_cursor_ts"), nil); err == nil && string(cursor) >= sharedTS {
+		t.Errorf("cursor saved at %s, past a log that was neither sent nor queued", cursor)
+	}
+
+	restore()
+	f.serve(func(w http.ResponseWriter, r *http.Request) { f.persist(w, f.decode(r)) })
+	f.stream(lines...)
+	agent.TryResend()
+
+	rows := f.messages("logs", f.remoteHost)
+	for _, want := range []string{"unqueued", "newer-marker"} {
+		if !slices.Contains(rows, want) {
+			t.Errorf("%q was lost; stored rows: %q", want, rows)
+		}
+	}
+}
+
+func TestLogIsReplayedWhenItsQueueCouldNotBeOpened(t *testing.T) {
+	assertReplayedAfterQueueRecovers(t, func(f *deliveryFixture) func() {
+		path := filepath.Join("leveldb", "hosts", util.GetHost(), "containers", f.container, "brokenlogs")
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, nil, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return func() {
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+}
+
+func TestLogIsReplayedWhenItsQueueRejectedTheWrite(t *testing.T) {
+	assertReplayedAfterQueueRecovers(t, func(f *deliveryFixture) func() {
+		queue := util.GetDB(util.GetHost(), f.container, "brokenlogs")
+		if queue == nil {
+			t.Fatal("could not open the queue")
+		}
+		if err := queue.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return func() { util.ResetDB(util.GetHost(), f.container, "brokenlogs") }
+	})
+}
+
+func TestNonTTYStreamEndsAfterALineItCouldNotPersist(t *testing.T) {
+	f := newDeliveryFixture(t)
+	path := filepath.Join("leveldb", "hosts", util.GetHost(), "containers", f.container, "brokenlogs")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(path)
+	f.serve(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) })
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/logs") {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/vnd.docker.multiplexed-stream")
+		_, _ = stdcopy.NewStdWriter(w, stdcopy.Stdout).Write([]byte(sharedTS + " unqueued\n"))
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+	}))
+	cli, err := client.NewClientWithOpts(client.WithHost(s.URL), client.WithVersion("1.45"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := daemon.NewDaemonService(&docker.DockerService{Client: cli})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer func() { cancel(); cli.Close(); s.CloseClientConnections(); s.Close() }()
+	d.EnsureStream(ctx, f.container)
+
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	deadline := time.After(5 * time.Second)
+	for slices.Contains(vars.ActiveStreams(), f.container) {
+		select {
+		case <-ticker.C:
+		case <-deadline:
+			t.Fatal("the stream is still attached after a line it could not persist, so it is never reattached")
+		}
+	}
 }

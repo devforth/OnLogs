@@ -234,7 +234,7 @@ func TestSendLogMessageBuffersWhenTheMasterNeverAnswers(t *testing.T) {
 
 	delivered := true
 	finishes(t, "SendLogMessage", func() {
-		delivered = SendLogMessage("token", container, []string{"2026-02-10T12:56:09.230421754Z", "a line"})
+		delivered, _ = SendLogMessage("token", container, []string{"2026-02-10T12:56:09.230421754Z", "a line"})
 	})
 	if delivered {
 		t.Fatal("an unanswered line was reported as delivered")

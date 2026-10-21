@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -34,7 +35,7 @@ func TestStreamDockerLogsReturnsWhenCancelledMidWrite(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- ctrl.streamDockerLogs(ctx, reader, func(string) {}, true)
+		done <- ctrl.streamDockerLogs(ctx, reader, func(string) error { return nil }, true)
 	}()
 
 	time.Sleep(50 * time.Millisecond)
@@ -57,7 +58,7 @@ func TestStreamDockerLogsReturnsOnAnOversizedLine(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- ctrl.streamDockerLogs(context.Background(), reader, func(string) {}, true)
+		done <- ctrl.streamDockerLogs(context.Background(), reader, func(string) error { return nil }, true)
 	}()
 
 	select {
@@ -74,4 +75,25 @@ func dockerFrameLarge(payload string) []byte {
 	n := len(payload)
 	header := []byte{1, 0, 0, 0, byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n)}
 	return append(header, []byte(payload)...)
+}
+
+func TestStreamDockerLogsReturnsOnAnIngestErrorWhileTheStreamIsQuiet(t *testing.T) {
+	reader, writer := io.Pipe()
+	defer writer.Close()
+	go func() { _, _ = writer.Write(dockerFrame("2026-01-01T00:00:00.000000000Z unpersisted\n")) }()
+
+	failed := errors.New("cannot persist")
+	done := make(chan error, 1)
+	go func() {
+		done <- (&DaemonService{}).streamDockerLogs(context.Background(), reader, func(string) error { return failed }, true)
+	}()
+
+	select {
+	case err := <-done:
+		if !errors.Is(err, failed) {
+			t.Fatalf("expected the ingest error, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("streamDockerLogs never returned after an ingest error on a quiet stream")
+	}
 }

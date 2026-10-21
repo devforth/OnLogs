@@ -65,15 +65,16 @@ func sendLog(token, container, timestamp, message, eventID string) error {
 	return nil
 }
 
-func SendLogMessage(token string, container string, message_item []string) bool {
+func SendLogMessage(token string, container string, message_item []string) (bool, error) {
 	eventID := containerdb.NewEventID()
 	if sendLog(token, container, message_item[0], message_item[1], eventID) == nil {
-		return true
+		return true, nil
 	}
-	if buffer := util.GetDB(util.GetHost(), container, "brokenlogs"); buffer != nil {
-		buffer.Put([]byte(message_item[0]+" +"+eventID), []byte(message_item[1]), nil)
+	buffer := util.GetDB(util.GetHost(), container, "brokenlogs")
+	if buffer == nil {
+		return false, fmt.Errorf("no pending queue for %s", container)
 	}
-	return false
+	return false, buffer.Put([]byte(message_item[0]+" +"+eventID), []byte(message_item[1]), nil)
 }
 
 func TryResend() {
