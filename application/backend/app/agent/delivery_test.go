@@ -280,3 +280,53 @@ func TestResendDeliversAnEntryQueuedUnderTheOldTimestampKey(t *testing.T) {
 		t.Fatalf("queue not drained: %q", pending)
 	}
 }
+
+func TestAgentRestartDoesNotResendTheLineAtItsCursor(t *testing.T) {
+	f := newDeliveryFixture(t)
+	f.serve(func(w http.ResponseWriter, r *http.Request) { f.persist(w, f.decode(r)) })
+
+	f.stream(sharedTS + " INFO delivered")
+	f.stream(sharedTS+" INFO delivered", sharedTS+" INFO new-at-the-same-time")
+	f.stream(sharedTS+" INFO delivered", sharedTS+" INFO new-at-the-same-time")
+
+	rows := f.messages("logs", f.remoteHost)
+	for _, want := range []string{"INFO delivered", "INFO new-at-the-same-time"} {
+		if n := countOf(rows, want); n != 1 {
+			t.Errorf("%q stored %d times; rows: %q", want, n, rows)
+		}
+	}
+	if n := countOf(f.messages("statuses", f.remoteHost), "info"); n != 2 {
+		t.Errorf("expected 2 info statuses, got %d", n)
+	}
+	if pending := f.messages("brokenlogs", util.GetHost()); len(pending) != 0 {
+		t.Errorf("nothing should be queued: %q", pending)
+	}
+}
+
+func TestAgentRestartDoesNotResendANonUTF8LineAtItsCursor(t *testing.T) {
+	f := newDeliveryFixture(t)
+	var sends atomic.Int32
+	f.serve(func(w http.ResponseWriter, r *http.Request) {
+		if item := f.decode(r); !strings.HasPrefix(item.LogLine[1], "ONLOGS:") {
+			sends.Add(1)
+		}
+	})
+
+	line := sharedTS + " INFO caf\xe9 latin1"
+	f.stream(line)
+	f.stream(line)
+
+	if n := sends.Load(); n != 1 {
+		t.Fatalf("expected 1 send, got %d", n)
+	}
+}
+
+func countOf(values []string, want string) int {
+	n := 0
+	for _, v := range values {
+		if v == want {
+			n++
+		}
+	}
+	return n
+}

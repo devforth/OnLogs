@@ -49,7 +49,7 @@ func TestCursorTimestampsRecorded(t *testing.T) {
 	}
 
 	when := time.Date(2026, 8, 8, 10, 0, 0, 0, time.UTC)
-	h.saveCursor("host-a", "cont-a", when)
+	h.saveCursor("host-a", "cont-a", when, "")
 
 	got, ok := h.CursorTimestamps()["host-a/cont-a"]
 	if !ok {
@@ -60,7 +60,7 @@ func TestCursorTimestampsRecorded(t *testing.T) {
 	}
 
 	later := when.Add(time.Minute)
-	h.saveCursor("host-a", "cont-a", later)
+	h.saveCursor("host-a", "cont-a", later, "")
 	if got := h.CursorTimestamps()["host-a/cont-a"]; !got.Equal(later) {
 		t.Errorf("cursor not advanced: got %s, want %s", got, later)
 	}
@@ -73,7 +73,7 @@ func TestCursorTimestampsDroppedOnFinalize(t *testing.T) {
 	h.streamIDs["gone"] = 1
 	h.streamsMu.Unlock()
 
-	h.saveCursor(util.GetHost(), "gone", time.Now().UTC())
+	h.saveCursor(util.GetHost(), "gone", time.Now().UTC(), "")
 	if _, ok := h.CursorTimestamps()[util.GetHost()+"/gone"]; !ok {
 		t.Fatal("cursor not recorded")
 	}

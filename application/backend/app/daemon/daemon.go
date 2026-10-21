@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,6 +29,7 @@ import (
 
 const (
 	cursorKey           = "last_cursor_ts"
+	sentAtCursorKey     = "last_cursor_sent"
 	streamTimestampFmt  = "2006-01-02T15:04:05.000000000Z"
 	overlapBackfill     = 2 * time.Second
 	initialBackfill     = 30 * time.Second
@@ -122,24 +124,27 @@ func (h *DaemonService) rememberFingerprint(containerName, fingerprint string) {
 	}
 }
 
-// seedBoundaryFingerprints loads the lines already stored at exactly the cursor
-// timestamp, so a replay of them is recognised while a genuinely new line
-// sharing that nanosecond is still kept.
+// seedBoundaryFingerprints loads the lines already stored or sent to the master
+// at exactly the cursor timestamp, so a replay of them is recognised while a
+// genuinely new line sharing that nanosecond is still kept.
 func (h *DaemonService) seedBoundaryFingerprints(host, containerName string, cursor time.Time) {
 	if cursor.IsZero() {
 		return
 	}
-	db := util.GetDB(host, containerName, "logs")
-	if db == nil {
-		return
-	}
-
 	prefix := cursor.UTC().Format(streamTimestampFmt)
-	iter := db.NewIterator(leveldbUtil.BytesPrefix([]byte(prefix)), nil)
-	defer iter.Release()
+	sent := sentAtCursor(util.GetDB(host, containerName, "streamstate"), prefix)
+	db := util.GetDB(host, containerName, "logs")
 
 	h.streamsMu.Lock()
 	defer h.streamsMu.Unlock()
+	for _, fingerprint := range sent {
+		h.rememberFingerprint(containerName, fingerprint)
+	}
+	if db == nil {
+		return
+	}
+	iter := db.NewIterator(leveldbUtil.BytesPrefix([]byte(prefix)), nil)
+	defer iter.Release()
 	for iter.Next() {
 		h.rememberFingerprint(containerName, prefix+" "+string(iter.Value()))
 	}
@@ -235,7 +240,7 @@ func (h *DaemonService) ingestLine(host, containerName string, currentDB *leveld
 
 	if toHost {
 		agent.SendLogMessage(token, containerName, logItem)
-		h.saveCursor(host, containerName, cursorTS)
+		h.saveCursor(host, containerName, cursorTS, fingerprint)
 		return true
 	}
 
@@ -243,7 +248,7 @@ func (h *DaemonService) ingestLine(host, containerName string, currentDB *leveld
 		fmt.Println("ERROR:", err.Error())
 		return false
 	}
-	h.saveCursor(host, containerName, cursorTS)
+	h.saveCursor(host, containerName, cursorTS, "")
 
 	toSend, _ := json.Marshal(logItem)
 	vars.Broadcast(containerName, websocket.TextMessage, toSend)
@@ -268,7 +273,7 @@ func (h *DaemonService) getResumeSince(host, containerName string) time.Time {
 	return ts.Add(-overlapBackfill)
 }
 
-func (h *DaemonService) saveCursor(host, containerName string, ts time.Time) {
+func (h *DaemonService) saveCursor(host, containerName string, ts time.Time, sent string) {
 
 	h.streamsMu.Lock()
 	h.cursorTimestamps[host+"/"+containerName] = ts.UTC()
@@ -278,10 +283,28 @@ func (h *DaemonService) saveCursor(host, containerName string, ts time.Time) {
 	if db == nil {
 		return
 	}
-	err := db.Put([]byte(cursorKey), []byte(ts.UTC().Format(streamTimestampFmt)), nil)
-	if err != nil {
+	cursor := ts.UTC().Format(streamTimestampFmt)
+	batch := new(leveldb.Batch)
+	batch.Put([]byte(cursorKey), []byte(cursor))
+	if sent != "" {
+		batch.Put([]byte(sentAtCursorKey), []byte(strings.Join(append(sentAtCursor(db, cursor), sent), "\n")))
+	}
+	if err := db.Write(batch, nil); err != nil {
 		fmt.Println("ERROR: unable to save stream cursor:", err)
 	}
+}
+
+func sentAtCursor(db *leveldb.DB, cursor string) []string {
+	if db == nil {
+		return nil
+	}
+	raw, err := db.Get([]byte(sentAtCursorKey), nil)
+	if err != nil {
+		return nil
+	}
+	return slices.DeleteFunc(strings.Split(string(raw), "\n"), func(fingerprint string) bool {
+		return !strings.HasPrefix(fingerprint, cursor+" ")
+	})
 }
 
 func scanLogs(ctx context.Context, reader io.Reader, onLine func(string)) error {
