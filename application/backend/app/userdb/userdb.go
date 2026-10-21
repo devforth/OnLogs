@@ -11,6 +11,7 @@ import (
 
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
+	ldbutil "github.com/syndtr/goleveldb/leveldb/util"
 )
 
 var hashPassword = HashPassword
@@ -33,6 +34,9 @@ func CreateUser(login string, password string) error {
 	defer usersMu.Unlock()
 	if IsUserExists(login) {
 		return errors.New("User is already exists")
+	}
+	if err := deleteUserData(login); err != nil {
+		return err
 	}
 	if err := vars.UsersDB.Put([]byte(login), []byte(hash), nil); err != nil {
 		return err
@@ -79,7 +83,32 @@ func DeleteUser(login string) error {
 	if err := vars.UsersDB.Delete([]byte(login), nil); err != nil {
 		return err
 	}
-	return revokeSessions(login)
+	if err := revokeSessions(login); err != nil {
+		return err
+	}
+	return deleteUserData(login)
+}
+
+func deleteUserData(login string) error {
+	prefix := []byte(login + "\x00")
+	for _, db := range []*leveldb.DB{vars.GroupsDB, vars.FavsDB} {
+		batch := new(leveldb.Batch)
+		iter := db.NewIterator(ldbutil.BytesPrefix(prefix), nil)
+		for iter.Next() {
+			// A further NUL means the key belongs to a longer login.
+			if bytes.IndexByte(iter.Key()[len(prefix):], 0) < 0 {
+				batch.Delete(iter.Key())
+			}
+		}
+		iter.Release()
+		if err := iter.Error(); err != nil {
+			return err
+		}
+		if err := db.Write(batch, nil); err != nil {
+			return err
+		}
+	}
+	return vars.SettingsDB.Delete([]byte(login), nil)
 }
 
 // Kept outside the user record so re-creating a login cannot revive old sessions.

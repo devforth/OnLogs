@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/devforth/OnLogs/app/groups"
 	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
@@ -135,5 +136,90 @@ func TestFavouritesAreScopedToTheUserWhoSetThem(t *testing.T) {
 	}
 	if starred, _ := vars.FavsDB.Has(favouriteKey("otheruser", "h", "svc"), nil); starred {
 		t.Error("one user's star was applied to another user")
+	}
+}
+
+func storedUserData(t *testing.T, login string) (list []groups.Group, starred bool, settings map[string]interface{}) {
+	t.Helper()
+	list, err := groups.List(login)
+	if err != nil {
+		t.Fatal(err)
+	}
+	starred, _ = vars.FavsDB.Has(favouriteKey(login, "h", "svc"), nil)
+	return list, starred, userdb.GetUserSettings(login)
+}
+
+func requireEmptyAccount(t *testing.T, login, cookie string) {
+	t.Helper()
+	if _, body := call(t, testCtrl.GetGroups, withCookie(t, cookie, "GET", "/", nil)); string(body) != "[]\n" {
+		t.Errorf("getGroups of a new account returned %s", body)
+	}
+	if _, body := call(t, testCtrl.GetUserSettings, withCookie(t, cookie, "GET", "/", nil)); string(body) != "null\n" {
+		t.Errorf("getUserSettings of a new account returned %s", body)
+	}
+	if _, starred, _ := storedUserData(t, login); starred {
+		t.Error("a new account starts with a favourite")
+	}
+}
+
+func TestRecreatedLoginStartsWithoutTheDeletedAccountsData(t *testing.T) {
+	const login = "data-recreated"
+	old := freshUser(t, login, "first-owner")
+	for _, step := range []struct {
+		handler http.HandlerFunc
+		body    any
+	}{
+		{testCtrl.CreateGroup, map[string]any{"name": "private", "members": []map[string]string{{"host": "h", "service": "svc"}}}},
+		{testCtrl.ChangeFavourite, map[string]string{"host": "h", "service": "svc"}},
+		{testCtrl.UpdateUserSettings, map[string]any{"note": "private"}},
+	} {
+		if code, body := call(t, step.handler, withCookie(t, old, "POST", "/", step.body)); code != http.StatusOK || string(body) != "{\"error\":null}\n" {
+			t.Fatalf("seeding the account: %d %s", code, body)
+		}
+	}
+	if list, starred, settings := storedUserData(t, login); len(list) != 1 || !starred || settings == nil {
+		t.Fatalf("seeding the account stored groups=%v starred=%v settings=%v", list, starred, settings)
+	}
+
+	adminCall(t, testCtrl.DeleteUser, "/api/v1/deleteUser", map[string]string{"login": login})
+	if list, starred, settings := storedUserData(t, login); len(list) != 0 || starred || settings != nil {
+		t.Errorf("deleting the account left groups=%v starred=%v settings=%v", list, starred, settings)
+	}
+
+	adminCall(t, testCtrl.CreateUser, "/api/v1/createUser", map[string]string{"login": login, "password": "second-owner"})
+	requireEmptyAccount(t, login, loginCookie(t, login, "second-owner"))
+}
+
+func TestNewAccountIgnoresDataLeftByAnEarlierDeletion(t *testing.T) {
+	const login = "data-orphaned"
+	userdb.DeleteUser(login)
+	for _, err := range []error{
+		groups.Store(login, "left-behind", []groups.Member{{Host: "h", Service: "svc"}}),
+		vars.FavsDB.Put(favouriteKey(login, "h", "svc"), nil, nil),
+		userdb.UpdateUserSettings(login, map[string]interface{}{"note": "left-behind"}),
+	} {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	adminCall(t, testCtrl.CreateUser, "/api/v1/createUser", map[string]string{"login": login, "password": "new-owner"})
+	t.Cleanup(func() { userdb.DeleteUser(login) })
+	requireEmptyAccount(t, login, loginCookie(t, login, "new-owner"))
+}
+
+func TestRemovingALoginKeepsFavouritesOfALoginThatExtendsItWithNUL(t *testing.T) {
+	const login, neighbour = "data-prefix", "data-prefix\x00other"
+	cookie := freshUser(t, neighbour, "neighbour")
+	if code, body := call(t, testCtrl.ChangeFavourite, withCookie(t, cookie, "POST", "/", map[string]string{"host": "h", "service": "svc"})); code != http.StatusOK || string(body) != "{\"error\":null}\n" {
+		t.Fatalf("starring a service: %d %s", code, body)
+	}
+
+	userdb.DeleteUser(login)
+	adminCall(t, testCtrl.CreateUser, "/api/v1/createUser", map[string]string{"login": login, "password": "owner"})
+	adminCall(t, testCtrl.DeleteUser, "/api/v1/deleteUser", map[string]string{"login": login})
+
+	if starred, _ := vars.FavsDB.Has(favouriteKey(neighbour, "h", "svc"), nil); !starred {
+		t.Error("removing one login deleted another login's favourite")
 	}
 }
