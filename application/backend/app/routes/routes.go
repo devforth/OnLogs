@@ -286,6 +286,10 @@ func (h *RouteController) ChangeFavourite(w http.ResponseWriter, req *http.Reque
 	if !decodeBody(w, req, &container) {
 		return
 	}
+	if !util.IsSafeName(container.Host) || !util.IsSafeName(container.Service) {
+		fail(w, http.StatusBadRequest, "Invalid host or service")
+		return
+	}
 
 	username, _ := util.GetUserFromJWT(*req)
 	key := favouriteKey(username, container.Host, container.Service)
@@ -295,6 +299,10 @@ func (h *RouteController) ChangeFavourite(w http.ResponseWriter, req *http.Reque
 		if isAlreadyFavourite {
 			err = vars.FavsDB.Delete(key, nil)
 		} else {
+			if info, statErr := os.Stat("leveldb/hosts/" + container.Host + "/containers/" + container.Service); statErr != nil || !info.IsDir() {
+				fail(w, http.StatusNotFound, "No such service")
+				return
+			}
 			err = vars.FavsDB.Put(key, nil, nil)
 		}
 	}

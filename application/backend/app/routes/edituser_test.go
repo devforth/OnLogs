@@ -120,6 +120,7 @@ func TestFavouritesAreScopedToTheUserWhoSetThem(t *testing.T) {
 		vars.FavsDB.Delete(favouriteKey("favuser", "h", "svc"), nil)
 		vars.FavsDB.Delete(favouriteKey("otheruser", "h", "svc"), nil)
 	})
+	existingService(t, "h", "svc")
 
 	body, _ := json.Marshal(map[string]string{"host": "h", "service": "svc"})
 	req, _ := http.NewRequest("POST", "/api/v1/changeFavorite", bytes.NewBuffer(body))
@@ -136,6 +137,62 @@ func TestFavouritesAreScopedToTheUserWhoSetThem(t *testing.T) {
 	}
 	if starred, _ := vars.FavsDB.Has(favouriteKey("otheruser", "h", "svc"), nil); starred {
 		t.Error("one user's star was applied to another user")
+	}
+}
+
+func existingService(t *testing.T, host, service string) {
+	t.Helper()
+	if err := os.MkdirAll("leveldb/hosts/"+host+"/containers/"+service, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll("leveldb/hosts/" + host) })
+}
+
+func TestChangeFavoriteRejectsUnsafeNames(t *testing.T) {
+	cookie := freshUser(t, "fav-unsafe", "fav-unsafe")
+	for _, target := range []map[string]string{
+		{"host": "../not-a-host", "service": "x"},
+		{"host": "h", "service": ".."},
+		{"host": "", "service": "svc"},
+	} {
+		code, body := call(t, testCtrl.ChangeFavourite, withCookie(t, cookie, "POST", "/", target))
+		key := favouriteKey("fav-unsafe", target["host"], target["service"])
+		starred, _ := vars.FavsDB.Has(key, nil)
+		vars.FavsDB.Delete(key, nil)
+		if code != http.StatusBadRequest || starred {
+			t.Errorf("changeFavorite %v: %d %s, stored=%v", target, code, body, starred)
+		}
+	}
+}
+
+func TestChangeFavoriteRefusesServicesThatDoNotExist(t *testing.T) {
+	cookie := freshUser(t, "fav-bulk", "fav-bulk")
+	existingService(t, "h", "svc")
+	for _, service := range []string{"svc-000", "svc-001", "svc-002"} {
+		code, body := call(t, testCtrl.ChangeFavourite, withCookie(t, cookie, "POST", "/", map[string]string{"host": "h", "service": service}))
+		key := favouriteKey("fav-bulk", "h", service)
+		starred, _ := vars.FavsDB.Has(key, nil)
+		vars.FavsDB.Delete(key, nil)
+		if code != http.StatusNotFound || starred {
+			t.Errorf("starring h/%s, which does not exist: %d %s, stored=%v", service, code, body, starred)
+		}
+	}
+}
+
+func TestUnstarringWorksAfterTheServiceIsGone(t *testing.T) {
+	cookie := freshUser(t, "fav-gone", "fav-gone")
+	key := favouriteKey("fav-gone", "h", "removed")
+	if err := vars.FavsDB.Put(key, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { vars.FavsDB.Delete(key, nil) })
+
+	code, body := call(t, testCtrl.ChangeFavourite, withCookie(t, cookie, "POST", "/", map[string]string{"host": "h", "service": "removed"}))
+	if code != http.StatusOK || string(body) != "{\"error\":null}\n" {
+		t.Fatalf("un-starring: %d %s", code, body)
+	}
+	if starred, _ := vars.FavsDB.Has(key, nil); starred {
+		t.Error("un-starring a service that no longer exists left the favourite in place")
 	}
 }
 
@@ -165,6 +222,7 @@ func requireEmptyAccount(t *testing.T, login, cookie string) {
 func TestRecreatedLoginStartsWithoutTheDeletedAccountsData(t *testing.T) {
 	const login = "data-recreated"
 	old := freshUser(t, login, "first-owner")
+	existingService(t, "h", "svc")
 	for _, step := range []struct {
 		handler http.HandlerFunc
 		body    any
@@ -211,6 +269,7 @@ func TestNewAccountIgnoresDataLeftByAnEarlierDeletion(t *testing.T) {
 func TestRemovingALoginKeepsFavouritesOfALoginThatExtendsItWithNUL(t *testing.T) {
 	const login, neighbour = "data-prefix", "data-prefix\x00other"
 	cookie := freshUser(t, neighbour, "neighbour")
+	existingService(t, "h", "svc")
 	if code, body := call(t, testCtrl.ChangeFavourite, withCookie(t, cookie, "POST", "/", map[string]string{"host": "h", "service": "svc"})); code != http.StatusOK || string(body) != "{\"error\":null}\n" {
 		t.Fatalf("starring a service: %d %s", code, body)
 	}
