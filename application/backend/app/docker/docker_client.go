@@ -32,6 +32,13 @@ func (s *DockerService) GetContainerNames(ctx context.Context) ([]ContainerNames
 		if len(c.Names) > 0 {
 			name = strings.TrimPrefix(c.Names[0], "/")
 		}
+		// Legacy link aliases ("/parent/alias") are listed too and may sort first.
+		for _, n := range c.Names {
+			if n = strings.TrimPrefix(n, "/"); n != "" && !strings.Contains(n, "/") {
+				name = n
+				break
+			}
+		}
 		res = append(res, ContainerNamesResult{Name: name, ID: c.ID, Running: c.State == "running"})
 	}
 	return res, nil

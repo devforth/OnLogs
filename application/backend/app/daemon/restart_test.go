@@ -166,3 +166,17 @@ func TestRunningNamesSkipsExitedContainers(t *testing.T) {
 		t.Fatalf("expected only the running, named containers, got %v", names)
 	}
 }
+
+func TestRunningNamesSkipsUnsafeNames(t *testing.T) {
+	result := []docker.ContainerNamesResult{
+		{Name: "app/redis", ID: "1", Running: true},
+		{Name: "..", ID: "2", Running: true},
+		{Name: "redis", ID: "3", Running: true},
+	}
+
+	names := runningNames(result)
+
+	if len(names) != 1 || names[0] != "redis" {
+		t.Fatalf("expected only the safe name, got %v", names)
+	}
+}

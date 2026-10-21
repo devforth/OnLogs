@@ -470,7 +470,7 @@ func (h *DaemonService) StopStream(containerName string) {
 func runningNames(result []docker.ContainerNamesResult) []string {
 	var names []string
 	for i := range result {
-		if result[i].Running && result[i].Name != "" {
+		if result[i].Running && util.IsSafeName(result[i].Name) {
 			names = append(names, result[i].Name)
 		}
 	}
