@@ -795,6 +795,8 @@ func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Signed before the check so a password change during it revokes this session.
+	token := util.CreateJWT(loginData.Login)
 	isCorrect := userdb.CheckUserPassword(loginData.Login, loginData.Password)
 	if !isCorrect {
 		// Once per request, not once per key: fail() takes two.
@@ -807,7 +809,7 @@ func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "onlogs-cookie",
-		Value:    util.CreateJWT(loginData.Login),
+		Value:    token,
 		Expires:  time.Now().AddDate(0, 0, 2),
 		MaxAge:   int(sessionLifetime / time.Second),
 		HttpOnly: true,
@@ -832,6 +834,12 @@ func (h *RouteController) Logout(w http.ResponseWriter, req *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
+	if user, err := util.GetUserFromJWT(*req); err == nil {
+		if err := userdb.RevokeSessions(user); err != nil {
+			fail(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
 	ok(w)
 }
 

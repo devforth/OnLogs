@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/devforth/OnLogs/app/vars"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 var hashPassword = HashPassword
@@ -32,7 +34,10 @@ func CreateUser(login string, password string) error {
 	if IsUserExists(login) {
 		return errors.New("User is already exists")
 	}
-	return vars.UsersDB.Put([]byte(login), []byte(hash), nil)
+	if err := vars.UsersDB.Put([]byte(login), []byte(hash), nil); err != nil {
+		return err
+	}
+	return revokeSessions(login)
 }
 
 func GetUsers() []map[string]interface{} {
@@ -57,7 +62,10 @@ func EditUser(login string, password string) error {
 	if !IsUserExists(login) {
 		return errors.New("No such user")
 	}
-	return vars.UsersDB.Put([]byte(login), []byte(hash), nil)
+	if err := vars.UsersDB.Put([]byte(login), []byte(hash), nil); err != nil {
+		return err
+	}
+	return revokeSessions(login)
 }
 
 func DeleteUser(login string) error {
@@ -68,7 +76,36 @@ func DeleteUser(login string) error {
 		return errors.New("No such user")
 	}
 
-	return vars.UsersDB.Delete([]byte(login), nil)
+	if err := vars.UsersDB.Delete([]byte(login), nil); err != nil {
+		return err
+	}
+	return revokeSessions(login)
+}
+
+// Kept outside the user record so re-creating a login cannot revive old sessions.
+func SessionGeneration(login string) (uint64, error) {
+	stored, err := vars.SessionsDB.Get([]byte(login), nil)
+	if errors.Is(err, leveldb.ErrNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseUint(string(stored), 10, 64)
+}
+
+func RevokeSessions(login string) error {
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	return revokeSessions(login)
+}
+
+func revokeSessions(login string) error {
+	gen, err := SessionGeneration(login)
+	if err != nil {
+		return err
+	}
+	return vars.SessionsDB.Put([]byte(login), []byte(strconv.FormatUint(gen+1, 10)), nil)
 }
 
 func CheckUserPassword(login string, gotPassword string) bool {
