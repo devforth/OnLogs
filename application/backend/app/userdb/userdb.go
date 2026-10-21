@@ -1,13 +1,20 @@
 package userdb
 
 import (
+	"bytes"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"os"
+	"sync"
 
 	"github.com/devforth/OnLogs/app/vars"
 )
+
+var hashPassword = HashPassword
+
+// Guards check-then-write on the user store; hash before taking it.
+var usersMu sync.Mutex
 
 func IsUserExists(login string) bool {
 	isExists, _ := vars.UsersDB.Has([]byte(login), nil)
@@ -18,8 +25,14 @@ func CreateUser(login string, password string) error {
 	if IsUserExists(login) {
 		return errors.New("User is already exists")
 	}
+	hash := hashPassword(password)
 
-	return vars.UsersDB.Put([]byte(login), []byte(HashPassword(password)), nil)
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	if IsUserExists(login) {
+		return errors.New("User is already exists")
+	}
+	return vars.UsersDB.Put([]byte(login), []byte(hash), nil)
 }
 
 func GetUsers() []map[string]interface{} {
@@ -37,10 +50,19 @@ func GetUsers() []map[string]interface{} {
 }
 
 func EditUser(login string, password string) error {
-	return vars.UsersDB.Put([]byte(login), []byte(HashPassword(password)), nil)
+	hash := hashPassword(password)
+
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	if !IsUserExists(login) {
+		return errors.New("No such user")
+	}
+	return vars.UsersDB.Put([]byte(login), []byte(hash), nil)
 }
 
 func DeleteUser(login string) error {
+	usersMu.Lock()
+	defer usersMu.Unlock()
 	isExists, _ := vars.UsersDB.Has([]byte(login), nil)
 	if !isExists {
 		return errors.New("No such user")
@@ -68,7 +90,13 @@ func CheckUserPassword(login string, gotPassword string) bool {
 	if subtle.ConstantTimeCompare(stored, []byte(gotPassword)) != 1 {
 		return false
 	}
-	vars.UsersDB.Put([]byte(login), []byte(HashPassword(gotPassword)), nil)
+	hash := hashPassword(gotPassword)
+
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	if current, err := vars.UsersDB.Get([]byte(login), nil); err == nil && bytes.Equal(current, stored) {
+		vars.UsersDB.Put([]byte(login), []byte(hash), nil)
+	}
 	return true
 }
 
