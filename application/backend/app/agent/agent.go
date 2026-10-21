@@ -9,14 +9,18 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/util"
 )
 
+// Above the 30s dial timeout, so an unreachable master still fails as a dial error.
+var client = &http.Client{Timeout: time.Minute}
+
 func post(path string, body map[string]any) (*http.Response, error) {
 	payload, _ := json.Marshal(body)
-	return http.Post(os.Getenv("HOST")+path, "application/json", bytes.NewBuffer(payload))
+	return client.Post(os.Getenv("HOST")+path, "application/json", bytes.NewBuffer(payload))
 }
 
 func identity() map[string]any {

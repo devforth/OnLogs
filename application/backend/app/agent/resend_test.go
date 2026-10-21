@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/devforth/OnLogs/app/util"
 	leveldbUtil "github.com/syndtr/goleveldb/leveldb/util"
@@ -166,8 +167,8 @@ func TestResendStopsThePassWhenTheMasterCannotBeDialled(t *testing.T) {
 		dials.Add(1)
 		return (&net.Dialer{}).DialContext(ctx, network, addr)
 	}
-	http.DefaultClient.Transport = transport
-	t.Cleanup(func() { http.DefaultClient.Transport = nil })
+	client.Transport = transport
+	t.Cleanup(func() { client.Transport = nil })
 	t.Setenv("HOST", "http://127.0.0.1:1")
 
 	TryResend()
@@ -179,5 +180,83 @@ func TestResendStopsThePassWhenTheMasterCannotBeDialled(t *testing.T) {
 		if n := queuedCount(t, container); n != 2 {
 			t.Errorf("%s holds %d records, want 2", container, n)
 		}
+	}
+}
+
+func silentMaster(t *testing.T, held string) func(path string) int {
+	release := make(chan struct{})
+	var mu sync.Mutex
+	answered := map[string]int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == held {
+			<-release
+			return
+		}
+		mu.Lock()
+		answered[r.URL.Path]++
+		mu.Unlock()
+	}))
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(release) })
+	t.Setenv("HOST", server.URL)
+	if client.Timeout <= 0 {
+		t.Fatal("requests to the master have no deadline")
+	}
+	timeout := client.Timeout
+	client.Timeout = 500 * time.Millisecond
+	t.Cleanup(func() { client.Timeout = timeout })
+	return func(path string) int {
+		mu.Lock()
+		defer mu.Unlock()
+		return answered[path]
+	}
+}
+
+func finishes(t *testing.T, what string, call func()) {
+	t.Helper()
+	done := make(chan struct{})
+	go func() {
+		call()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("%s is still waiting for a response that never comes", what)
+	}
+}
+
+func TestSendLogMessageBuffersWhenTheMasterNeverAnswers(t *testing.T) {
+	t.Chdir(t.TempDir())
+	silentMaster(t, "/api/v1/addLogLine")
+	container := "silentcontainer"
+	t.Cleanup(func() { util.ResetDB(util.GetHost(), container, "brokenlogs") })
+
+	delivered := true
+	finishes(t, "SendLogMessage", func() {
+		delivered = SendLogMessage("token", container, []string{"2026-02-10T12:56:09.230421754Z", "a line"})
+	})
+	if delivered {
+		t.Fatal("an unanswered line was reported as delivered")
+	}
+	if n := queuedCount(t, container); n != 1 {
+		t.Fatalf("expected the unanswered line to be queued, got %d records", n)
+	}
+}
+
+func TestUnansweredHostUpdateDoesNotStopTheDeletePollOrResend(t *testing.T) {
+	t.Chdir(t.TempDir())
+	answered := silentMaster(t, "/api/v1/addHost")
+	queueTwoRecords(t, "pending")
+
+	finishes(t, "the maintenance tick", func() {
+		SendUpdate([]string{"pending"})
+		TryResend()
+	})
+	if n := answered("/api/v1/askForDelete"); n != 1 {
+		t.Errorf("askForDelete was polled %d times, want 1", n)
+	}
+	if n := queuedCount(t, "pending"); n != 0 {
+		t.Errorf("pending still holds %d records after the resend", n)
 	}
 }
