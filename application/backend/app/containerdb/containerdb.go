@@ -1,9 +1,11 @@
 package containerdb
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -107,17 +109,33 @@ func checkAndManageLogSize(host string, container string) error {
 			return nil
 		}
 
-		var cutoffKeys [][]byte
+		const batch = 200
+		var cutoffKeys, oldest [][]byte
 		if err := forEachContainer(func(h, c string) {
 			logsDB := util.GetDB(h, c, "logs")
 			if logsDB == nil {
 				return
 			}
-			if key, err := getCutoffKeysForContainer(logsDB, 200); err == nil && len(key) > 0 {
-				cutoffKeys = append(cutoffKeys, key)
+			keys := getCutoffKeysForContainer(logsDB, batch)
+			if len(keys) == batch {
+				cutoffKeys = append(cutoffKeys, keys[batch-1])
+				return
+			}
+			for _, k := range keys {
+				if _, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(k))); err == nil {
+					oldest = append(oldest, k)
+				}
+			}
+			if len(oldest) > batch {
+				slices.SortFunc(oldest, bytes.Compare)
+				oldest = oldest[:batch]
 			}
 		}); err != nil {
 			return err
+		}
+		wholeStore := len(cutoffKeys) == 0 && len(oldest) < batch
+		if len(oldest) > 0 {
+			cutoffKeys = append(cutoffKeys, slices.MaxFunc(oldest, bytes.Compare))
 		}
 
 		if len(cutoffKeys) == 0 {
@@ -152,11 +170,14 @@ func checkAndManageLogSize(host string, container string) error {
 			return err
 		}
 
+		if wholeStore {
+			return nil
+		}
 		time.Sleep(100 * time.Millisecond)
 	}
 }
 
-func getCutoffKeysForContainer(db *leveldb.DB, limit int) ([]byte, error) {
+func getCutoffKeysForContainer(db *leveldb.DB, limit int) [][]byte {
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()
 
@@ -165,12 +186,7 @@ func getCutoffKeysForContainer(db *leveldb.DB, limit int) ([]byte, error) {
 		key := append([]byte{}, iter.Key()...)
 		cutoffKeys = append(cutoffKeys, key)
 	}
-
-	if len(cutoffKeys) < limit {
-		return nil, fmt.Errorf("insufficient records to form cutoff keys")
-	}
-
-	return cutoffKeys[len(cutoffKeys)-1], nil
+	return cutoffKeys
 }
 
 func findOldestCutoffKey(cutoffKeys [][]byte) []byte {
