@@ -9,6 +9,7 @@ import (
 	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func TestStatsCountRowsStoredAtOrBehindTheCursorAfterAFlush(t *testing.T) {
@@ -102,8 +103,10 @@ func TestOverlappingFlushesFromOneCursorCountOnce(t *testing.T) {
 	db := util.GetDB(host, container, "statistics")
 	cursor := getLastStatTime(db)
 	for range 2 {
-		stats, end := collectLogs(host, container, cursor, true)
-		saveStats(db, stats, end)
+		hours, _ := collectLogs(host, container, cursor, true)
+		batch := new(leveldb.Batch)
+		saveHours(batch, hours)
+		db.Write(batch, nil)
 	}
 	resetInMemoryStats(host + "/" + container)
 

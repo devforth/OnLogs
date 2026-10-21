@@ -52,28 +52,29 @@ func restartStats(host string, container string) {
 	defer lock.(*sync.Mutex).Unlock()
 
 	last_stat_time := getLastStatTime(current_db)
+	batch := new(leveldb.Batch)
 	if last_stat_time == "" {
 		// Anchored to the newest line actually seen, never to the clock: the
 		// clock is ahead of lines docker has not replayed yet, and the forward
 		// scan would then seek straight past them.
-		calc_stat, newest := collectLogs(host, container, "", false)
+		hours, newest := collectLogs(host, container, "", false)
 		flushMu.Lock()
 		defer flushMu.Unlock()
 		if newest != "" {
-			key := statKey(newest)
+			key := saveHours(batch, hours)
 			// Late counts are dropped: the full scan counted every stored row.
 			containerdb.TakeLateStats(location, key)
-			saveStats(current_db, calc_stat, key)
+			current_db.Write(batch, nil)
 		}
 	} else {
-		calc_stat, new_datetime := collectLogs(host, container, last_stat_time, true)
+		hours, new_datetime := collectLogs(host, container, last_stat_time, true)
 		flushMu.Lock()
 		defer flushMu.Unlock()
 		// Nothing new: saving would rewrite the previous interval's record with
 		// an empty one and move the cursor off the log timeline onto the clock.
 		cursor, key := last_stat_time, ""
 		if last_stat_time != new_datetime {
-			key = statKey(new_datetime)
+			key = saveHours(batch, hours)
 			cursor = max(cursor, key)
 		}
 		late := containerdb.TakeLateStats(location, cursor)
@@ -81,7 +82,7 @@ func restartStats(host string, container string) {
 			if beforeStatsSave != nil {
 				beforeStatsSave(location)
 			}
-			saveStats(current_db, calc_stat, key)
+			current_db.Write(batch, nil)
 		}
 		if len(late) > 0 {
 			addStats(current_db, late, last_stat_time)
@@ -115,10 +116,15 @@ func getLastStatTime(db *leveldb.DB) string {
 	return string(iter.Key())
 }
 
+type hourStats struct {
+	newest string
+	stats  map[string]uint64
+}
+
 // A forward scan returns the cursor it finished on; a backward scan returns the
 // newest key it saw, which is where a first cursor belongs.
-func collectLogs(host, container, cursor string, forward bool) (map[string]uint64, string) {
-	stats := containerdb.NewStatCounter()
+func collectLogs(host, container, cursor string, forward bool) (map[string]*hourStats, string) {
+	hours := map[string]*hourStats{}
 	newest := ""
 
 	for {
@@ -133,7 +139,19 @@ func collectLogs(host, container, cursor string, forward bool) (map[string]uint6
 		}
 
 		for _, log := range logs {
-			stats[containerdb.GetLogStatusKey(log[1])]++
+			hour := ""
+			if _, err := time.Parse(time.RFC3339Nano, log[0]); err == nil {
+				hour = strings.Split(log[0], ":")[0]
+			}
+			h := hours[hour]
+			if h == nil {
+				h = &hourStats{stats: containerdb.NewStatCounter()}
+				hours[hour] = h
+			}
+			h.stats[containerdb.GetLogStatusKey(log[1])]++
+			if log[2] > h.newest {
+				h.newest = log[2]
+			}
 		}
 
 		cursor = page["last_processed_key"].(string)
@@ -142,10 +160,33 @@ func collectLogs(host, container, cursor string, forward bool) (map[string]uint6
 		}
 	}
 
-	if forward {
-		return stats, cursor
+	if odd := hours[""]; odd != nil {
+		top := odd
+		for _, h := range hours {
+			if h.newest > top.newest {
+				top = h
+			}
+		}
+		if top != odd {
+			for level, count := range odd.stats {
+				top.stats[level] += count
+			}
+			delete(hours, "")
+		}
 	}
-	return stats, newest
+
+	if forward {
+		return hours, cursor
+	}
+	return hours, newest
+}
+
+func saveHours(batch *leveldb.Batch, hours map[string]*hourStats) string {
+	newest := ""
+	for _, h := range hours {
+		newest = max(newest, saveStats(batch, h.stats, h.newest))
+	}
+	return newest
 }
 
 // Statistics are keyed by time and read back with time.Parse, so a full log key
@@ -158,9 +199,11 @@ func statKey(timestamp string) string {
 	return key
 }
 
-func saveStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
+func saveStats(batch *leveldb.Batch, stats map[string]uint64, timestamp string) string {
+	key := statKey(timestamp)
 	to_put, _ := json.Marshal(stats)
-	db.Put([]byte(statKey(timestamp)), to_put, nil)
+	batch.Put([]byte(key), to_put)
+	return key
 }
 
 func addStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
