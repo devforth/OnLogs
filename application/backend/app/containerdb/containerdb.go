@@ -60,10 +60,8 @@ func forEachContainer(visit func(host, container string)) error {
 	return nil
 }
 
-// scanLimit 0 means scan every row.
-func pruneUpTo(db *leveldb.DB, cutoff time.Time, scanLimit int) int {
+func pruneUpTo(db *leveldb.DB, cutoff time.Time, scanLimit int) *leveldb.Batch {
 	batch := new(leveldb.Batch)
-	deleted := 0
 
 	iter := db.NewIterator(nil, nil)
 	scanned := 0
@@ -76,20 +74,23 @@ func pruneUpTo(db *leveldb.DB, cutoff time.Time, scanLimit int) int {
 		}
 		if !keyTime.After(cutoff) {
 			batch.Delete(iter.Key())
-			deleted++
 		}
 	}
 	iter.Release()
 
-	if deleted == 0 {
-		return 0
+	if batch.Len() > 0 && !applyDeletes(db, batch) {
+		batch.Reset()
 	}
+	return batch
+}
+
+func applyDeletes(db *leveldb.DB, batch *leveldb.Batch) bool {
 	if err := db.Write(batch, nil); err != nil {
 		fmt.Println("Failed to delete batch:", err)
-		return 0
+		return false
 	}
 	db.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
-	return deleted
+	return true
 }
 
 func checkAndManageLogSize(host string, container string) error {
@@ -151,19 +152,26 @@ func checkAndManageLogSize(host string, container string) error {
 		fmt.Println("Oldest time for deletion cutoff:", oldestTime)
 
 		if err := forEachContainer(func(h, c string) {
+			deleted := new(leveldb.Batch)
 			// Everything the quota measures, or it can never come down.
 			for _, dbType := range util.PrunableDBs() {
+				beforePrune(h, c, dbType)
 				db := util.GetDB(h, c, dbType)
 				if db == nil {
 					continue
 				}
-				scanLimit := 0
-				if dbType == "logs" {
-					scanLimit = 200
-				}
-				if deleted := pruneUpTo(db, oldestTime, scanLimit); deleted > 0 && dbType == "logs" {
-					CountRetentionDeleted(deleted)
-					fmt.Printf("Deleted %d logs from %s/%s\n", deleted, h, c)
+				switch dbType {
+				case "logs":
+					if deleted = pruneUpTo(db, oldestTime, batch); deleted.Len() > 0 {
+						CountRetentionDeleted(deleted.Len())
+						fmt.Printf("Deleted %d logs from %s/%s\n", deleted.Len(), h, c)
+					}
+				case "statuses":
+					if deleted.Len() > 0 {
+						applyDeletes(db, deleted)
+					}
+				default:
+					pruneUpTo(db, oldestTime, 0)
 				}
 			}
 		}); err != nil {
@@ -220,6 +228,8 @@ const (
 var maxScanIterations = 1000000
 
 var cleanupCooldown = time.Minute
+
+var beforePrune = func(host, container, dbType string) {}
 
 var (
 	logCleanupMu     sync.Mutex

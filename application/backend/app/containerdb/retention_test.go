@@ -43,21 +43,29 @@ func holdCleanup(t *testing.T) {
 
 func seedRetentionRows(t *testing.T, host string, seeds []retentionSeed) {
 	r := rand.New(rand.NewSource(1))
-	text := make([]byte, 4096)
 	for _, s := range seeds {
-		db := util.GetDB(host, s.container, "logs")
-		if db == nil {
-			t.Fatal("could not open the logs database")
+		at := make([]time.Duration, s.rows)
+		for i := range at {
+			at[i] = s.start + time.Duration(i)*time.Second
 		}
-		t.Cleanup(func() { DeleteContainer(host, s.container, true) })
-		for i := 0; i < s.rows; i++ {
-			for j := range text {
-				text[j] = 'a' + byte(r.Intn(26))
-			}
-			ts := retentionBase.Add(s.start + time.Duration(i)*time.Second).Format("2006-01-02T15:04:05.000000000Z")
-			if err := PutLogMessage(db, host, s.container, []string{ts, "ERROR " + string(text)}); err != nil {
-				t.Fatal(err)
-			}
+		seedRowsAt(t, r, host, s.container, at)
+	}
+}
+
+func seedRowsAt(t *testing.T, r *rand.Rand, host, container string, at []time.Duration) {
+	db := util.GetDB(host, container, "logs")
+	if db == nil {
+		t.Fatal("could not open the logs database")
+	}
+	t.Cleanup(func() { DeleteContainer(host, container, true) })
+	text := make([]byte, 4096)
+	for _, d := range at {
+		for j := range text {
+			text[j] = 'a' + byte(r.Intn(26))
+		}
+		ts := retentionBase.Add(d).Format("2006-01-02T15:04:05.000000000Z")
+		if err := PutLogMessage(db, host, container, []string{ts, "ERROR " + string(text)}); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
@@ -365,5 +373,91 @@ func TestRetentionRunsAPendingCheckWhenTheCooldownExpiresWithoutAnotherLine(t *t
 	}
 	if size := prunableBytes(host, c); size > limit {
 		t.Errorf("the idle store is still %d bytes against a %d byte limit", size, limit)
+	}
+}
+
+func assertSurvivorsKeepTheirSeverity(t *testing.T, host, c string) {
+	t.Helper()
+	statuses := util.GetDB(host, c, "statuses")
+	rows, missing := logKeys(host, c), 0
+	for _, k := range rows {
+		if _, err := statuses.Get([]byte(k), nil); err != nil {
+			missing++
+		}
+	}
+	level := "error"
+	all := GetLogs(true, false, host, c, "", maxLogsPerRequest, "", false, nil)["logs"].([][]string)
+	filtered := GetLogs(true, false, host, c, "", maxLogsPerRequest, "", false, &level)["logs"].([][]string)
+	if missing > 0 || len(filtered) != len(all) {
+		t.Errorf("%d of %d surviving rows lost their severity entry; the error filter returns %d", missing, len(all), len(filtered))
+	}
+	entries := 0
+	iter := statuses.NewIterator(nil, nil)
+	for iter.Next() {
+		entries++
+	}
+	iter.Release()
+	if entries != len(rows)-missing {
+		t.Errorf("statuses holds %d entries for %d rows: deleted rows kept theirs", entries, len(rows)-missing)
+	}
+}
+
+func TestRetentionKeepsSeverityOfRowsTiedWithTheCutoff(t *testing.T) {
+	boundary, same := make([]time.Duration, 250), make([]time.Duration, 250)
+	for i := range boundary {
+		boundary[i] = time.Duration(i) * time.Second
+	}
+	boundary[200] = boundary[199]
+	for _, tc := range []struct {
+		name string
+		at   []time.Duration
+	}{
+		{"201st row shares the 200th's timestamp", boundary},
+		{"every row shares one timestamp", same},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			holdCleanup(t)
+			host, c := "TieHost", "tie"
+			seedRowsAt(t, rand.New(rand.NewSource(1)), host, c, tc.at)
+			t.Setenv("MAX_LOGS_SIZE", strconv.FormatInt(prunableBytes(host, c)*9/10, 10)+"B")
+
+			before := RetentionDeletedLines()
+			if err := checkAndManageLogSize(host, c); err != nil {
+				t.Fatal(err)
+			}
+			if deleted := RetentionDeletedLines() - before; deleted != 200 {
+				t.Fatalf("deleted %d rows, want one round of 200", deleted)
+			}
+			assertSurvivorsKeepTheirSeverity(t, host, c)
+		})
+	}
+}
+
+func TestRetentionKeepsSeverityOfOlderRowsStoredWhileItRuns(t *testing.T) {
+	for _, stage := range []string{"logs", "statuses"} {
+		t.Run("stored before the "+stage+" prune", func(t *testing.T) {
+			holdCleanup(t)
+			host, c := "DelayedHost", "delayed"
+			seedRetentionRows(t, host, []retentionSeed{{c, 400, 0}})
+			t.Setenv("MAX_LOGS_SIZE", strconv.FormatInt(prunableBytes(host, c)*9/10, 10)+"B")
+
+			stored := false
+			saved := beforePrune
+			t.Cleanup(func() { beforePrune = saved })
+			beforePrune = func(h, ctr, dbType string) {
+				if dbType == stage && !stored {
+					stored = true
+					seedRetentionRows(t, host, []retentionSeed{{c, 16, -time.Hour}})
+				}
+			}
+
+			if err := checkAndManageLogSize(host, c); err != nil {
+				t.Fatal(err)
+			}
+			if !stored {
+				t.Fatal("cleanup never reached the step under test")
+			}
+			assertSurvivorsKeepTheirSeverity(t, host, c)
+		})
 	}
 }
