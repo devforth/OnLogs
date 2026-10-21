@@ -311,3 +311,59 @@ func TestRetentionKeepsLogsWhileDeletableDataFitsTheQuota(t *testing.T) {
 		t.Errorf("retention deleted %d rows to offset data it cannot delete", 250-rows)
 	}
 }
+
+func TestRetentionRunsAPendingCheckWhenTheCooldownExpiresWithoutAnotherLine(t *testing.T) {
+	holdCleanup(t)
+	host, c := "IdleHost", "idle"
+	const limit = 256 * 1024
+	t.Setenv("MAX_LOGS_SIZE", strconv.Itoa(limit)+"B")
+
+	logCleanupMu.Lock()
+	savedCooldown := cleanupCooldown
+	cleanupCooldown = time.Second
+	nextCleanup = time.Time{}
+	logCleanupMu.Unlock()
+	t.Cleanup(func() {
+		logCleanupMu.Lock()
+		cleanupCooldown = savedCooldown
+		logCleanupMu.Unlock()
+	})
+	waitFor := func(timeout time.Duration, cond func() bool) bool {
+		for deadline := time.Now().Add(timeout); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+			if cond() {
+				return true
+			}
+		}
+		return false
+	}
+	var expiry time.Time
+	checkDone := func() bool {
+		logCleanupMu.Lock()
+		defer logCleanupMu.Unlock()
+		expiry = nextCleanup
+		return !isCleanupRunning && !nextCleanup.IsZero()
+	}
+
+	seedRetentionRows(t, host, []retentionSeed{{c, 1, 0}})
+	if !waitFor(10*time.Second, checkDone) {
+		t.Fatal("the first line's check did not finish")
+	}
+	before := RetentionDeletedLines()
+	seedRetentionRows(t, host, []retentionSeed{{c, 250, time.Second}})
+	if !time.Now().Before(expiry) || RetentionDeletedLines() != before || prunableBytes(host, c) <= limit {
+		t.Fatal("precondition: the quota was not crossed inside the cooldown with nothing deleted")
+	}
+
+	if !waitFor(10*time.Second, func() bool { return RetentionDeletedLines() > before }) {
+		t.Fatal("no check ran after the cooldown expired while the idle store was over the limit")
+	}
+	if time.Now().Before(expiry) {
+		t.Error("the pending check ran before the cooldown expired")
+	}
+	if !waitFor(10*time.Second, checkDone) {
+		t.Fatal("the pending check did not finish")
+	}
+	if size := prunableBytes(host, c); size > limit {
+		t.Errorf("the idle store is still %d bytes against a %d byte limit", size, limit)
+	}
+}

@@ -219,10 +219,13 @@ const (
 // Bounds one scan. A var so tests can exercise the cap without a million rows.
 var maxScanIterations = 1000000
 
+var cleanupCooldown = time.Minute
+
 var (
 	logCleanupMu     sync.Mutex
 	nextCleanup      time.Time
 	isCleanupRunning bool
+	cleanupPending   bool
 	ansiEscapeRegex  = regexp.MustCompile(`[\x1B\x9B][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><])`)
 	logKeyCounter    atomic.Uint64
 )
@@ -236,14 +239,13 @@ func MaybeScheduleCleanup(host string, container string) {
 
 	defer logCleanupMu.Unlock()
 
-	if isCleanupRunning {
-		return
-	}
-	if time.Now().Before(nextCleanup) {
+	if isCleanupRunning || time.Now().Before(nextCleanup) {
+		cleanupPending = true
 		return
 	}
 
 	isCleanupRunning = true
+	cleanupPending = false
 
 	go func() {
 		err := checkAndManageLogSize(host, container)
@@ -252,7 +254,15 @@ func MaybeScheduleCleanup(host string, container string) {
 		defer logCleanupMu.Unlock()
 
 		isCleanupRunning = false
-		nextCleanup = time.Now().Add(1 * time.Minute)
+		nextCleanup = time.Now().Add(cleanupCooldown)
+		time.AfterFunc(cleanupCooldown, func() {
+			logCleanupMu.Lock()
+			pending := cleanupPending
+			logCleanupMu.Unlock()
+			if pending {
+				MaybeScheduleCleanup(host, container)
+			}
+		})
 
 		if err != nil {
 			fmt.Printf("Log cleanup failed: %v\n", err)
