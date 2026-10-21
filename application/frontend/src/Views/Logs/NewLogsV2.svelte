@@ -88,6 +88,7 @@
   // Generation of the newest-page load holding live rows back, 0 when none.
   let pauseWS = 0;
   let heldWS = [];
+  let windowAtHead = true;
   let newLogsAmount = $state(1);
   let controller = null;
   let signal = null;
@@ -225,6 +226,7 @@
     visibleLogs = allLogsCopy.splice(0, limit);
     previousLogs = allLogsCopy.splice(0, limit);
 
+    windowAtHead = true;
     autoscroll = true;
     logsFromWS = [];
     pauseWS = 0;
@@ -288,6 +290,7 @@
     const viewLogs = [...getLogsArray(logsWithPrevResponse)].reverse();
     let downLogs = [];
     let upperLogs = [];
+    let atHead = false;
 
     if (viewLogs.length !== limit * 2) {
       const limitDifference = limit * 2 - viewLogs.length;
@@ -299,6 +302,7 @@
         status: $chosenStatus,
       });
       downLogs = [...getLogsArray(prevLogsResponse)];
+      atHead = Boolean(prevLogsResponse?.is_end);
     } else {
       const prevLogsResponse = await api.getPrevLogs({
         containerName: $lastChosenService,
@@ -308,6 +312,7 @@
         status: $chosenStatus,
       });
       downLogs = [...getLogsArray(prevLogsResponse)];
+      atHead = Boolean(prevLogsResponse?.is_end);
 
       if (limit - downLogs.length) {
         const upperLogsResponse = await api.getLogs({
@@ -322,6 +327,7 @@
     }
     if (initialService === $lastChosenService && generation === logsLoadGeneration) {
       allLogs = dedupeLogs([...upperLogs.reverse(), ...viewLogs, ...downLogs]);
+      windowAtHead = atHead;
 
       let allLogsCopy = [...allLogs];
 
@@ -360,9 +366,10 @@
       return;
     }
     if (
-      atBottom ||
-      (!mouseDownBlockFetch && endOffLogsIntersect) ||
-      (allLogs.length < 3 * limit && endOffLogsIntersect)
+      windowAtHead &&
+      (atBottom ||
+        (!mouseDownBlockFetch && endOffLogsIntersect) ||
+        (allLogs.length < 3 * limit && endOffLogsIntersect))
     ) {
       if (!pauseWS) {
         autoscroll = true;
