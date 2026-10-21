@@ -60,7 +60,10 @@ func restartStats(host string, container string) {
 		flushMu.Lock()
 		defer flushMu.Unlock()
 		if newest != "" {
-			saveStats(current_db, calc_stat, newest)
+			key := statKey(newest)
+			// Late counts are dropped: the full scan counted every stored row.
+			containerdb.TakeLateStats(location, key)
+			saveStats(current_db, calc_stat, key)
 		}
 	} else {
 		calc_stat, new_datetime := collectLogs(host, container, last_stat_time, true)
@@ -68,11 +71,20 @@ func restartStats(host string, container string) {
 		defer flushMu.Unlock()
 		// Nothing new: saving would rewrite the previous interval's record with
 		// an empty one and move the cursor off the log timeline onto the clock.
+		cursor, key := last_stat_time, ""
 		if last_stat_time != new_datetime {
+			key = statKey(new_datetime)
+			cursor = max(cursor, key)
+		}
+		late := containerdb.TakeLateStats(location, cursor)
+		if key != "" {
 			if beforeStatsSave != nil {
 				beforeStatsSave(location)
 			}
-			saveStats(current_db, calc_stat, new_datetime)
+			saveStats(current_db, calc_stat, key)
+		}
+		if len(late) > 0 {
+			addStats(current_db, late, last_stat_time)
 		}
 	}
 
@@ -138,10 +150,28 @@ func collectLogs(host, container, cursor string, forward bool) (map[string]uint6
 
 // Statistics are keyed by time and read back with time.Parse, so a full log key
 // (which carries a " +<nano>-<counter>" suffix) must be reduced to its timestamp.
-func saveStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
+func statKey(timestamp string) string {
 	key := strings.Split(timestamp, " +")[0]
 	if _, err := time.Parse(time.RFC3339Nano, key); err != nil {
 		key = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+	return key
+}
+
+func saveStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
+	to_put, _ := json.Marshal(stats)
+	db.Put([]byte(statKey(timestamp)), to_put, nil)
+}
+
+func addStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
+	key := statKey(timestamp)
+	if old, err := db.Get([]byte(key), nil); err == nil {
+		record := map[string]uint64{}
+		if json.Unmarshal(old, &record) == nil {
+			for level, count := range record {
+				stats[level] += count
+			}
+		}
 	}
 
 	to_put, _ := json.Marshal(stats)

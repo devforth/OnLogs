@@ -287,6 +287,37 @@ func countLogStatus(location string, statusKey string) {
 	total[statusKey]++
 }
 
+// Rows stored at or behind the statistics cursor, which its next scan skips.
+var (
+	statCursors = map[string]string{}
+	lateCounts  = map[string]map[string]uint64{}
+)
+
+func countIfBehindStatCursor(location string, statusKey string, logKey string) {
+	vars.Mutex.Lock()
+	defer vars.Mutex.Unlock()
+
+	cursor := statCursors[location]
+	// The forward scan's own boundary: Seek(cursor), then skip rows at cursor.
+	if cursor == "" || (logKey >= cursor && !strings.HasPrefix(logKey, cursor+" +")) {
+		return
+	}
+	if lateCounts[location] == nil {
+		lateCounts[location] = NewStatCounter()
+	}
+	lateCounts[location][statusKey]++
+}
+
+func TakeLateStats(location string, cursor string) map[string]uint64 {
+	vars.Mutex.Lock()
+	defer vars.Mutex.Unlock()
+
+	statCursors[location] = cursor
+	late := lateCounts[location]
+	delete(lateCounts, location)
+	return late
+}
+
 var retentionDeleted atomic.Uint64
 
 func CountRetentionDeleted(lines int) {
@@ -358,6 +389,8 @@ func PutLogEvent(db *leveldb.DB, host string, container string, message_item []s
 	statusesDB := util.GetDB(host, container, "statuses")
 
 	countLogStatus(location, status_key)
+	// Before the write: a row classed against a new cursor missed the scan that set it.
+	countIfBehindStatCursor(location, status_key, logKey)
 
 	if statusesDB != nil {
 		if err := statusesDB.Put([]byte(logKey), []byte(status_key), nil); err != nil {
