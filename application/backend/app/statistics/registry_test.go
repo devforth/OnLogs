@@ -62,6 +62,7 @@ func TestWorkerChurnDoesNotLeak(t *testing.T) {
 
 func TestWorkerCreatesItsCounterAndDatabase(t *testing.T) {
 	const location = "Test/TestContainer"
+	os.MkdirAll("leveldb/hosts/Test/containers/TestContainer", 0700)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

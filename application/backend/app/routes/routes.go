@@ -231,12 +231,13 @@ func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	statistics.EnsureWorker(context.Background(), logItem.Host, logItem.Container)
 	key, duplicate, err := containerdb.PutLogEvent(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine, logItem.EventID)
 	if err != nil {
 		defer w.WriteHeader(http.StatusInternalServerError)
 		panic(err)
 	}
+	// Started after the line is stored: the worker never creates a service on its own.
+	statistics.EnsureWorker(context.Background(), logItem.Host, logItem.Container)
 	if duplicate {
 		return
 	}

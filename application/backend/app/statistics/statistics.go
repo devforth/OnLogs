@@ -39,7 +39,8 @@ func snapshotCounter(location string) map[string]uint64 {
 }
 
 func restartStats(host string, container string) {
-	current_db := util.GetDB(host, container, "statistics")
+	// A deleted service stays deleted until a log line or agent report recreates it.
+	current_db := util.GetDBIfExists(host, container, "statistics")
 	if current_db == nil {
 		return
 	}

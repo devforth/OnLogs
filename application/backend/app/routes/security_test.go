@@ -301,6 +301,32 @@ func TestAddLogLineDoesNotSpawnAWorkerPerLogLine(t *testing.T) {
 	}
 }
 
+func TestAddLogLineStartsStatisticsForANewService(t *testing.T) {
+	const host, svc = "newstatshost", "newstatsservice"
+	for _, dbType := range []string{"logs", "statuses", "statistics"} {
+		util.ResetDB(host, svc, dbType)
+	}
+	os.RemoveAll("leveldb/hosts/" + host)
+	t.Cleanup(func() { statistics.StopWorker(host, svc) })
+
+	stamp := time.Now().Add(-time.Second).UTC().Format("2006-01-02T15:04:05.000000000Z")
+	body := map[string]any{"Token": db.CreateOnLogsToken(), "Host": host, "Container": svc, "LogLine": []string{stamp, "INFO first line"}}
+	if status, raw := call(t, testCtrl.AddLogLine, authedRequest(t, "", "POST", "/api/v1/addLogLine", body)); status != http.StatusOK {
+		t.Fatalf("addLogLine returned %d: %s", status, raw)
+	}
+
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if _, err := os.Stat("leveldb/hosts/" + host + "/containers/" + svc + "/statistics"); err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the worker's first pass never opened statistics for the new service")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
 // The Content-Type was previously set per handler; a helper now owns it, so one
 // endpoint of each shape has to prove the header survives.
 func TestJSONEndpointsSetTheirContentType(t *testing.T) {
