@@ -57,6 +57,15 @@ func CloseUserConnections(user string) {
 	}
 }
 
+func RemoveConnection(key string, conn *websocket.Conn) {
+	for _, v := range viewersFor(key) {
+		if v.conn == conn {
+			removeViewer(key, v)
+		}
+	}
+	conn.Close()
+}
+
 func viewersFor(key string) []*viewer {
 	connectionsMutex.RLock()
 	defer connectionsMutex.RUnlock()

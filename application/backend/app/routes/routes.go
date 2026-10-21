@@ -774,6 +774,15 @@ func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request
 	if _, err := util.GetUserFromJWT(*req); user != "" && err != nil {
 		ws.Close()
 	}
+	// Viewers send nothing; reading is how a peer close is noticed.
+	go func() {
+		for {
+			if _, _, err := ws.NextReader(); err != nil {
+				vars.RemoveConnection(container, ws)
+				return
+			}
+		}
+	}()
 }
 
 func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
