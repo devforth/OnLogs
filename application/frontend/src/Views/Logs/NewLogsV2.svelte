@@ -138,13 +138,16 @@
   // The third element is the full storage key: the only unique row identity.
   const logKey = (logItem) => logItem?.at(2) ?? logItem?.at(0) ?? "";
 
+  const rowId = (logItem) => logItem?.at(2) ?? (logItem ? `${logItem[0]}\u0000${logItem[1]}` : "");
+  const sameLine = (a, b) => a?.[0] === b?.[0] && a?.[1] === b?.[1];
+
   // Dropping repeats by key makes a recurrence visible as a missing row rather
   // than a doubled one, and lets the {#each} be keyed.
   function dedupeLogs(rows) {
     const seen = new Set();
     const unique = [];
     for (const row of rows) {
-      const key = logKey(row);
+      const key = rowId(row);
       if (key) {
         if (seen.has(key)) {
           continue;
@@ -341,6 +344,9 @@
   }
 
   function addLogFromWS(logfromWS) {
+    if (allLogs.some((row) => sameLine(row, logfromWS))) {
+      return;
+    }
     if (
       (!mouseDownBlockFetch && endOffLogsIntersect) ||
       (allLogs.length < 3 * limit && endOffLogsIntersect)
@@ -709,6 +715,9 @@
         isSearching.set(false);
         isFeatching.set(false);
         if (initialService === $lastChosenService) {
+            total_logs = total_logs.filter(
+              (row) => !allLogs.some((shown) => !shown?.[2] && sameLine(shown, row))
+            );
             if (total_logs.length) {
               let numberOfPrev = total_logs.length;
               const logsToVisible = previousLogs.splice(0, numberOfPrev);
@@ -976,7 +985,7 @@
         >
           <div id="startOfLogs" bind:this={startOfLogs}></div>
         </IntersectionObserver>
-        {#each allLogs as logItem, i (logKey(logItem) || i)}
+        {#each allLogs as logItem, i (rowId(logItem) || i)}
           {#if transformLogStringForTimeBudget(logItem, $store.UTCtime) !== transformLogStringForTimeBudget(allLogs[i - 1], $store.UTCtime) && i - 1 >= 0}
             <div class="timeBudgeContainer">
               <div class="timeBadgeWrapper">
