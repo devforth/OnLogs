@@ -3,7 +3,9 @@ package agent
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -40,7 +42,7 @@ func SendInitRequest(containers []string) {
 	}
 }
 
-func sendLog(token, container, timestamp, message, eventID string) bool {
+func sendLog(token, container, timestamp, message, eventID string) error {
 	resp, err := post("/api/v1/addLogLine", map[string]any{
 		"Host":      util.GetHost(),
 		"Token":     token,
@@ -49,15 +51,18 @@ func sendLog(token, container, timestamp, message, eventID string) bool {
 		"EventID":   eventID,
 	})
 	if err != nil {
-		return false
+		return err
 	}
 	defer resp.Body.Close()
-	return resp.StatusCode == 200
+	if resp.StatusCode != 200 {
+		return errors.New(resp.Status)
+	}
+	return nil
 }
 
 func SendLogMessage(token string, container string, message_item []string) bool {
 	eventID := containerdb.NewEventID()
-	if sendLog(token, container, message_item[0], message_item[1], eventID) {
+	if sendLog(token, container, message_item[0], message_item[1], eventID) == nil {
 		return true
 	}
 	if buffer := util.GetDB(util.GetHost(), container, "brokenlogs"); buffer != nil {
@@ -76,7 +81,6 @@ func TryResend() {
 	}
 }
 
-// Returns false when the master is still unreachable, so the caller stops.
 func resendContainerBuffer(token string, container string) bool {
 	buffer := util.GetDB(util.GetHost(), container, "brokenlogs")
 	if buffer == nil {
@@ -90,8 +94,9 @@ func resendContainerBuffer(token string, container string) bool {
 		key := append([]byte{}, iter.Key()...)
 		// Entries queued by older agents are keyed by the bare timestamp.
 		timestamp, eventID, _ := strings.Cut(string(key), " +")
-		if !sendLog(token, container, timestamp, string(iter.Value()), eventID) {
-			return false
+		if err := sendLog(token, container, timestamp, string(iter.Value()), eventID); err != nil {
+			var opErr *net.OpError
+			return !errors.As(err, &opErr) || opErr.Op != "dial"
 		}
 		buffer.Delete(key, nil)
 	}
