@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
@@ -61,6 +63,16 @@ func newServer(port string, handler http.Handler) *http.Server {
 	}
 }
 
+func closeDatabasesOnSignal() {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		sig := <-stop
+		util.CloseDBs()
+		os.Exit(128 + int(sig.(syscall.Signal)))
+	}()
+}
+
 func init_config() {
 	if os.Getenv("PORT") == "" {
 		os.Setenv("PORT", "2874")
@@ -101,6 +113,7 @@ func main() {
 		fmt.Println("FATAL:", err)
 		os.Exit(1)
 	}
+	closeDatabasesOnSignal()
 
 	if os.Getenv("JWT_SECRET") == "" {
 		fmt.Println("FATAL: JWT_SECRET is empty; refusing to start. Unset it to have one generated, or set a non-empty value.")

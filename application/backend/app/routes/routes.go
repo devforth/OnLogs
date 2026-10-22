@@ -228,8 +228,9 @@ func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 	statistics.EnsureWorker(context.Background(), logItem.Host, logItem.Container)
 	err := containerdb.PutLogMessage(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine)
 	if err != nil {
-		defer w.WriteHeader(http.StatusInternalServerError)
-		panic(err)
+		fmt.Printf("ERROR: storing a line from %s/%s: %v\n", logItem.Host, logItem.Container, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})

@@ -2,7 +2,11 @@ package main
 
 import (
 	"os"
+	"os/exec"
+	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/devforth/OnLogs/app/util"
 )
@@ -79,6 +83,34 @@ func TestNewServerSetsAllTimeouts(t *testing.T) {
 	}
 	if s.IdleTimeout == 0 {
 		t.Error("IdleTimeout is unset")
+	}
+}
+
+func TestSigtermClosesTheDatabasesBeforeExiting(t *testing.T) {
+	if dir := os.Getenv("ONLOGS_SIGTERM_DIR"); dir != "" {
+		os.Chdir(dir)
+		if err := util.GetDB("host", "app", "logs").Put([]byte("k"), []byte("v"), nil); err != nil {
+			t.Fatal(err)
+		}
+		closeDatabasesOnSignal()
+		syscall.Kill(os.Getpid(), syscall.SIGTERM)
+		time.Sleep(10 * time.Second)
+		t.Fatal("still running after SIGTERM")
+	}
+
+	dir := t.TempDir()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestSigtermClosesTheDatabasesBeforeExiting$")
+	cmd.Env = append(os.Environ(), "ONLOGS_SIGTERM_DIR="+dir)
+	out, err := cmd.CombinedOutput()
+	if code := cmd.ProcessState.ExitCode(); code != 143 {
+		t.Fatalf("SIGTERM ended the process with %d (%v), want 143\n%s", code, err, out)
+	}
+	logFile, err := os.ReadFile(dir + "/leveldb/hosts/host/containers/app/logs/LOG")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(logFile), "db@close done") {
+		t.Error("the logs database was left open at exit")
 	}
 }
 

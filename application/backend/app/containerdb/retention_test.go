@@ -210,7 +210,10 @@ func TestRetentionMeasuresOnlyWhatItCanPrune(t *testing.T) {
 	host, container := "RetentionHost", "RetentionContainer"
 	base := "leveldb/hosts/" + host + "/containers/" + container
 	_ = os.RemoveAll("leveldb/hosts/" + host)
-	t.Cleanup(func() { _ = os.RemoveAll("leveldb/hosts/" + host) })
+	t.Cleanup(func() {
+		DeleteContainer(host, container, true)
+		_ = os.RemoveAll("leveldb/hosts/" + host)
+	})
 
 	vars.Mutex.Lock()
 	delete(vars.Container_Stat_Counter, host+"/"+container)

@@ -144,6 +144,43 @@ func TestAddLogLineRejectsNamesThatLeaveTheTree(t *testing.T) {
 	}
 }
 
+func TestAddLogLineAnswers500InsteadOfPanickingWhenTheLineCannotBeStored(t *testing.T) {
+	token := db.CreateOnLogsToken()
+	host, container := "unwritablehost", "c"
+	util.GetDB(host, container, "logs").Close()
+	saved := util.FreeDiskBytes
+	util.FreeDiskBytes = func() (uint64, error) { return 0, nil }
+	t.Cleanup(func() {
+		util.FreeDiskBytes = saved
+		statistics.StopWorker(host, container)
+		for _, dbType := range util.PrunableDBs() {
+			util.ResetDB(host, container, dbType)
+		}
+		os.RemoveAll("leveldb/hosts/" + host)
+	})
+
+	body, _ := json.Marshal(map[string]interface{}{
+		"Token":     token,
+		"Host":      host,
+		"Container": container,
+		"LogLine":   []string{"2026-02-10T12:56:09.230421754Z", "hello"},
+	})
+	req, _ := http.NewRequest("POST", "/api/v1/addLogLine", bytes.NewBuffer(body))
+	rr := httptest.NewRecorder()
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("addLogLine panicked on a failed write: %v", r)
+			}
+		}()
+		http.HandlerFunc(testCtrl.AddLogLine).ServeHTTP(rr, req)
+	}()
+
+	if code := rr.Result().StatusCode; code != http.StatusInternalServerError {
+		t.Errorf("addLogLine answered %d to a line it could not store", code)
+	}
+}
+
 func oversizedJSONBody() []byte {
 	body := []byte(`{"pad":"`)
 	body = append(body, bytes.Repeat([]byte("A"), 4<<20)...)

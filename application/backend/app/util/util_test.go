@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/devforth/OnLogs/app/vars"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 // A token is only accepted while its account exists, so these fixtures need to.
@@ -79,4 +80,29 @@ func TestGetUserFromJWT(t *testing.T) {
 		t.Error("Req should be unauthorized")
 	}
 
+}
+
+func TestGetDBStillRecoversADatabaseThatLostItsManifest(t *testing.T) {
+	t.Chdir(t.TempDir())
+	path := "leveldb/hosts/h/containers/c/logs"
+	db, err := leveldb.OpenFile(path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Put([]byte("k"), []byte("v"), nil); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	if err := os.Remove(path + "/CURRENT"); err != nil {
+		t.Fatal(err)
+	}
+
+	db = GetDB("h", "c", "logs")
+	if db == nil {
+		t.Fatal("a database that lost its manifest was not recovered")
+	}
+	t.Cleanup(func() { ResetDB("h", "c", "logs") })
+	if v, err := db.Get([]byte("k"), nil); err != nil || string(v) != "v" {
+		t.Errorf("the recovered database lost its row: %q, %v", v, err)
+	}
 }

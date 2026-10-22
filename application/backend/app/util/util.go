@@ -17,6 +17,8 @@ import (
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/syndtr/goleveldb/leveldb"
+	leveldbErrors "github.com/syndtr/goleveldb/leveldb/errors"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"golang.org/x/sys/unix"
 )
 
@@ -90,6 +92,9 @@ func IsSafeName(s string) bool {
 	return s == filepath.Base(s)
 }
 
+// Level 1 at 10 MiB, as in LevelDB, not 100: each retention round rewrites it.
+var DBOptions = &opt.Options{CompactionTotalSizeMultiplierPerLevel: []float64{1, 1}}
+
 func GetDB(host string, container string, dbType string) *leveldb.DB {
 	if !IsSafeName(host) || !IsSafeName(container) || !IsSafeName(dbType) {
 		return nil
@@ -111,11 +116,12 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 	}
 
 	path := fmt.Sprintf("leveldb/hosts/%s/containers/%s/%s", host, container, dbType)
-	db, err := leveldb.OpenFile(path, nil)
+	db, err := leveldb.OpenFile(path, DBOptions)
 
-	if err != nil {
+	// Recovery rewrites the whole DB: only for corruption, not for a full disk.
+	if leveldbErrors.IsCorrupted(err) {
 		for tries := 0; tries < 10; tries++ {
-			db, err = leveldb.RecoverFile(path, nil)
+			db, err = leveldb.RecoverFile(path, DBOptions)
 			if err == nil {
 				break
 			}
@@ -188,6 +194,50 @@ func ResetDB(host string, container string, dbType string) {
 		db.Close()
 	}
 	delete(dbCaches[dbType], host+"/"+container)
+	delete(lastReopen, dbType+":"+host+"/"+container)
+}
+
+var FreeDiskBytes = func() (uint64, error) {
+	var stat unix.Statfs_t
+	if err := unix.Statfs("leveldb", &stat); err != nil {
+		return 0, err
+	}
+	return stat.Bavail * uint64(stat.Bsize), nil
+}
+
+var lastReopen = map[string]time.Time{}
+
+// ReopenDB clears goleveldb's sticky write error, at most every 10 s.
+func ReopenDB(host string, container string, dbType string, failed *leveldb.DB) *leveldb.DB {
+	if free, err := FreeDiskBytes(); err != nil || free >= uint64(2*opt.DefaultWriteBuffer) {
+		key := dbType + ":" + host + "/" + container
+		vars.DBMutex.Lock()
+		if db := getExistingDB(host, container, dbType); db != nil && db == failed && time.Since(lastReopen[key]) >= 10*time.Second {
+			db.Close()
+			delete(dbCaches[dbType], host+"/"+container)
+			lastReopen[key] = time.Now()
+		}
+		vars.DBMutex.Unlock()
+	}
+	return GetDB(host, container, dbType)
+}
+
+// CloseDBs closes every database for good: only on the way out.
+func CloseDBs() {
+	vars.DBMutex.Lock()
+	for _, cache := range dbCaches {
+		for _, db := range cache {
+			db.Close()
+		}
+	}
+	for _, db := range vars.ContainersMeta_DBs {
+		db.Close()
+	}
+	for _, db := range []*leveldb.DB{vars.AliasDB, vars.FavsDB, vars.GroupsDB, vars.UsersDB, vars.TokensDB, vars.SettingsDB} {
+		if db != nil {
+			db.Close()
+		}
+	}
 }
 
 // ContainersMeta_DBs is absent: GetContainersMetaDB keys it by bare host.
