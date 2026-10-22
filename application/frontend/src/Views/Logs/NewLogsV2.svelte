@@ -443,6 +443,8 @@
       wsDown = true;
       wsRetryDelay = Math.min(wsRetryDelay * 2 || 1000, 30000);
       wsRetryTimer = setTimeout(getLogsFromWS, wsRetryDelay);
+      // On a 401 doFetch opens the login page, so stop retrying.
+      api.checkCookie().then(() => api.authorized || closeWS(), () => {});
     };
     webSocket.onmessage = (event) => {
       if (event.data !== "PING") {
