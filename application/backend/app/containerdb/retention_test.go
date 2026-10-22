@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
+	leveldbUtil "github.com/syndtr/goleveldb/leveldb/util"
 )
 
 type retentionSeed struct {
@@ -462,5 +464,89 @@ func TestRetentionKeepsSeverityOfOlderRowsStoredWhileItRuns(t *testing.T) {
 			}
 			assertSurvivorsKeepTheirSeverity(t, host, c)
 		})
+	}
+}
+
+func TestRetentionPrunesAbandonedHostsFirstAndRemovesThemOnceEmpty(t *testing.T) {
+	holdCleanup(t)
+	local, old, unused, agent := util.GetHost(), "0123456789ab", "fedcba987654", "agent-host"
+	seedRetentionRows(t, old, []retentionSeed{{"app", 300, 0}})
+	seedRetentionRows(t, local, []retentionSeed{{"app", 600, time.Hour}})
+	for _, h := range []string{unused, agent} {
+		if err := os.MkdirAll("leveldb/hosts/"+h+"/containers/c", 0o700); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { DeleteContainer(h, "c", true) })
+	}
+	vars.SetAgentContainers(agent, []string{"c"})
+	t.Cleanup(func() { vars.SetAgentContainers(agent, nil) })
+
+	newest := logKeys(local, "app")
+	t.Setenv("MAX_LOGS_SIZE", strconv.FormatInt(prunableBytes(local, "app"), 10)+"B")
+	if err := checkAndManageLogSize(local, "app"); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, h := range []string{old, unused} {
+		if _, err := os.Stat("leveldb/hosts/" + h); !os.IsNotExist(err) {
+			t.Errorf("host %s holds no rows but is still there (%v)", h, err)
+		}
+	}
+	for _, h := range []string{local, agent} {
+		if _, err := os.Stat("leveldb/hosts/" + h); err != nil {
+			t.Errorf("host %s was removed: %v", h, err)
+		}
+	}
+	kept := logKeys(local, "app")
+	if !slices.Equal(kept, newest[len(newest)-len(kept):]) {
+		t.Error("the current host lost a row newer than one it kept")
+	}
+	if lost := len(newest) - len(kept); lost >= 300 {
+		t.Errorf("the current host lost %d rows, more than the abandoned host held", lost)
+	}
+
+	t.Setenv("MAX_LOGS_SIZE", "1B")
+	if err := checkAndManageLogSize(local, "app"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat("leveldb/hosts/" + local + "/containers/app"); err != nil {
+		t.Errorf("the current host was removed once retention emptied it: %v", err)
+	} else if rows := len(logKeys(local, "app")); rows > 0 {
+		t.Fatalf("the current host still holds %d rows", rows)
+	}
+}
+
+func TestRetentionKeepsAnOldHostWhoseLogsCannotBeRead(t *testing.T) {
+	holdCleanup(t)
+	local, old := util.GetHost(), "0123456789ab"
+	seedRetentionRows(t, old, []retentionSeed{{"app", 50, 0}})
+	seedRetentionRows(t, local, []retentionSeed{{"app", 100, time.Hour}})
+	if err := util.GetDB(old, "app", "logs").CompactRange(leveldbUtil.Range{}); err != nil {
+		t.Fatal(err)
+	}
+	util.ResetDB(old, "app", "logs")
+	tables, _ := filepath.Glob("leveldb/hosts/" + old + "/containers/app/logs/*.ldb")
+	if len(tables) == 0 {
+		t.Fatal("no table to damage")
+	}
+	for _, f := range tables {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i := range len(b) / 2 {
+			b[i] ^= 0xff
+		}
+		if err := os.WriteFile(f, b, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	t.Setenv("MAX_LOGS_SIZE", strconv.FormatInt(prunableBytes(local, "app"), 10)+"B")
+	if err := checkAndManageLogSize(local, "app"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat("leveldb/hosts/" + old + "/containers/app/logs"); err != nil {
+		t.Errorf("a host whose rows could not be read was removed as empty: %v", err)
 	}
 }

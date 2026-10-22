@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/devforth/OnLogs/app/userdb"
@@ -277,9 +278,57 @@ func parseHostname(raw string, readErr error) string {
 	return host
 }
 
+var hostID atomic.Pointer[string]
+
+func SetHost(id string) { hostID.Store(&id) }
+
 func GetHost() string {
+	if id := hostID.Load(); id != nil {
+		return *id
+	}
 	hostname, err := os.ReadFile("/etc/hostname")
 	return parseHostname(string(hostname), err)
+}
+
+func RemoveHostIfEmpty(host string) (bool, error) {
+	if !IsSafeName(host) {
+		return false, nil
+	}
+	dir := "leveldb/hosts/" + host
+
+	vars.DBMutex.Lock()
+	defer vars.DBMutex.Unlock()
+	containers, err := os.ReadDir(dir + "/containers")
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	for _, c := range containers {
+		db := getExistingDB(host, c.Name(), "logs")
+		if db == nil {
+			return false, nil
+		}
+		iter := db.NewIterator(nil, nil)
+		rows, err := iter.First(), iter.Error()
+		iter.Release()
+		if rows || err != nil {
+			return false, err
+		}
+	}
+	for dbType, cache := range dbCaches {
+		for _, c := range containers {
+			key := host + "/" + c.Name()
+			if db := cache[key]; db != nil {
+				db.Close()
+			}
+			delete(cache, key)
+			delete(lastReopen, dbType+":"+key)
+		}
+	}
+	if db := vars.ContainersMeta_DBs[host]; db != nil {
+		db.Close()
+		delete(vars.ContainersMeta_DBs, host)
+	}
+	return true, os.RemoveAll(dir)
 }
 
 // LogsSizes reports on-disk bytes per host/container plus the total. It counts

@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"strings"
@@ -9,6 +13,7 @@ import (
 	"time"
 
 	"github.com/devforth/OnLogs/app/util"
+	"github.com/docker/docker/client"
 )
 
 func TestInitConfigGeneratesAJWTSecretWhenNoneIsConfigured(t *testing.T) {
@@ -122,5 +127,92 @@ func TestInitConfigRejectsAnUnparseableMaxLogsSize(t *testing.T) {
 		if _, err := util.ParseHumanReadableSize(value); err == nil {
 			t.Errorf("MAX_LOGS_SIZE=%q was accepted; retention would silently never run", value)
 		}
+	}
+}
+
+const ownID = "0123456789ab"
+
+func dockerAt(t *testing.T, host string) *client.Client {
+	cli, err := client.NewClientWithOpts(client.WithHost(host))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cli
+}
+
+func fakeDocker(t *testing.T, dockerName string) *client.Client {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/info") && dockerName != "" {
+			w.Write([]byte(`{"Name":"` + dockerName + `"}`))
+			return
+		}
+		http.Error(w, `{"message":"forbidden"}`, http.StatusForbidden)
+	}))
+	t.Cleanup(srv.Close)
+	return dockerAt(t, "tcp://"+srv.Listener.Addr().String())
+}
+
+func resolveOwnID(t *testing.T, cli *client.Client) (string, string) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout := os.Stdout
+	os.Stdout = w
+	id := resolveHost(context.Background(), cli, ownID, ownID)
+	os.Stdout = stdout
+	w.Close()
+	printed, _ := io.ReadAll(r)
+	r.Close()
+	return id, string(printed)
+}
+
+func TestHostIdIsTheDockerHostNameInsteadOfTheOwnContainerId(t *testing.T) {
+	t.Setenv("ONLOGS_HOSTNAME", "")
+	if got, _ := resolveOwnID(t, fakeDocker(t, "docker-host-01")); got != "docker-host-01" {
+		t.Fatalf("host id is %q, want the Docker host name", got)
+	}
+}
+
+func TestHostIdPrefersTheEnvironmentOverTheDockerHostName(t *testing.T) {
+	t.Setenv("ONLOGS_HOSTNAME", "prod-1")
+	if got, _ := resolveOwnID(t, fakeDocker(t, "docker-host-01")); got != "prod-1" {
+		t.Fatalf("host id is %q, want ONLOGS_HOSTNAME", got)
+	}
+}
+
+func TestHostIdUsesTheEnvironmentOrWarnsWhenDockerIsNotReachable(t *testing.T) {
+	t.Chdir(t.TempDir())
+	down := dockerAt(t, "unix://docker.sock")
+	t.Setenv("ONLOGS_HOSTNAME", "prod-1")
+	if got, _ := resolveOwnID(t, down); got != "prod-1" {
+		t.Errorf("host id is %q, want ONLOGS_HOSTNAME", got)
+	}
+	t.Setenv("ONLOGS_HOSTNAME", "")
+	if got, printed := resolveOwnID(t, down); got != ownID || !strings.Contains(printed, "WARNING") {
+		t.Errorf("host id is %q and printed %q, want the container id and a warning", got, printed)
+	}
+}
+
+func TestHostIdWarnsAboutAnUnusableEnvironmentName(t *testing.T) {
+	t.Setenv("ONLOGS_HOSTNAME", "../etc")
+	if got, printed := resolveOwnID(t, fakeDocker(t, "docker-host-01")); got != "docker-host-01" || !strings.Contains(printed, "WARNING") {
+		t.Fatalf("host id is %q and printed %q, want the Docker host name and a warning", got, printed)
+	}
+}
+
+func TestHostIdKeepsAMountedOrChosenHostname(t *testing.T) {
+	t.Setenv("ONLOGS_HOSTNAME", "prod-1")
+	for _, h := range [][2]string{{"docker-host-01", ownID}, {"abcdef012345", ownID}, {"webserver-01", "webserver-01"}} {
+		if got := resolveHost(context.Background(), fakeDocker(t, "other"), h[0], h[1]); got != h[0] {
+			t.Errorf("hostname %q became %q", h[0], got)
+		}
+	}
+}
+
+func TestHostIdStaysTheContainerIdWhenNoStableNameIsAvailable(t *testing.T) {
+	t.Setenv("ONLOGS_HOSTNAME", "")
+	if got, printed := resolveOwnID(t, fakeDocker(t, "")); got != ownID || !strings.Contains(printed, "WARNING") {
+		t.Fatalf("host id is %q and printed %q, want the container id and a warning", got, printed)
 	}
 }

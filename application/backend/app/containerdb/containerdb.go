@@ -234,6 +234,20 @@ func pruneContainer(h, c string, cutoff time.Time, scan int) (failed error) {
 	return failed
 }
 
+func removeEmptyHosts() {
+	hosts, _ := os.ReadDir("leveldb/hosts/")
+	for _, h := range hosts {
+		if !h.IsDir() || h.Name() == util.GetHost() || len(vars.AgentContainers(h.Name())) > 0 {
+			continue
+		}
+		if removed, err := util.RemoveHostIfEmpty(h.Name()); err != nil {
+			fmt.Printf("Failed to remove empty host %s: %v\n", h.Name(), err)
+		} else if removed {
+			fmt.Println("Removed empty host", h.Name())
+		}
+	}
+}
+
 func checkAndManageLogSize(host string, container string) error {
 	maxSize, err := util.ParseHumanReadableSize(os.Getenv("MAX_LOGS_SIZE"))
 	if err != nil {
@@ -278,6 +292,7 @@ func checkAndManageLogSize(host string, container string) error {
 		if failed != nil {
 			return failed
 		}
+		removeEmptyHosts()
 
 		if round.whole {
 			return nil
