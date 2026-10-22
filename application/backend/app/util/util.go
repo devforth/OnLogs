@@ -120,14 +120,12 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 	db, err := leveldb.OpenFile(path, DBOptions)
 
 	// Recovery rewrites the whole DB: only for corruption, not for a full disk.
-	if leveldbErrors.IsCorrupted(err) {
-		for tries := 0; tries < 10; tries++ {
+	for tries := 0; err != nil && tries < 10; tries++ {
+		time.Sleep(10 * time.Millisecond)
+		if leveldbErrors.IsCorrupted(err) {
 			db, err = leveldb.RecoverFile(path, DBOptions)
-			if err == nil {
-				break
-			}
-			fmt.Printf("Attempt %d to recover DB %s failed: %v\n", tries+1, path, err)
-			time.Sleep(10 * time.Millisecond)
+		} else {
+			db, err = leveldb.OpenFile(path, DBOptions)
 		}
 	}
 

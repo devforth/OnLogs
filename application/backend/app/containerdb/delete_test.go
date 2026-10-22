@@ -85,6 +85,45 @@ func TestSeverityFilterKeepsLinesWrittenDuringClearLogs(t *testing.T) {
 	}
 }
 
+func TestLogsDatabaseOpensWhileClearLogsRemovesIt(t *testing.T) {
+	t.Chdir(t.TempDir())
+	const host, container = "OpenRaceHost", "OpenRaceContainer"
+	t.Cleanup(func() { DeleteContainer(host, container, true) })
+
+	for _, fullDelete := range []bool{false, true} {
+		for i := 0; i < 50; i++ {
+			seed := util.GetDB(host, container, "logs")
+			if seed == nil {
+				t.Fatal("could not open the logs database")
+			}
+			if err := seed.Put([]byte("k"), []byte("v"), nil); err != nil {
+				t.Fatal(err)
+			}
+			util.ResetDB(host, container, "logs")
+
+			opened := false
+			start := make(chan struct{})
+			var wg sync.WaitGroup
+			wg.Add(2)
+			go func() {
+				defer wg.Done()
+				<-start
+				opened = util.GetDB(host, container, "logs") != nil
+			}()
+			go func() {
+				defer wg.Done()
+				<-start
+				DeleteContainer(host, container, fullDelete)
+			}()
+			close(start)
+			wg.Wait()
+			if !opened {
+				t.Fatalf("fullDelete=%t: a stream starting at attempt %d got no logs database", fullDelete, i)
+			}
+		}
+	}
+}
+
 func TestSeverityFilterFallsBackToTheBodyWhenTheStatusRecordIsGone(t *testing.T) {
 	t.Chdir(t.TempDir())
 	t.Setenv("MAX_LOGS_SIZE", "1TB")
