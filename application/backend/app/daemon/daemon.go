@@ -196,6 +196,13 @@ func (h *DaemonService) CursorTimestamps() map[string]time.Time {
 	return maps.Clone(h.cursorTimestamps)
 }
 
+func (h *DaemonService) forgetFingerprint(containerName, fingerprint string) {
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	delete(h.recentSet[containerName], fingerprint)
+	h.recentFingerprints[containerName] = slices.DeleteFunc(h.recentFingerprints[containerName], func(f string) bool { return f == fingerprint })
+}
+
 func (h *DaemonService) isRecentDuplicate(containerName, fingerprint string) bool {
 	h.streamsMu.Lock()
 	defer h.streamsMu.Unlock()
@@ -231,37 +238,42 @@ func (h *DaemonService) storedThrough(host, containerName string) time.Time {
 }
 
 // ingestLine stores one streamed line, dropping anything the previous run had
-// already persisted. Returns true when the line was stored.
-func (h *DaemonService) ingestLine(host, containerName string, currentDB *leveldb.DB, token string, toHost bool, storedThrough time.Time, line string) bool {
+// already persisted. On error the stream must stop, or later lines move the cursor past it.
+func (h *DaemonService) ingestLine(host, containerName string, currentDB *leveldb.DB, token string, toHost bool, storedThrough time.Time, line string) (stored bool, err error) {
 
 	logItem, cursorTS, ok := parseDockerLogLine(line)
 	if !ok {
-		return false
+		return false, nil
 	}
 
 	// Docker's Since is floored to whole seconds and the cursor is rewound on
 	// purpose, so every attach replays lines that are already stored.
 	if !storedThrough.IsZero() && cursorTS.Before(storedThrough) {
 		h.countDroppedReplay(containerName)
-		return false
+		return false, nil
 	}
 
 	fingerprint := logItem[0] + " " + logItem[1]
 	if h.isRecentDuplicate(containerName, fingerprint) {
 		h.countDroppedReplay(containerName)
-		return false
+		return false, nil
 	}
 
 	if toHost {
-		agent.SendLogMessage(token, containerName, logItem)
+		if _, err := agent.SendLogMessage(token, containerName, logItem); err != nil {
+			fmt.Println("ERROR: log line neither delivered nor queued:", err.Error())
+			h.holdBefore(host, containerName, fingerprint, cursorTS)
+			return false, err
+		}
 		h.saveCursor(host, containerName, cursorTS, fingerprint)
-		return true
+		return true, nil
 	}
 
 	key, _, err := containerdb.PutLogEvent(currentDB, host, containerName, logItem, "")
 	if err != nil {
 		fmt.Println("ERROR:", err.Error())
-		return false
+		h.holdBefore(host, containerName, fingerprint, cursorTS)
+		return false, err
 	}
 	h.saveCursor(host, containerName, cursorTS, "")
 
@@ -270,7 +282,14 @@ func (h *DaemonService) ingestLine(host, containerName string, currentDB *leveld
 	}
 	toSend, _ := json.Marshal(logItem)
 	vars.Broadcast(containerName, websocket.TextMessage, toSend)
-	return true
+	return true, nil
+}
+
+func (h *DaemonService) holdBefore(host, containerName, fingerprint string, ts time.Time) {
+	h.forgetFingerprint(containerName, fingerprint)
+	if h.storedThrough(host, containerName).IsZero() {
+		h.saveCursor(host, containerName, ts.Add(-time.Nanosecond), "")
+	}
 }
 
 func (h *DaemonService) getResumeSince(host, containerName string) time.Time {
@@ -325,7 +344,7 @@ func sentAtCursor(db *leveldb.DB, cursor string) []string {
 	})
 }
 
-func scanLogs(ctx context.Context, reader io.Reader, onLine func(string)) error {
+func scanLogs(ctx context.Context, reader io.Reader, onLine func(string) error) error {
 	scanner := bufio.NewScanner(reader)
 	buf := make([]byte, 0, 64*1024)
 	scanner.Buffer(buf, maxLogLine)
@@ -351,7 +370,9 @@ func scanLogs(ctx context.Context, reader io.Reader, onLine func(string)) error 
 			return nil
 		default:
 		}
-		onLine(scanner.Text())
+		if err := onLine(scanner.Text()); err != nil {
+			return err
+		}
 	}
 
 	if scanErr := scanner.Err(); scanErr != nil && !errors.Is(scanErr, io.EOF) {
@@ -360,7 +381,7 @@ func scanLogs(ctx context.Context, reader io.Reader, onLine func(string)) error 
 	return nil
 }
 
-func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.Reader, onLine func(string), demux bool) error {
+func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.Reader, onLine func(string) error, demux bool) error {
 	if !demux {
 		return scanLogs(ctx, rc, onLine)
 	}
@@ -383,11 +404,12 @@ func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.Reader, onLi
 	// runs, and EnsureStream refuses to restart that container for the life of
 	// the process.
 	_ = pr.CloseWithError(io.ErrClosedPipe)
-
-	copyErr := <-copyDone
 	if scanErr != nil {
+		// On a quiet follow stream StdCopy waits in rc.Read until the caller closes rc.
 		return scanErr
 	}
+
+	copyErr := <-copyDone
 	if copyErr != nil && !errors.Is(copyErr, io.EOF) && !errors.Is(copyErr, context.Canceled) &&
 		!errors.Is(copyErr, io.ErrClosedPipe) {
 		return copyErr
@@ -474,8 +496,9 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 	head, _ := br.Peek(1)
 	demux := len(head) == 1 && stdcopy.StdType(head[0]) <= stdcopy.Systemerr
 
-	streamErr := h.streamDockerLogs(ctx, br, func(line string) {
-		h.ingestLine(host, containerName, currentDB, token, toHost, storedThrough, line)
+	streamErr := h.streamDockerLogs(ctx, br, func(line string) error {
+		_, err := h.ingestLine(host, containerName, currentDB, token, toHost, storedThrough, line)
+		return err
 	}, demux)
 
 	if cause := context.Cause(ctx); cause == nil || cause == errDrainTimeout {

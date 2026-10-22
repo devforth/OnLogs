@@ -43,7 +43,7 @@ func TestIngestedLinesCarryTheirStorageKey(t *testing.T) {
 	ts := time.Date(2026, 10, 19, 9, 0, 5, 0, time.UTC).Format(time.RFC3339Nano)
 	d := NewDaemonService(nil)
 	for _, msg := range []string{"job 51", "job 52"} {
-		if !d.ingestLine(host, container, db, "", false, time.Time{}, ts+" "+msg) {
+		if stored, _ := d.ingestLine(host, container, db, "", false, time.Time{}, ts+" "+msg); !stored {
 			t.Fatalf("%q was not stored", msg)
 		}
 	}

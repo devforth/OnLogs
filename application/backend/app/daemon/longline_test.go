@@ -49,8 +49,9 @@ func TestStreamDockerLogsTruncatesAnOversizedLineAndKeepsReading(t *testing.T) {
 	}
 
 	var lines []string
-	err := (&DaemonService{}).streamDockerLogs(context.Background(), io.NopCloser(strings.NewReader(string(stream))), func(line string) {
+	err := (&DaemonService{}).streamDockerLogs(context.Background(), io.NopCloser(strings.NewReader(string(stream))), func(line string) error {
 		lines = append(lines, line)
+		return nil
 	}, true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
