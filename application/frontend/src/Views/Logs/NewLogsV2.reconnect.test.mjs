@@ -31,7 +31,11 @@ function newestPage(service, params) {
   return { logs, last_processed_key: logs.at(-1)?.[2] ?? "", is_end: true };
 }
 
+let session = "valid";
+
 async function fetchImpl(url) {
+  if (session === "down") throw new TypeError("Failed to fetch");
+  if (session === "revoked") return jsonResponse({ error: "session revoked" }, 401);
   const u = new URL(String(url), "http://onlogs.test");
   if (u.pathname.endsWith("/getLogs")) return jsonResponse(newestPage(u.searchParams.get("id"), u.searchParams));
   return jsonResponse(null);
@@ -138,4 +142,24 @@ main(async () => {
   bundle.unmount(view);
   await sleep(1500);
   assert.equal(sockets.length, 1, "a retry ran after the view was unmounted");
+
+  view = await openService("api");
+  session = "down";
+  drop(sockets[0]);
+  assert.ok(await waitFor(() => sockets.length === 2, 3000), "the view did not reconnect while the server was down");
+  assert.equal(location.pathname, "/", "an unreachable server sent the view to the login page");
+  session = "valid";
+  sockets[1].onopen?.({});
+  await settle(30);
+  assert.ok(!notLive());
+  bundle.unmount(view);
+
+  view = await openService("api");
+  session = "revoked";
+  drop(sockets[0]);
+  await sleep(2500);
+  assert.equal(sockets.length, 1, "the view kept reconnecting after its session was revoked");
+  assert.equal(location.pathname, `${bundle.changeKey}/login`, "the view did not go to the login page");
+  assert.ok(!notLive(), "the reconnecting notice stayed up");
+  bundle.unmount(view);
 });
