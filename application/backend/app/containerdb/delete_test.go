@@ -3,6 +3,8 @@ package containerdb
 import (
 	"os"
 	"testing"
+
+	"github.com/devforth/OnLogs/app/util"
 )
 
 func TestDeleteContainerCannotRemoveATreeOutsideLeveldb(t *testing.T) {
@@ -42,5 +44,15 @@ func TestDeleteContainerLogsCannotEmptyATreeOutsideLeveldb(t *testing.T) {
 
 	if _, err := os.Stat("victim_tree/nested/important"); err != nil {
 		t.Fatalf("a clear-logs request emptied a tree outside leveldb/hosts: %v", err)
+	}
+}
+
+func TestClearingLogsOfAnUnknownServiceDoesNotCreateIt(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	DeleteContainer(util.GetHost(), "never-streamed", false)
+
+	if _, err := os.Stat("leveldb/hosts/" + util.GetHost() + "/containers/never-streamed"); !os.IsNotExist(err) {
+		t.Fatalf("clearing an unknown service created it: %v", err)
 	}
 }

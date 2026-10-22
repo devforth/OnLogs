@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	cursorKey           = "last_cursor_ts"
+	cursorKey           = containerdb.StreamCursorKey
 	streamTimestampFmt  = "2006-01-02T15:04:05.000000000Z"
 	overlapBackfill     = 2 * time.Second
 	initialBackfill     = 30 * time.Second
