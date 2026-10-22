@@ -79,46 +79,62 @@ func TestGetLogWithPrevOpensEveryRowOfABareTimestamp(t *testing.T) {
 	}
 }
 
-func TestLiveLinesCarryTheirStorageKey(t *testing.T) {
-	host, container := "liveKeyHost", "svc"
-	freshHost(t, host, container)
-	t.Cleanup(func() { statistics.StopWorker(host, container) })
-
+func openLogsStream(t *testing.T, host, container string) *websocket.Conn {
+	t.Helper()
 	registered := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		testCtrl.GetLogsStream(w, r)
 		close(registered)
 	}))
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 	header := http.Header{"Cookie": {"onlogs-cookie=" + util.CreateJWT("testuser")}}
 	conn, _, err := websocket.DefaultDialer.Dial("ws"+srv.URL[len("http"):]+"/?host="+host+"&id="+container, header)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer conn.Close()
+	t.Cleanup(func() { conn.Close() })
 	<-registered
+	return conn
+}
+
+func postLogLine(t *testing.T, token, host, container, msg, eventID string) {
+	t.Helper()
+	body, _ := json.Marshal(map[string]any{"Token": token, "Host": host, "Container": container, "LogLine": []string{sharedTimestamp, msg}, "EventID": eventID})
+	rr := httptest.NewRecorder()
+	testCtrl.AddLogLine(rr, httptest.NewRequest("POST", "/api/v1/addLogLine", bytes.NewReader(body)))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("addLogLine: status %d", rr.Code)
+	}
+}
+
+func readLiveFrame(t *testing.T, conn *websocket.Conn) []string {
+	t.Helper()
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_, raw, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var frame []string
+	if err := json.Unmarshal(raw, &frame); err != nil || len(frame) != 3 {
+		t.Fatalf("live frame %s does not carry the storage key", raw)
+	}
+	return frame
+}
+
+func TestLiveLinesCarryTheirStorageKey(t *testing.T) {
+	host, container := "liveKeyHost", "svc"
+	freshHost(t, host, container)
+	t.Cleanup(func() { statistics.StopWorker(host, container) })
+	conn := openLogsStream(t, host, container)
 
 	token := db.CreateOnLogsToken()
 	for _, msg := range []string{"job 51", "job 52"} {
-		body, _ := json.Marshal(map[string]any{"Token": token, "Host": host, "Container": container, "LogLine": []string{sharedTimestamp, msg}})
-		rr := httptest.NewRecorder()
-		testCtrl.AddLogLine(rr, httptest.NewRequest("POST", "/api/v1/addLogLine", bytes.NewReader(body)))
-		if rr.Code != http.StatusOK {
-			t.Fatalf("addLogLine: status %d", rr.Code)
-		}
+		postLogLine(t, token, host, container, msg, "")
 	}
 
 	sent := map[string]string{}
 	for range 2 {
-		conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-		_, raw, err := conn.ReadMessage()
-		if err != nil {
-			t.Fatal(err)
-		}
-		var frame []string
-		if err := json.Unmarshal(raw, &frame); err != nil || len(frame) != 3 {
-			t.Fatalf("live frame %s does not carry the storage key", raw)
-		}
+		frame := readLiveFrame(t, conn)
 		sent[frame[1]] = frame[2]
 	}
 
@@ -129,6 +145,24 @@ func TestLiveLinesCarryTheirStorageKey(t *testing.T) {
 	for _, row := range stored {
 		if sent[row[1]] != row[2] {
 			t.Errorf("%q was sent with key %q, stored as %q", row[1], sent[row[1]], row[2])
+		}
+	}
+}
+
+func TestAgentLinesAreSentLiveOnceUnderTheirEventKey(t *testing.T) {
+	host, container := "eventKeyHost", "svc"
+	freshHost(t, host, container)
+	t.Cleanup(func() { statistics.StopWorker(host, container) })
+	conn := openLogsStream(t, host, container)
+
+	token := db.CreateOnLogsToken()
+	postLogLine(t, token, host, container, "job 61", "100-1")
+	postLogLine(t, token, host, container, "job 61", "100-1")
+	postLogLine(t, token, host, container, "job 62", "100-2")
+
+	for _, want := range []string{sharedTimestamp + " +100-1", sharedTimestamp + " +100-2"} {
+		if frame := readLiveFrame(t, conn); frame[2] != want {
+			t.Fatalf("live frame %q, want key %q", frame, want)
 		}
 	}
 }
