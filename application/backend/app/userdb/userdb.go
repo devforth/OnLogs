@@ -123,6 +123,12 @@ func SessionGeneration(login string) (uint64, error) {
 	return strconv.ParseUint(string(stored), 10, 64)
 }
 
+func WithSessionsHeld(f func()) {
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	f()
+}
+
 func RevokeSessions(login string) error {
 	usersMu.Lock()
 	defer usersMu.Unlock()

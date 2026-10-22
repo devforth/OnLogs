@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -236,5 +237,57 @@ func TestStreamWithoutASessionWorksWhenAuthIsDisabled(t *testing.T) {
 	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	if _, msg, err := conn.ReadMessage(); err != nil || string(msg) != "line" {
 		t.Fatalf("the stream got %q, %v", msg, err)
+	}
+}
+
+func TestStreamGetsNoLineBroadcastAfterItsUserWasDeleted(t *testing.T) {
+	const login = "stream-deleted-while-opening"
+	cookie := freshUser(t, login, "opening-password")
+	deleted := make(chan error, 1)
+	var returned atomic.Bool
+	addConnection = func(key, user string, ws *websocket.Conn) {
+		go func() {
+			err := userdb.DeleteUser(login)
+			returned.Store(true)
+			deleted <- err
+		}()
+		select {
+		case err := <-deleted:
+			deleted <- err
+		case <-time.After(100 * time.Millisecond):
+		}
+		vars.AddConnection(key, user, ws)
+		line := "before delete returned"
+		if returned.Load() {
+			line = "after delete returned"
+		}
+		vars.Broadcast(key, websocket.TextMessage, []byte(line))
+	}
+	t.Cleanup(func() { addConnection = vars.AddConnection })
+
+	done := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer close(done)
+		testCtrl.GetLogsStream(w, r)
+	}))
+	defer server.Close()
+
+	container := "stream-deleted-while-opening"
+	conn := openStream(t, server, container, cookie)
+	<-done
+	if err := <-deleted; err != nil {
+		t.Fatalf("deleting the user: %v", err)
+	}
+	vars.Broadcast(container, websocket.TextMessage, []byte("after delete returned"))
+
+	for {
+		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if string(msg) == "after delete returned" {
+			t.Fatal("a line broadcast after the user was deleted reached their stream")
+		}
 	}
 }

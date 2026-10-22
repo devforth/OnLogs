@@ -740,6 +740,8 @@ func (h *RouteController) GetLogWithPrev(w http.ResponseWriter, req *http.Reques
 	writeJSON(w, http.StatusOK, containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false, statusFilter(params)))
 }
 
+var addConnection = vars.AddConnection
+
 // TODO return {"error": "Invalid host!"} when host is not exists
 func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	if !guard(w, req, authUser, "") {
@@ -773,14 +775,19 @@ func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request
 		fmt.Println(err)
 		return
 	}
-	user, err := util.GetUserFromJWT(*req)
-	if err != nil && os.Getenv("DISABLE_AUTH") != "true" {
+	// Under the lock a revocation either fails this check or finds the viewer.
+	registered := false
+	userdb.WithSessionsHeld(func() {
+		user, err := util.GetUserFromJWT(*req)
+		if err != nil && os.Getenv("DISABLE_AUTH") != "true" {
+			return
+		}
+		addConnection(container, user, ws)
+		registered = true
+	})
+	if !registered {
 		ws.Close()
 		return
-	}
-	vars.AddConnection(container, user, ws)
-	if _, err := util.GetUserFromJWT(*req); user != "" && err != nil {
-		ws.Close()
 	}
 	// Viewers send nothing; reading is how a peer close is noticed.
 	go func() {
