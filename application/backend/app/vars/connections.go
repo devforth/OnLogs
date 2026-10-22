@@ -13,6 +13,7 @@ const wsWriteDeadline = 10 * time.Second
 // otherwise, so each viewer carries its own write lock.
 type viewer struct {
 	conn    *websocket.Conn
+	user    string
 	writeMu sync.Mutex
 }
 
@@ -25,13 +26,44 @@ func (v *viewer) write(messageType int, payload []byte) error {
 }
 
 // AddConnection registers a viewer's websocket for a host/container.
-func AddConnection(key string, conn *websocket.Conn) {
+func AddConnection(key string, user string, conn *websocket.Conn) {
 	if conn == nil {
 		return
 	}
 	connectionsMutex.Lock()
 	defer connectionsMutex.Unlock()
-	connections[key] = append(connections[key], &viewer{conn: conn})
+	connections[key] = append(connections[key], &viewer{conn: conn, user: user})
+}
+
+func CloseUserConnections(user string) {
+	// Streams opened without a session (DISABLE_AUTH) belong to no one.
+	if user == "" {
+		return
+	}
+	owned := map[*viewer]string{}
+	connectionsMutex.RLock()
+	for key, viewers := range connections {
+		for _, v := range viewers {
+			if v.user == user {
+				owned[v] = key
+			}
+		}
+	}
+	connectionsMutex.RUnlock()
+
+	for v, key := range owned {
+		removeViewer(key, v)
+		v.conn.Close()
+	}
+}
+
+func RemoveConnection(key string, conn *websocket.Conn) {
+	for _, v := range viewersFor(key) {
+		if v.conn == conn {
+			removeViewer(key, v)
+		}
+	}
+	conn.Close()
 }
 
 func viewersFor(key string) []*viewer {

@@ -1,13 +1,23 @@
 package userdb
 
 import (
+	"bytes"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"os"
+	"strconv"
+	"sync"
 
 	"github.com/devforth/OnLogs/app/vars"
+	"github.com/syndtr/goleveldb/leveldb"
+	ldbutil "github.com/syndtr/goleveldb/leveldb/util"
 )
+
+var hashPassword = HashPassword
+
+// Guards check-then-write on the user store; hash before taking it.
+var usersMu sync.Mutex
 
 func IsUserExists(login string) bool {
 	isExists, _ := vars.UsersDB.Has([]byte(login), nil)
@@ -18,8 +28,20 @@ func CreateUser(login string, password string) error {
 	if IsUserExists(login) {
 		return errors.New("User is already exists")
 	}
+	hash := hashPassword(password)
 
-	return vars.UsersDB.Put([]byte(login), []byte(HashPassword(password)), nil)
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	if IsUserExists(login) {
+		return errors.New("User is already exists")
+	}
+	if err := deleteUserData(login); err != nil {
+		return err
+	}
+	if err := vars.UsersDB.Put([]byte(login), []byte(hash), nil); err != nil {
+		return err
+	}
+	return revokeSessions(login)
 }
 
 func GetUsers() []map[string]interface{} {
@@ -37,16 +59,92 @@ func GetUsers() []map[string]interface{} {
 }
 
 func EditUser(login string, password string) error {
-	return vars.UsersDB.Put([]byte(login), []byte(HashPassword(password)), nil)
+	hash := hashPassword(password)
+
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	if !IsUserExists(login) {
+		return errors.New("No such user")
+	}
+	if err := vars.UsersDB.Put([]byte(login), []byte(hash), nil); err != nil {
+		return err
+	}
+	return revokeSessions(login)
 }
 
 func DeleteUser(login string) error {
+	usersMu.Lock()
+	defer usersMu.Unlock()
 	isExists, _ := vars.UsersDB.Has([]byte(login), nil)
 	if !isExists {
 		return errors.New("No such user")
 	}
 
-	return vars.UsersDB.Delete([]byte(login), nil)
+	if err := vars.UsersDB.Delete([]byte(login), nil); err != nil {
+		return err
+	}
+	if err := revokeSessions(login); err != nil {
+		return err
+	}
+	return deleteUserData(login)
+}
+
+func deleteUserData(login string) error {
+	prefix := []byte(login + "\x00")
+	for _, db := range []*leveldb.DB{vars.GroupsDB, vars.FavsDB} {
+		batch := new(leveldb.Batch)
+		iter := db.NewIterator(ldbutil.BytesPrefix(prefix), nil)
+		for iter.Next() {
+			// A further NUL means the key belongs to a longer login.
+			if bytes.IndexByte(iter.Key()[len(prefix):], 0) < 0 {
+				batch.Delete(iter.Key())
+			}
+		}
+		iter.Release()
+		if err := iter.Error(); err != nil {
+			return err
+		}
+		if err := db.Write(batch, nil); err != nil {
+			return err
+		}
+	}
+	return vars.SettingsDB.Delete([]byte(login), nil)
+}
+
+// Kept outside the user record so re-creating a login cannot revive old sessions.
+func SessionGeneration(login string) (uint64, error) {
+	stored, err := vars.SessionsDB.Get([]byte(login), nil)
+	if errors.Is(err, leveldb.ErrNotFound) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseUint(string(stored), 10, 64)
+}
+
+func WithSessionsHeld(f func()) {
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	f()
+}
+
+func RevokeSessions(login string) error {
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	return revokeSessions(login)
+}
+
+func revokeSessions(login string) error {
+	gen, err := SessionGeneration(login)
+	if err != nil {
+		return err
+	}
+	if err := vars.SessionsDB.Put([]byte(login), []byte(strconv.FormatUint(gen+1, 10)), nil); err != nil {
+		return err
+	}
+	vars.CloseUserConnections(login)
+	return nil
 }
 
 func CheckUserPassword(login string, gotPassword string) bool {
@@ -68,7 +166,13 @@ func CheckUserPassword(login string, gotPassword string) bool {
 	if subtle.ConstantTimeCompare(stored, []byte(gotPassword)) != 1 {
 		return false
 	}
-	vars.UsersDB.Put([]byte(login), []byte(HashPassword(gotPassword)), nil)
+	hash := hashPassword(gotPassword)
+
+	usersMu.Lock()
+	defer usersMu.Unlock()
+	if current, err := vars.UsersDB.Get([]byte(login), nil); err == nil && bytes.Equal(current, stored) {
+		vars.UsersDB.Put([]byte(login), []byte(hash), nil)
+	}
 	return true
 }
 

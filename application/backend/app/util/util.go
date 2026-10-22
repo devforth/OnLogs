@@ -49,7 +49,14 @@ func CreateInitUser() error {
 		return errors.New("ADMIN_PASSWORD is empty; refusing to create an administrator that would accept an empty password")
 	}
 
-	return vars.UsersDB.Put([]byte(admin_username), []byte(userdb.HashPassword(admin_password)), nil)
+	unchanged := userdb.CheckUserPassword(admin_username, admin_password)
+	if err := vars.UsersDB.Put([]byte(admin_username), []byte(userdb.HashPassword(admin_password)), nil); err != nil {
+		return err
+	}
+	if unchanged {
+		return nil
+	}
+	return userdb.RevokeSessions(admin_username)
 }
 
 func ReplacePrefixVariableForFrontend() {
@@ -72,6 +79,7 @@ func CreateJWT(login string) string {
 	claims := token.Claims.(jwt.MapClaims)
 	claims["exp"] = time.Now().AddDate(0, 0, 2).Unix()
 	claims["user"] = login
+	claims["gen"], _ = userdb.SessionGeneration(login)
 	tokenString, _ := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
 	return tokenString
@@ -343,6 +351,11 @@ func GetUserFromJWT(req http.Request) (string, error) {
 
 	// A valid signature is not enough: deleting an account must revoke it.
 	if exists, err := vars.UsersDB.Has([]byte(user), nil); err != nil || !exists {
+		return "", errors.New("401 - Unauthorized!")
+	}
+	// Sessions issued before generations existed carry none and read as 0.
+	gen, _ := claims["gen"].(float64)
+	if current, err := userdb.SessionGeneration(user); err != nil || gen != float64(current) {
 		return "", errors.New("401 - Unauthorized!")
 	}
 	return user, nil

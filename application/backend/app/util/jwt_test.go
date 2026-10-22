@@ -127,3 +127,25 @@ func TestGetUserFromJWTRejectsADeletedAccount(t *testing.T) {
 		t.Fatalf("a deleted account still authenticates as %q; deleting a user revokes nothing", user)
 	}
 }
+
+func TestGetUserFromJWTAcceptsSessionsIssuedBeforeGenerations(t *testing.T) {
+	secret := "a-real-secret-value-for-the-test"
+	os.Setenv("JWT_SECRET", secret)
+
+	login := "issued-by-an-older-release"
+	if err := vars.UsersDB.Put([]byte(login), []byte("irrelevant"), nil); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { vars.UsersDB.Delete([]byte(login), nil) })
+
+	legacy, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user": login,
+		"exp":  time.Now().Add(time.Hour).Unix(),
+	}).SignedString([]byte(secret))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user, err := GetUserFromJWT(requestWithCookie(legacy)); err != nil || user != login {
+		t.Fatalf("a session issued before the upgrade was rejected: %q %v", user, err)
+	}
+}

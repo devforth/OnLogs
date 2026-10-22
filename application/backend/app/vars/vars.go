@@ -39,6 +39,7 @@ var (
 	UsersDB, UsersDBErr       = leveldb.OpenFile("leveldb/users", nil)
 	TokensDB, TokensDBErr     = leveldb.OpenFile("leveldb/tokens", nil)
 	SettingsDB, SettingsDBErr = leveldb.OpenFile("leveldb/usersSettings", nil)
+	SessionsDB, SessionsDBErr = leveldb.OpenFile("leveldb/sessions", nil)
 
 	// Here rather than in routes so app/metrics need not import the HTTP layer.
 	LoginFailures atomic.Uint64

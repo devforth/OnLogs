@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -221,5 +223,77 @@ func TestOneAttackerBehindAProxyDoesNotThrottleEveryoneElse(t *testing.T) {
 	}
 	if code := attempt("198.51.100.7", "the-real-password"); code != http.StatusOK {
 		t.Fatalf("one attacker behind the proxy locked out everyone else: status %d", code)
+	}
+}
+
+func TestInFlightLoginAttemptsCountAgainstTheLimit(t *testing.T) {
+	limiter := &loginAttempts{entries: map[string]*loginAttempt{}}
+	keys := []string{"ip:203.0.113.9", "pair:" + loginKey("203.0.113.9", "someone")}
+
+	admitted := 0
+	for i := 0; i < 40; i++ {
+		if limiter.allow(keys...) {
+			admitted++
+		}
+	}
+	if admitted != freeLoginAttempts+1 {
+		t.Fatalf("%d unsettled attempts were let through at once, serially only %d would be", admitted, freeLoginAttempts+1)
+	}
+
+	for i := 0; i < admitted; i++ {
+		limiter.fail(keys...)
+	}
+	if limiter.allow(keys...) {
+		t.Fatal("not blocked after the burst failed")
+	}
+
+	limiter.mu.Lock()
+	for _, key := range keys {
+		limiter.entries[key].blocked = time.Now().Add(-time.Second)
+	}
+	limiter.mu.Unlock()
+	if !limiter.allow(keys...) {
+		t.Fatal("still blocked after the backoff expired")
+	}
+	if limiter.allow(keys...) {
+		t.Fatal("a second attempt ran alongside the one the expired block allows")
+	}
+	limiter.succeed(keys...)
+	if !limiter.allow(keys...) {
+		t.Fatal("a successful login did not clear the limit")
+	}
+}
+
+func TestConcurrentWrongLoginsGetNoMoreChecksThanSerialOnes(t *testing.T) {
+	userdb.CreateUser("burstvictim", "the-real-password")
+	t.Cleanup(func() { userdb.DeleteUser("burstvictim") })
+
+	loginLimiter.mu.Lock()
+	loginLimiter.entries = map[string]*loginAttempt{}
+	loginLimiter.mu.Unlock()
+
+	var reached atomic.Int64
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for i := 0; i < 40; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			body, _ := json.Marshal(map[string]string{"Login": "burstvictim", "Password": "wrong"})
+			req := httptest.NewRequest("POST", "/api/v1/login", bytes.NewReader(body))
+			req.RemoteAddr = "198.51.100.7:40000"
+			rr := httptest.NewRecorder()
+			<-start
+			http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
+			if rr.Code != http.StatusTooManyRequests {
+				reached.Add(1)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	if got := reached.Load(); got > freeLoginAttempts+1 {
+		t.Fatalf("%d concurrent wrong passwords were checked, serially only %d would be", got, freeLoginAttempts+1)
 	}
 }

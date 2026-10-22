@@ -26,6 +26,7 @@ type loginAttempts struct {
 
 type loginAttempt struct {
 	failures int
+	pending  int
 	blocked  time.Time
 	seen     time.Time
 }
@@ -50,6 +51,7 @@ func loginKey(addr string, login string) string {
 	return addr + "|" + hex.EncodeToString(sum[:8])
 }
 
+// In-flight attempts count as failures until fail or succeed settles them.
 func (l *loginAttempts) allow(keys ...string) bool {
 	now := time.Now()
 
@@ -57,9 +59,19 @@ func (l *loginAttempts) allow(keys ...string) bool {
 	defer l.mu.Unlock()
 
 	for _, key := range keys {
-		if entry, ok := l.entries[key]; ok && now.Before(entry.blocked) {
+		entry, ok := l.entries[key]
+		if ok && (now.Before(entry.blocked) || entry.pending > 0 && backoffFor(entry.failures+entry.pending) > 0) {
 			return false
 		}
+	}
+	for _, key := range keys {
+		entry, ok := l.entries[key]
+		if !ok {
+			entry = &loginAttempt{}
+			l.entries[key] = entry
+		}
+		entry.pending++
+		entry.seen = now
 	}
 	return true
 }
@@ -76,6 +88,9 @@ func (l *loginAttempts) fail(keys ...string) {
 		if !ok {
 			entry = &loginAttempt{}
 			l.entries[key] = entry
+		}
+		if entry.pending > 0 {
+			entry.pending--
 		}
 		entry.failures++
 		entry.seen = now
@@ -107,7 +122,7 @@ func (l *loginAttempts) prune(now time.Time) {
 	}
 	// Hard ceiling: drop everything that is not currently blocking anyone.
 	for key, entry := range l.entries {
-		if now.After(entry.blocked) {
+		if now.After(entry.blocked) && entry.pending == 0 {
 			delete(l.entries, key)
 		}
 	}

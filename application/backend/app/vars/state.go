@@ -143,6 +143,7 @@ func CheckDatabases() error {
 		"leveldb/users":         UsersDBErr,
 		"leveldb/tokens":        TokensDBErr,
 		"leveldb/usersSettings": SettingsDBErr,
+		"leveldb/sessions":      SessionsDBErr,
 	} {
 		if err != nil {
 			failures = append(failures, name+": "+err.Error())

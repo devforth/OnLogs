@@ -295,6 +295,10 @@ func (h *RouteController) ChangeFavourite(w http.ResponseWriter, req *http.Reque
 	if !decodeBody(w, req, &container) {
 		return
 	}
+	if !util.IsSafeName(container.Host) || !util.IsSafeName(container.Service) {
+		fail(w, http.StatusBadRequest, "Invalid host or service")
+		return
+	}
 
 	username, _ := util.GetUserFromJWT(*req)
 	key := favouriteKey(username, container.Host, container.Service)
@@ -304,6 +308,10 @@ func (h *RouteController) ChangeFavourite(w http.ResponseWriter, req *http.Reque
 		if isAlreadyFavourite {
 			err = vars.FavsDB.Delete(key, nil)
 		} else {
+			if info, statErr := os.Stat("leveldb/hosts/" + container.Host + "/containers/" + container.Service); statErr != nil || !info.IsDir() {
+				fail(w, http.StatusNotFound, "No such service")
+				return
+			}
 			err = vars.FavsDB.Put(key, nil, nil)
 		}
 	}
@@ -742,6 +750,8 @@ func (h *RouteController) GetLogWithPrev(w http.ResponseWriter, req *http.Reques
 	writeJSON(w, http.StatusOK, containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false, statusFilter(params)))
 }
 
+var addConnection = vars.AddConnection
+
 // TODO return {"error": "Invalid host!"} when host is not exists
 func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	if !guard(w, req, authUser, "") {
@@ -775,7 +785,29 @@ func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request
 		fmt.Println(err)
 		return
 	}
-	vars.AddConnection(container, ws)
+	// Under the lock a revocation either fails this check or finds the viewer.
+	registered := false
+	userdb.WithSessionsHeld(func() {
+		user, err := util.GetUserFromJWT(*req)
+		if err != nil && os.Getenv("DISABLE_AUTH") != "true" {
+			return
+		}
+		addConnection(container, user, ws)
+		registered = true
+	})
+	if !registered {
+		ws.Close()
+		return
+	}
+	// Viewers send nothing; reading is how a peer close is noticed.
+	go func() {
+		for {
+			if _, _, err := ws.NextReader(); err != nil {
+				vars.RemoveConnection(container, ws)
+				return
+			}
+		}
+	}()
 }
 
 func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
@@ -805,6 +837,8 @@ func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Signed before the check so a password change during it revokes this session.
+	token := util.CreateJWT(loginData.Login)
 	isCorrect := userdb.CheckUserPassword(loginData.Login, loginData.Password)
 	if !isCorrect {
 		// Once per request, not once per key: fail() takes two.
@@ -817,7 +851,7 @@ func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "onlogs-cookie",
-		Value:    util.CreateJWT(loginData.Login),
+		Value:    token,
 		Expires:  time.Now().AddDate(0, 0, 2),
 		MaxAge:   int(sessionLifetime / time.Second),
 		HttpOnly: true,
@@ -842,6 +876,12 @@ func (h *RouteController) Logout(w http.ResponseWriter, req *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
+	if user, err := util.GetUserFromJWT(*req); err == nil {
+		if err := userdb.RevokeSessions(user); err != nil {
+			fail(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
 	ok(w)
 }
 
