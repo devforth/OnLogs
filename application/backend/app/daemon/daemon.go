@@ -46,6 +46,8 @@ var drainTimeout = time.Minute
 
 var errDrainTimeout = errors.New("drain timeout")
 
+var errRenamed = errors.New("container renamed")
+
 type DaemonService struct {
 	DockerClient *docker.DockerService
 
@@ -59,6 +61,8 @@ type DaemonService struct {
 
 	// Stopped streams still draining, with the context of a start that came meanwhile.
 	draining map[string]context.Context
+	// New name -> the renamed container's cursor, for that name's next stream.
+	renamedCursors map[string]time.Time
 
 	// droppedReplays is cleared when a stream ends; these two are for /metrics,
 	// which needs a total that survives a restart and a cursor readable without
@@ -73,6 +77,7 @@ func NewDaemonService(dockerClient *docker.DockerService) *DaemonService {
 		streamCancels:       map[string]context.CancelCauseFunc{},
 		streamIDs:           map[string]uint64{},
 		draining:            map[string]context.Context{},
+		renamedCursors:      map[string]time.Time{},
 		recentFingerprints:  map[string][]string{},
 		recentSet:           map[string]map[string]struct{}{},
 		droppedReplays:      map[string]int{},
@@ -439,6 +444,7 @@ func (h *DaemonService) endStream(containerName string, streamID uint64) {
 
 func (h *DaemonService) runContainerStream(ctx context.Context, containerName string, toHost bool, streamID uint64) {
 	host := util.GetHost()
+	h.resumeRenamed(host, containerName)
 	storedThrough := h.storedThrough(host, containerName)
 	h.seedBoundaryFingerprints(host, containerName, storedThrough)
 	since := h.getResumeSince(host, containerName)
@@ -478,7 +484,14 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 		h.ingestLine(host, containerName, currentDB, token, toHost, storedThrough, line)
 	}, demux)
 
-	if cause := context.Cause(ctx); cause == nil || cause == errDrainTimeout {
+	cause := context.Cause(ctx)
+	if cause == errRenamed {
+		// The next holder of this name must not resume from this container's cursor.
+		if db := util.GetDB(host, containerName, "streamstate"); db != nil {
+			_ = db.Delete([]byte(cursorKey), nil)
+		}
+	}
+	if cause == nil || cause == errDrainTimeout || cause == errRenamed {
 		if cause != nil {
 			streamErr = cause
 		}
@@ -529,6 +542,42 @@ func (h *DaemonService) StopStream(containerName string) {
 	}
 	vars.RemoveActiveStream(containerName)
 	h.streamsMu.Unlock()
+}
+
+func (h *DaemonService) StopRenamedStream(oldName, newName string) bool {
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	cancel, exists := h.streamCancels[oldName]
+	if _, draining := h.draining[oldName]; !exists || draining {
+		return false
+	}
+	cursor, pending := h.renamedCursors[oldName]
+	if !pending {
+		cursor = h.storedThrough(util.GetHost(), oldName)
+	}
+	delete(h.renamedCursors, oldName)
+	h.renamedCursors[newName] = cursor
+	h.draining[oldName] = nil
+	vars.RemoveActiveStream(oldName)
+	cancel(errRenamed)
+	return true
+}
+
+// Runs after any earlier stream under the name ends, so the carried cursor wins.
+func (h *DaemonService) resumeRenamed(host, containerName string) {
+	db := util.GetDB(host, containerName, "streamstate")
+	h.streamsMu.Lock()
+	defer h.streamsMu.Unlock()
+	cursor, renamed := h.renamedCursors[containerName]
+	delete(h.renamedCursors, containerName)
+	if !renamed || db == nil {
+		return
+	}
+	if cursor.IsZero() {
+		_ = db.Delete([]byte(cursorKey), nil)
+		return
+	}
+	_ = db.Put([]byte(cursorKey), []byte(cursor.UTC().Format(streamTimestampFmt)), nil)
 }
 
 // runningNames keeps only containers docker reports as running. Attaching to an

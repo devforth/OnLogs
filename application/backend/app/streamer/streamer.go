@@ -58,6 +58,14 @@ func (ctrl *StreamController) handleContainerEvent(ctx context.Context, msg even
 	ctrl.mu.Lock()
 	defer ctrl.mu.Unlock()
 	switch msg.Action {
+	case "rename":
+		oldName := strings.TrimPrefix(msg.Actor.Attributes["oldName"], "/")
+		if !ctrl.DaemonService.StopRenamedStream(oldName, containerName) {
+			return
+		}
+		vars.RemoveDockerContainer(oldName)
+		statistics.StopWorker(util.GetHost(), oldName)
+		fallthrough
 	case "start", "restart", "unpause":
 		vars.AddDockerContainer(containerName)
 		statistics.EnsureWorker(ctx, util.GetHost(), containerName)
