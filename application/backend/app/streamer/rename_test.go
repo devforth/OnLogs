@@ -335,3 +335,100 @@ func TestRenameAndBackStoresEarlierLinesOnceUnderTheOriginalName(t *testing.T) {
 		t.Errorf("%q stored %d times under the original name", "first", got)
 	}
 }
+
+func TestRenameSeenByATickFirstKeepsTheReplacementsLines(t *testing.T) {
+	fd, ctrl, ctx := newRenameFixture(t, "tr", "tr-old")
+	oldC := fd.add("tr")
+	ctrl.handleContainerEvent(ctx, containerEvent("start", oldC))
+	fd.write(oldC, "old-before")
+	waitStored(t, "tr", "old-before")
+
+	since := vars.ContainerEventSeq()
+	fd.update(func() { oldC.name = "tr-old" })
+	vars.SetDockerContainers([]string{"tr-old"}, since)
+	ctrl.reconcileStreams(ctx)
+	ctrl.handleContainerEvent(ctx, containerEvent("rename", oldC, "oldName", "/tr"))
+
+	newC := fd.add("tr")
+	ctrl.handleContainerEvent(ctx, containerEvent("start", newC))
+	fd.write(newC, "new-0")
+	fd.write(oldC, "old-after")
+	waitStored(t, "tr-old", "old-after")
+
+	fd.update(func() { oldC.running = false })
+	ctrl.handleContainerEvent(ctx, containerEvent("die", oldC))
+	fd.write(newC, "new-1")
+	waitStored(t, "tr", "new-1")
+	if got := storedCount("tr", "new-0"); got != 1 {
+		t.Errorf("the replacement's first line stored %d times", got)
+	}
+	if got := storedCount("tr", "old-after"); got != 0 {
+		t.Errorf("the renamed container's line was stored under its old name %d times", got)
+	}
+}
+
+func TestRenameWhilePausedKeepsTheReplacementsLines(t *testing.T) {
+	fd, ctrl, ctx := newRenameFixture(t, "tp", "tp-old")
+	oldC := fd.add("tp")
+	ctrl.handleContainerEvent(ctx, containerEvent("start", oldC))
+	fd.write(oldC, "old-before")
+	waitStored(t, "tp", "old-before")
+
+	ctrl.handleContainerEvent(ctx, containerEvent("pause", oldC))
+	fd.update(func() { oldC.name = "tp-old" })
+	ctrl.handleContainerEvent(ctx, containerEvent("rename", oldC, "oldName", "/tp"))
+	newC := fd.add("tp")
+	ctrl.handleContainerEvent(ctx, containerEvent("start", newC))
+	fd.write(newC, "new-0")
+	ctrl.handleContainerEvent(ctx, containerEvent("unpause", oldC))
+	fd.write(oldC, "old-after")
+	waitStored(t, "tp-old", "old-after")
+
+	fd.update(func() { oldC.running = false })
+	ctrl.handleContainerEvent(ctx, containerEvent("die", oldC))
+	fd.write(newC, "new-1")
+	waitStored(t, "tp", "new-1")
+	if got := storedCount("tp", "new-0"); got != 1 {
+		t.Errorf("the replacement's first line stored %d times", got)
+	}
+	if got := storedCount("tp", "old-after"); got != 0 {
+		t.Errorf("the renamed container's line was stored under its old name %d times", got)
+	}
+}
+
+func TestRestartAfterATickSawTheRenameFirstStoresEachLineOnce(t *testing.T) {
+	for _, replacementListed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("replacementListed=%v", replacementListed), func(t *testing.T) {
+			fd, ctrl, ctx := newRenameFixture(t, "rs", "rs-old")
+			c := fd.add("rs")
+			ctrl.handleContainerEvent(ctx, containerEvent("start", c))
+			fd.write(c, "first")
+			waitStored(t, "rs", "first")
+
+			since := vars.ContainerEventSeq()
+			fd.update(func() { c.name = "rs-old" })
+			listed := []string{"rs-old"}
+			if replacementListed {
+				fd.add("rs")
+				listed = append(listed, "rs")
+			}
+			vars.SetDockerContainers(listed, since)
+			ctrl.reconcileStreams(ctx)
+			waitStored(t, "rs-old", "first")
+			ctrl.handleContainerEvent(ctx, containerEvent("rename", c, "oldName", "/rs"))
+			fd.write(c, "mid")
+			waitStored(t, "rs-old", "mid")
+
+			fd.update(func() { c.running = false })
+			ctrl.handleContainerEvent(ctx, containerEvent("die", c))
+			waitStored(t, "rs-old", "ONLOGS: Container listening stopped! (EOF)")
+			fd.update(func() { c.running = true })
+			ctrl.handleContainerEvent(ctx, containerEvent("start", c))
+			fd.write(c, "last")
+			waitStored(t, "rs-old", "last")
+			if got := storedCount("rs-old", "mid"); got != 1 {
+				t.Errorf("%q stored %d times under the new name", "mid", got)
+			}
+		})
+	}
+}

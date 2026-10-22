@@ -548,7 +548,7 @@ func (h *DaemonService) StopRenamedStream(oldName, newName string) bool {
 	h.streamsMu.Lock()
 	defer h.streamsMu.Unlock()
 	cancel, exists := h.streamCancels[oldName]
-	if _, draining := h.draining[oldName]; !exists || draining {
+	if restart := h.draining[oldName]; !exists || restart != nil {
 		return false
 	}
 	cursor, pending := h.renamedCursors[oldName]
@@ -556,7 +556,10 @@ func (h *DaemonService) StopRenamedStream(oldName, newName string) bool {
 		cursor = h.storedThrough(util.GetHost(), oldName)
 	}
 	delete(h.renamedCursors, oldName)
-	h.renamedCursors[newName] = cursor
+	_, streaming := h.streamCancels[newName]
+	if _, draining := h.draining[newName]; !streaming || draining {
+		h.renamedCursors[newName] = cursor
+	}
 	h.draining[oldName] = nil
 	vars.RemoveActiveStream(oldName)
 	cancel(errRenamed)
