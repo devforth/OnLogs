@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -28,24 +29,36 @@ import (
 )
 
 const (
-	cursorKey           = "last_cursor_ts"
+	cursorKey           = containerdb.StreamCursorKey
 	sentAtCursorKey     = "last_cursor_sent"
 	streamTimestampFmt  = "2006-01-02T15:04:05.000000000Z"
 	overlapBackfill     = 2 * time.Second
 	initialBackfill     = 30 * time.Second
 	maxRecentLogEntries = 500
+
+	maxLogLine = 1024 * 1024
+	// Keeps an agent's JSON request under the master's 1 MiB body limit.
+	keptLongLine      = 128 * 1024
+	truncatedLineMark = " [ONLOGS: truncated, the line was over 1 MiB]"
 )
+
+var drainTimeout = time.Minute
+
+var errDrainTimeout = errors.New("drain timeout")
 
 type DaemonService struct {
 	DockerClient *docker.DockerService
 
 	streamsMu          sync.Mutex
-	streamCancels      map[string]context.CancelFunc
+	streamCancels      map[string]context.CancelCauseFunc
 	streamIDs          map[string]uint64
 	streamSeq          uint64
 	recentFingerprints map[string][]string
 	recentSet          map[string]map[string]struct{}
 	droppedReplays     map[string]int
+
+	// Stopped streams still draining, with the context of a start that came meanwhile.
+	draining map[string]context.Context
 
 	// droppedReplays is cleared when a stream ends; these two are for /metrics,
 	// which needs a total that survives a restart and a cursor readable without
@@ -57,8 +70,9 @@ type DaemonService struct {
 func NewDaemonService(dockerClient *docker.DockerService) *DaemonService {
 	return &DaemonService{
 		DockerClient:        dockerClient,
-		streamCancels:       map[string]context.CancelFunc{},
+		streamCancels:       map[string]context.CancelCauseFunc{},
 		streamIDs:           map[string]uint64{},
+		draining:            map[string]context.Context{},
 		recentFingerprints:  map[string][]string{},
 		recentSet:           map[string]map[string]struct{}{},
 		droppedReplays:      map[string]int{},
@@ -310,7 +324,23 @@ func sentAtCursor(db *leveldb.DB, cursor string) []string {
 func scanLogs(ctx context.Context, reader io.Reader, onLine func(string)) error {
 	scanner := bufio.NewScanner(reader)
 	buf := make([]byte, 0, 64*1024)
-	scanner.Buffer(buf, 1024*1024)
+	scanner.Buffer(buf, maxLogLine)
+	discarding := false
+	scanner.Split(func(data []byte, atEOF bool) (int, []byte, error) {
+		if discarding {
+			i := bytes.IndexByte(data, '\n')
+			if i < 0 {
+				return len(data), nil, nil
+			}
+			discarding = false
+			return i + 1, nil, nil
+		}
+		if len(data) >= maxLogLine && bytes.IndexByte(data, '\n') < 0 {
+			discarding = true
+			return len(data), append(data[:keptLongLine:keptLongLine], truncatedLineMark...), nil
+		}
+		return bufio.ScanLines(data, atEOF)
+	})
 	for scanner.Scan() {
 		select {
 		case <-ctx.Done():
@@ -326,7 +356,7 @@ func scanLogs(ctx context.Context, reader io.Reader, onLine func(string)) error 
 	return nil
 }
 
-func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.ReadCloser, onLine func(string), demux bool) error {
+func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.Reader, onLine func(string), demux bool) error {
 	if !demux {
 		return scanLogs(ctx, rc, onLine)
 	}
@@ -344,10 +374,10 @@ func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.ReadCloser, 
 
 	// Release the writer before waiting on it. StdCopy may be parked in
 	// pw.Write, and neither closing rc nor cancelling ctx unblocks a blocked
-	// write -- so without this, an early return from scanLogs (cancellation, or
-	// a line over the scanner's 1 MiB limit) leaves StdCopy stuck, this function
-	// never returns, finalizeStream never runs, and EnsureStream refuses to
-	// restart that container for the life of the process.
+	// write -- so without this, an early return from scanLogs (cancellation)
+	// leaves StdCopy stuck, this function never returns, finalizeStream never
+	// runs, and EnsureStream refuses to restart that container for the life of
+	// the process.
 	_ = pr.CloseWithError(io.ErrClosedPipe)
 
 	copyErr := <-copyDone
@@ -361,17 +391,9 @@ func (h *DaemonService) streamDockerLogs(ctx context.Context, rc io.ReadCloser, 
 	return nil
 }
 
-func (h *DaemonService) isContainerTTY(ctx context.Context, containerName string) bool {
-	res, err := h.DockerClient.Client.ContainerInspect(ctx, containerName)
-	if err != nil || res.Config == nil {
-		return false
-	}
-	return res.Config.Tty
-}
-
-func (h *DaemonService) finalizeStream(containerName string, streamID uint64) bool {
+func (h *DaemonService) finalizeStream(containerName string, streamID uint64) (bool, context.Context) {
 	if streamID == 0 {
-		return true
+		return true, nil
 	}
 
 	h.streamsMu.Lock()
@@ -379,13 +401,15 @@ func (h *DaemonService) finalizeStream(containerName string, streamID uint64) bo
 
 	currentID, exists := h.streamIDs[containerName]
 	if !exists || currentID != streamID {
-		return false
+		return false, nil
 	}
+	restart := h.draining[containerName]
+	delete(h.draining, containerName)
 
 	// Dropping the CancelFunc without calling it leaks streamCtx and the
 	// watchdog goroutine parked on <-ctx.Done() for every stream that ends.
 	if cancel, ok := h.streamCancels[containerName]; ok {
-		defer cancel()
+		defer cancel(nil)
 	}
 	delete(h.streamCancels, containerName)
 	delete(h.streamIDs, containerName)
@@ -395,7 +419,18 @@ func (h *DaemonService) finalizeStream(containerName string, streamID uint64) bo
 	// droppedReplayTotals deliberately survives; the cursor does not, since a
 	// stopped stream has no progress to fall behind on.
 	delete(h.cursorTimestamps, util.GetHost()+"/"+containerName)
-	return true
+	vars.RemoveActiveStream(containerName)
+	return true, restart
+}
+
+func (h *DaemonService) endStream(containerName string, streamID uint64) {
+	owned, restart := h.finalizeStream(containerName, streamID)
+	if !owned {
+		return
+	}
+	if restart != nil {
+		h.EnsureStream(restart, containerName)
+	}
 }
 
 func (h *DaemonService) runContainerStream(ctx context.Context, containerName string, toHost bool, streamID uint64) {
@@ -416,9 +451,7 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 	)
 	if err != nil {
 		fmt.Println("ERROR: unable to attach logs stream for", containerName, ":", err)
-		if h.finalizeStream(containerName, streamID) {
-			vars.RemoveActiveStream(containerName)
-		}
+		h.endStream(containerName, streamID)
 		return
 	}
 	defer rc.Close()
@@ -432,11 +465,19 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 	token := os.Getenv("ONLOGS_TOKEN")
 	noteMeta(currentDB, host, containerName, token, toHost, "ONLOGS: Container listening started!")
 
-	streamErr := h.streamDockerLogs(ctx, rc, func(line string) {
-		h.ingestLine(host, containerName, currentDB, token, toHost, storedThrough, line)
-	}, !h.isContainerTTY(ctx, containerName))
+	// TTY streams start with a timestamp digit, multiplexed ones with a type byte (0-3).
+	br := bufio.NewReader(rc)
+	head, _ := br.Peek(1)
+	demux := len(head) == 1 && stdcopy.StdType(head[0]) <= stdcopy.Systemerr
 
-	if ctx.Err() == nil {
+	streamErr := h.streamDockerLogs(ctx, br, func(line string) {
+		h.ingestLine(host, containerName, currentDB, token, toHost, storedThrough, line)
+	}, demux)
+
+	if cause := context.Cause(ctx); cause == nil || cause == errDrainTimeout {
+		if cause != nil {
+			streamErr = cause
+		}
 		reason := "(EOF)"
 		if streamErr != nil {
 			reason = "(" + streamErr.Error() + ")"
@@ -444,26 +485,28 @@ func (h *DaemonService) runContainerStream(ctx context.Context, containerName st
 		noteMeta(currentDB, host, containerName, token, toHost, "ONLOGS: Container listening stopped! "+reason)
 	}
 
-	if h.finalizeStream(containerName, streamID) {
-		vars.RemoveActiveStream(containerName)
-	}
+	h.endStream(containerName, streamID)
 }
 
 func (h *DaemonService) EnsureStream(ctx context.Context, containerName string) {
 
 	h.streamsMu.Lock()
 	if _, exists := h.streamCancels[containerName]; exists {
+		if _, draining := h.draining[containerName]; draining {
+			h.draining[containerName] = ctx
+			vars.AddActiveStream(containerName)
+		}
 		h.streamsMu.Unlock()
 		return
 	}
-	streamCtx, cancel := context.WithCancel(ctx)
+	streamCtx, cancel := context.WithCancelCause(ctx)
 	h.streamSeq++
 	streamID := h.streamSeq
 	h.streamCancels[containerName] = cancel
 	h.streamIDs[containerName] = streamID
-	h.streamsMu.Unlock()
-
+	// The marker changes under streamsMu, with the ownership it reflects.
 	vars.AddActiveStream(containerName)
+	h.streamsMu.Unlock()
 
 	if util.IsAgentMode() {
 		go h.runContainerStream(streamCtx, containerName, true, streamID)
@@ -476,16 +519,12 @@ func (h *DaemonService) StopStream(containerName string) {
 
 	h.streamsMu.Lock()
 	cancel, exists := h.streamCancels[containerName]
-	if exists {
-		delete(h.streamCancels, containerName)
-		delete(h.streamIDs, containerName)
-	}
-	h.streamsMu.Unlock()
-
-	if exists {
-		cancel()
+	if _, draining := h.draining[containerName]; exists && !draining {
+		h.draining[containerName] = nil
+		time.AfterFunc(drainTimeout, func() { cancel(errDrainTimeout) })
 	}
 	vars.RemoveActiveStream(containerName)
+	h.streamsMu.Unlock()
 }
 
 // runningNames keeps only containers docker reports as running. Attaching to an
@@ -493,7 +532,7 @@ func (h *DaemonService) StopStream(containerName string) {
 func runningNames(result []docker.ContainerNamesResult) []string {
 	var names []string
 	for i := range result {
-		if result[i].Running && result[i].Name != "" {
+		if result[i].Running && util.IsSafeName(result[i].Name) {
 			names = append(names, result[i].Name)
 		}
 	}

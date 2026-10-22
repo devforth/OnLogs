@@ -541,6 +541,8 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 	return to_return
 }
 
+const StreamCursorKey = "last_cursor_ts"
+
 func DeleteContainer(host string, container string, fullDelete bool) {
 	// Both callers are bare goroutines, so this rejects rather than panics.
 	if !util.IsSafeName(host) || !util.IsSafeName(container) {
@@ -553,17 +555,27 @@ func DeleteContainer(host string, container string, fullDelete bool) {
 	}
 
 	path := "leveldb/hosts/" + host + "/containers/" + container
+	cleared := false
 	if fullDelete {
 		os.RemoveAll(path)
 	} else {
-		files, _ := os.ReadDir(path)
+		files, err := os.ReadDir(path)
 		for _, file := range files {
 			os.RemoveAll(path + "/" + file.Name())
 		}
+		cleared = err == nil
 	}
 
 	for _, dbType := range []string{"logs", "statuses", "statistics", "streamstate"} {
 		util.ResetDB(host, container, dbType)
+	}
+
+	if cleared && host == util.GetHost() {
+		if db := util.GetDB(host, container, "streamstate"); db != nil {
+			if err := db.Put([]byte(StreamCursorKey), []byte(time.Now().UTC().Format(time.RFC3339Nano)), nil); err != nil {
+				fmt.Println("ERROR: unable to save stream cursor:", err)
+			}
+		}
 	}
 
 	vars.Mutex.Lock()

@@ -1,6 +1,8 @@
 package daemon
 
 import (
+	"context"
+	"net/http"
 	"testing"
 	"time"
 
@@ -24,7 +26,7 @@ func TestDroppedReplayTotalsSurviveFinalize(t *testing.T) {
 		t.Fatalf("before finalize: got %d, want 3", got)
 	}
 
-	if !h.finalizeStream("c", 7) {
+	if owned, _ := h.finalizeStream("c", 7); !owned {
 		t.Fatal("finalizeStream did not claim the stream")
 	}
 
@@ -83,5 +85,51 @@ func TestCursorTimestampsDroppedOnFinalize(t *testing.T) {
 	// Otherwise a deliberately stopped container alerts forever.
 	if _, ok := h.CursorTimestamps()[util.GetHost()+"/gone"]; ok {
 		t.Error("cursor kept after the stream ended")
+	}
+}
+
+func TestStopStreamClearsTheStoppedStreamsState(t *testing.T) {
+	for name, hold := range map[string]bool{"stop-cleanup-eof": false, "stop-cleanup-held": true} {
+		t.Run(name, func(t *testing.T) {
+			if hold {
+				defer func(d time.Duration) { drainTimeout = d }(drainTimeout)
+				drainTimeout = 20 * time.Millisecond
+			}
+			line := logRecord{time.Now().Add(-time.Second), "before stop"}
+			release := make(chan struct{})
+			d := newDrainService(t, name, func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/vnd.docker.multiplexed-stream")
+				writeRecords(w, line, line)
+				if hold {
+					<-r.Context().Done()
+					return
+				}
+				<-release
+			})
+
+			d.EnsureStream(context.Background(), name)
+			waitUntil(t, "line stored and replay dropped", func() bool {
+				_, cursor := d.CursorTimestamps()[util.GetHost()+"/"+name]
+				return cursor && d.DroppedReplays(name) == 1
+			})
+			d.StopStream(name)
+			close(release)
+			waitUntil(t, "stream released", func() bool { return !streamRegistered(d, name) })
+
+			d.streamsMu.Lock()
+			_, cursor := d.cursorTimestamps[util.GetHost()+"/"+name]
+			_, set := d.recentSet[name]
+			_, fingerprints := d.recentFingerprints[name]
+			_, dropped := d.droppedReplays[name]
+			total := d.droppedReplayTotals[util.GetHost()+"/"+name]
+			d.streamsMu.Unlock()
+			if cursor || set || fingerprints || dropped {
+				t.Errorf("stopped stream kept cursor=%t recentSet=%t fingerprints=%t droppedReplays=%t",
+					cursor, set, fingerprints, dropped)
+			}
+			if total != 1 {
+				t.Errorf("dropped replay total %d, want 1", total)
+			}
+		})
 	}
 }
