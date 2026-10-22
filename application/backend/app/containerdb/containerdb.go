@@ -308,6 +308,20 @@ func countIfBehindStatCursor(location string, statusKey string, logKey string) {
 	lateCounts[location][statusKey]++
 }
 
+// Shared by a write from its late check to its store, exclusive while a flush scans.
+var ingestLocks sync.Map
+
+func ingestLock(location string) *sync.RWMutex {
+	lock, _ := ingestLocks.LoadOrStore(location, new(sync.RWMutex))
+	return lock.(*sync.RWMutex)
+}
+
+func PauseIngest(location string) (resume func()) {
+	lock := ingestLock(location)
+	lock.Lock()
+	return lock.Unlock
+}
+
 func TakeLateStats(location string, cursor string) map[string]uint64 {
 	vars.Mutex.Lock()
 	defer vars.Mutex.Unlock()
@@ -372,6 +386,10 @@ func PutLogEvent(db *leveldb.DB, host string, container string, message_item []s
 	MaybeScheduleCleanup(host, container)
 
 	location := host + "/" + container
+	// Before eventMu, so a paused location never holds up another's writes.
+	ingest := ingestLock(location)
+	ingest.RLock()
+	defer ingest.RUnlock()
 	status_key := GetLogStatusKey(message_item[1])
 	if eventID == "" {
 		logKey = buildLogKey(message_item[0])

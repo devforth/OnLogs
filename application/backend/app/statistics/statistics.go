@@ -22,6 +22,7 @@ var flushLocks sync.Map
 
 var (
 	afterStatsRead   func()
+	afterStatsScan   func(location string)
 	beforeStatsSave  func(location string)
 	beforeStatsReset func(location string)
 )
@@ -52,6 +53,9 @@ func restartStats(host string, container string) {
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
 
+	// Writes wait for the new cursor, so each row is scanned or counted late.
+	resume := sync.OnceFunc(containerdb.PauseIngest(location))
+	defer resume()
 	last_stat_time := getLastStatTime(current_db)
 	batch := new(leveldb.Batch)
 	if last_stat_time == "" {
@@ -61,16 +65,23 @@ func restartStats(host string, container string) {
 		hours, newest := collectLogs(host, container, "", false)
 		flushMu.Lock()
 		defer flushMu.Unlock()
+		if afterStatsScan != nil {
+			afterStatsScan(location)
+		}
 		if newest != "" {
 			key := saveHours(batch, hours)
 			// Late counts are dropped: the full scan counted every stored row.
 			containerdb.TakeLateStats(location, key)
+			resume()
 			current_db.Write(batch, nil)
 		}
 	} else {
 		hours, new_datetime := collectLogs(host, container, last_stat_time, true)
 		flushMu.Lock()
 		defer flushMu.Unlock()
+		if afterStatsScan != nil {
+			afterStatsScan(location)
+		}
 		// Nothing new: saving would rewrite the previous interval's record with
 		// an empty one and move the cursor off the log timeline onto the clock.
 		cursor, key := last_stat_time, ""
@@ -79,6 +90,7 @@ func restartStats(host string, container string) {
 			cursor = max(cursor, key)
 		}
 		late := containerdb.TakeLateStats(location, cursor)
+		resume()
 		if key != "" {
 			if beforeStatsSave != nil {
 				beforeStatsSave(location)

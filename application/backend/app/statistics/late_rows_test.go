@@ -166,3 +166,79 @@ func TestAFlushStartedDuringAnotherCountsALateRowOnce(t *testing.T) {
 		t.Errorf("3 rows stored, service=%d chart=%d", service, chart)
 	}
 }
+
+func TestRowsStoredWhileAFlushScansAreCountedOnce(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		first  bool
+		offset time.Duration
+	}{
+		{"Equal", false, 0},
+		{"Older", false, -500 * time.Millisecond},
+		{"Newer", false, time.Second},
+		{"FirstFlushEqual", true, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			host, container := "ScanWindow"+tc.name, "svc"
+			location := host + "/" + container
+			os.RemoveAll("leveldb/hosts/" + host)
+			t.Cleanup(func() {
+				SetAfterStatsScan(nil)
+				for _, dbType := range []string{"logs", "statuses", "statistics"} {
+					util.ResetDB(host, container, dbType)
+				}
+				os.RemoveAll("leveldb/hosts/" + host)
+				vars.Mutex.Lock()
+				delete(vars.Container_Stat_Counter, location)
+				vars.Mutex.Unlock()
+			})
+
+			put := func(at time.Time) {
+				line := []string{at.Format(fixedWidthNanos), "ERROR " + at.String()}
+				if err := containerdb.PutLogMessage(util.GetDB(host, container, "logs"), host, container, line); err != nil {
+					t.Errorf("put: %v", err)
+				}
+			}
+			stamp, want := time.Now().UTC().Add(-time.Minute), uint64(2)
+			put(stamp)
+			if !tc.first {
+				restartStats(host, container)
+				stamp, want = stamp.Add(time.Second), 3
+				put(stamp)
+			}
+
+			fired, stored := false, make(chan struct{})
+			SetAfterStatsScan(func(l string) {
+				if l != location || fired {
+					return
+				}
+				fired = true
+				go func() {
+					put(stamp.Add(tc.offset))
+					close(stored)
+				}()
+				select {
+				case <-stored:
+				case <-time.After(100 * time.Millisecond):
+				}
+			})
+			restartStats(host, container)
+			SetAfterStatsScan(nil)
+			if !fired {
+				t.Fatal("the flush never reached the hook")
+			}
+			<-stored
+			restartStats(host, container)
+			restartStats(host, container)
+
+			service := GetStatisticsByService(host, container, 48)["error"]
+			var chart uint64
+			for _, levels := range GetChartData(host, container, "hour", 24) {
+				chart += levels["error"]
+			}
+			if service != want || chart != want {
+				t.Errorf("%d rows stored, service=%d chart=%d", want, service, chart)
+			}
+		})
+	}
+}
