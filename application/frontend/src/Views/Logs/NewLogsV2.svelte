@@ -192,12 +192,12 @@
     let is_all_logs_processed = false;
 
     try {
-    while (total_logs_amount < limit && !is_all_logs_processed) {
+    while (total_logs_amount < 3 * limit && !is_all_logs_processed) {
       isSearching.set(true);
       const data = await api.getLogs({
         containerName: $lastChosenService,
         hostName: $lastChosenHost,
-        limit: limit * 3,
+        limit: limit * 3 - total_logs_amount,
         search: searchText,
         caseSens: !$store.caseInSensitive,
         status: $chosenStatus,
@@ -213,12 +213,18 @@
       is_all_logs_processed = data.is_end;
       total_logs_amount += data.logs.length;
 
+      // A capped scan is not the end: its cursor resumes past the rows it read.
       if (!data.logs.length) {
+        if (data.scan_capped) {
+          continue;
+        }
         break;
       }
 
-      setLastLogTime(data.logs?.at(0)?.at(0));
-      acc = [...acc, ...data.logs.reverse()];
+      if (!acc.length) {
+        setLastLogTime(data.logs.at(0)?.at(0));
+      }
+      acc = [...data.logs.reverse(), ...acc];
     }
 
     if (generation !== logsLoadGeneration || initialService !== $lastChosenService) {
@@ -582,6 +588,7 @@
     controller = new AbortController();
     signal = controller.signal;
     const initialService = $lastChosenService;
+    const generation = logsLoadGeneration;
     isFeatching.set(true);
 
     try {
@@ -613,8 +620,15 @@
         is_all_logs_processed = response.is_end;
         last_key = response.last_processed_key;
 
-        if (initialService !== $lastChosenService || !data.length) {
+        if (
+          initialService !== $lastChosenService ||
+          generation !== logsLoadGeneration ||
+          (!data.length && !response.scan_capped)
+        ) {
           break;
+        }
+        if (!data.length) {
+          continue;
         }
 
         const numberOfNewLogs = data.length;
@@ -653,6 +667,7 @@
   const fetchedTopLogs = async (customStartWith) => {
 
     const initialService = $lastChosenService;
+    const generation = logsLoadGeneration;
 
     if (controller) {
       controller.abort();
@@ -679,7 +694,7 @@
         const data = await getLogs({
           containerName: $lastChosenService,
           search: searchText,
-          limit,
+          limit: limit - total_received_logs_count,
           status: $chosenStatus,
 
           caseSens: !$store.caseInSensitive,
@@ -689,15 +704,15 @@
         is_all_logs_processed = data.is_end;
         last_key = data.last_processed_key;
         total_received_logs_count += data.logs.length;
-        if (!data.logs.length) {
+        if (generation !== logsLoadGeneration || (!data.logs.length && !data.scan_capped)) {
           break;
         }
-        total_logs = [...total_logs, ...data.logs.reverse()];
+        total_logs = [...data.logs.reverse(), ...total_logs];
       }
       isSearching.set(false);
       isFeatching.set(false);
 
-      if (initialService === $lastChosenService) {
+      if (initialService === $lastChosenService && generation === logsLoadGeneration) {
         // Nothing older left: stop asking, or the top loader repeats the same
         // request every tick forever.
         startOfHistoryReached = is_all_logs_processed && !total_logs.length;
@@ -723,6 +738,7 @@
     if (!$isFeatching) {
       if (scrollDirection === "down" && !scrollFromButton && !stopLogsUnfetch) {
         const initialService = $lastChosenService;
+        const generation = logsLoadGeneration;
         isFeatching.set(true);
 
         let last_key = logKey(allLogs.at(-1));
@@ -734,7 +750,7 @@
           const data = await getPrevLogs({
             containerName: $lastChosenService,
             search: searchText,
-            limit,
+            limit: limit - total_received_logs_count,
             status: $chosenStatus,
 
             caseSens: !$store.caseInSensitive,
@@ -744,14 +760,14 @@
           total_received_logs_count += data.logs.length;
           is_all_logs_processed = data.is_end;
           last_key = data.last_processed_key;
-          if (!data.logs.length) {
+          if (generation !== logsLoadGeneration || (!data.logs.length && !data.scan_capped)) {
             break;
           }
           total_logs = [...total_logs, ...data.logs];
         }
         isSearching.set(false);
         isFeatching.set(false);
-        if (initialService === $lastChosenService) {
+        if (initialService === $lastChosenService && generation === logsLoadGeneration) {
             total_logs = total_logs.filter(
               (row) => !allLogs.some((shown) => !shown?.[2] && sameLine(shown, row))
             );
