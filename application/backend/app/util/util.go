@@ -240,7 +240,7 @@ func CloseDBs() {
 	for _, db := range vars.ContainersMeta_DBs {
 		db.Close()
 	}
-	for _, db := range []*leveldb.DB{vars.AliasDB, vars.FavsDB, vars.GroupsDB, vars.UsersDB, vars.TokensDB, vars.SettingsDB} {
+	for _, db := range []*leveldb.DB{vars.AliasDB, vars.FavsDB, vars.GroupsDB, vars.UsersDB, vars.TokensDB, vars.SettingsDB, vars.SessionsDB} {
 		if db != nil {
 			db.Close()
 		}

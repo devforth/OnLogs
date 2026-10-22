@@ -105,6 +105,7 @@ func TestSigtermClosesTheDatabasesBeforeExiting(t *testing.T) {
 
 	dir := t.TempDir()
 	cmd := exec.Command(os.Args[0], "-test.run=^TestSigtermClosesTheDatabasesBeforeExiting$")
+	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "ONLOGS_SIGTERM_DIR="+dir)
 	out, err := cmd.CombinedOutput()
 	if code := cmd.ProcessState.ExitCode(); code != 143 {
@@ -116,6 +117,11 @@ func TestSigtermClosesTheDatabasesBeforeExiting(t *testing.T) {
 	}
 	if !strings.Contains(string(logFile), "db@close done") {
 		t.Error("the logs database was left open at exit")
+	}
+	for _, name := range []string{"hostaliases", "favourites", "groups", "users", "tokens", "usersSettings", "sessions"} {
+		if logFile, err := os.ReadFile(dir + "/leveldb/" + name + "/LOG"); err != nil || !strings.Contains(string(logFile), "db@close done") {
+			t.Errorf("leveldb/%s was left open at exit (%v)", name, err)
+		}
 	}
 }
 
