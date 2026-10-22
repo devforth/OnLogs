@@ -14,15 +14,16 @@ const SERVICE = "api";
 const rows = [];
 let seq = 0;
 let sockets = [];
+let keyedFrames = false;
 
 function nextTs() {
   return new Date(Date.UTC(2026, 9, 19, 10, 0, 0) + seq + 1).toISOString().replace("Z", "000000Z");
 }
 
-function send(ts, msg) {
+function send(ts, msg, key) {
   for (const ws of sockets) {
     if (ws.readyState === 1 && ws.url.includes(`host=${HOST}&id=${SERVICE}`)) {
-      ws.onmessage?.({ data: JSON.stringify([ts, msg]) });
+      ws.onmessage?.({ data: JSON.stringify(key ? [ts, msg, key] : [ts, msg]) });
     }
   }
 }
@@ -31,7 +32,7 @@ function store(msg, ts = nextTs(), live = true) {
   seq += 1;
   const key = `${ts} +${1792400000000000000n + BigInt(seq)}-${seq}`;
   rows.push({ ts, msg, key });
-  if (live) send(ts, msg);
+  if (live) send(ts, msg, keyedFrames && key);
   return ts;
 }
 
@@ -202,4 +203,17 @@ main(async () => {
   assert.equal(rendered().length, 180);
   assert.ok(await goToTopLoadsOlderPage(), "no older page with a stored duplicate in view");
   bundle.unmount(view3);
+
+  keyedFrames = true;
+  const view4 = await openAtBottom();
+  holdPrev = true;
+  await showNearBottomSentinel(() => held.length > 0);
+  store("keyed-live-line");
+  await settle(5);
+  holdPrev = false;
+  held.shift()();
+  await settle(20);
+  assert.equal(count("keyed-live-line"), 1, "a keyed line delivered live and in a page rendered twice");
+  assert.equal(rendered().length, 180);
+  bundle.unmount(view4);
 });

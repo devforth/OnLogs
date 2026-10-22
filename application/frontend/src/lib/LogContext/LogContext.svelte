@@ -23,8 +23,6 @@
 
   const api = new fetchApi();
   const PAGE = 20;
-  // The full storage key. A row that arrived over the websocket carries only its
-  // timestamp, which the backend also accepts as a cursor.
   const keyOf = (row) => row?.at(2) ?? row?.at(0) ?? "";
   const linesOf = (response) =>
     Array.isArray(response?.logs) ? response.logs : [];

@@ -226,13 +226,17 @@ func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 	}
 
 	statistics.EnsureWorker(context.Background(), logItem.Host, logItem.Container)
-	err := containerdb.PutLogMessage(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine)
+	key, err := containerdb.StoreLogMessage(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine)
 	if err != nil {
 		defer w.WriteHeader(http.StatusInternalServerError)
 		panic(err)
 	}
 
-	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
+	frame := []string{logItem.LogLine[0], logItem.LogLine[1]}
+	if key != "" {
+		frame = append(frame, key)
+	}
+	to_send, _ := json.Marshal(frame)
 	vars.Broadcast(logItem.Host+"/"+logItem.Container, websocket.TextMessage, to_send)
 }
 
@@ -729,7 +733,8 @@ func (h *RouteController) GetLogWithPrev(w http.ResponseWriter, req *http.Reques
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	writeJSON(w, http.StatusOK, containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false, statusFilter(params)))
+	startWith := containerdb.LastKeyAt(params.Get("host"), params.Get("id"), params.Get("startWith"))
+	writeJSON(w, http.StatusOK, containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, startWith, false, statusFilter(params)))
 }
 
 // TODO return {"error": "Invalid host!"} when host is not exists

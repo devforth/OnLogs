@@ -312,15 +312,20 @@ func LogLineCounts() map[string]map[string]uint64 {
 }
 
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
+	_, err := StoreLogMessage(db, host, container, message_item)
+	return err
+}
+
+func StoreLogMessage(db *leveldb.DB, host string, container string, message_item []string) (string, error) {
 	if db == nil {
-		return fmt.Errorf("no database for %s/%s", host, container)
+		return "", fmt.Errorf("no database for %s/%s", host, container)
 	}
 	if len(message_item) < 2 {
-		return fmt.Errorf("malformed log line for %s/%s", host, container)
+		return "", fmt.Errorf("malformed log line for %s/%s", host, container)
 	}
 	if len(message_item[0]) < 30 {
 		fmt.Println("WARNING: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
-		return nil
+		return "", nil
 	}
 
 	if host == "" {
@@ -357,7 +362,23 @@ func PutLogMessage(db *leveldb.DB, host string, container string, message_item [
 			err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
 		}
 	}
-	return err
+	return logKey, err
+}
+
+func LastKeyAt(host string, container string, startWith string) string {
+	if startWith == "" || strings.Contains(startWith, " +") {
+		return startWith
+	}
+	logsDB := util.GetDBIfExists(host, container, "logs")
+	if logsDB == nil {
+		return startWith
+	}
+	iter := logsDB.NewIterator(leveldbUtil.BytesPrefix([]byte(startWith+" +")), nil)
+	defer iter.Release()
+	if iter.Last() {
+		return string(iter.Key())
+	}
+	return startWith
 }
 
 func normalizeForSearch(s string, caseSensetivity bool) string {

@@ -14,7 +14,7 @@
   import { fade } from "svelte/transition";
   import { handleKeydown, copyCustomText } from "../../utils/functions.js";
   import { findSearchTextInLogs } from "../../Views/Logs/functions.js";
-  import { buildSharedLogUrl } from "./shareLink.js";
+  import { buildSharedLogUrl, readSharedLogHash } from "./shareLink.js";
   import { createLogsViewFlags } from "./shareLinkViewState.js";
 
   import {
@@ -147,7 +147,8 @@
   const logKey = (logItem) => logItem?.at(2) ?? logItem?.at(0) ?? "";
 
   const rowId = (logItem) => logItem?.at(2) ?? (logItem ? `${logItem[0]}\u0000${logItem[1]}` : "");
-  const sameLine = (a, b) => a?.[0] === b?.[0] && a?.[1] === b?.[1];
+  const sameRow = (a, b) =>
+    a?.[2] && b?.[2] ? a[2] === b[2] : a?.[0] === b?.[0] && a?.[1] === b?.[1];
 
   // Dropping repeats by key makes a recurrence visible as a missing row rather
   // than a doubled one, and lets the {#each} be keyed.
@@ -260,7 +261,7 @@
     topFetchIsStarted = true;
     let timeStamp = "";
     if ($urlHash) {
-      timeStamp = $urlHash.slice(1);
+      timeStamp = readSharedLogHash($urlHash);
       await fetchIfHashIsInUrl(timeStamp);
     } else {
       await fetchLogAfterChangeService();
@@ -374,7 +375,7 @@
       heldWS.push(logfromWS);
       return;
     }
-    if (allLogs.some((row) => sameLine(row, logfromWS))) {
+    if (allLogs.some((row) => sameRow(row, logfromWS))) {
       return;
     }
     if (
@@ -543,7 +544,7 @@
   // websocket. Shared with the context modal, which renders rows of its own.
   function copyLinkToLog(logItem) {
     copyCustomText(
-      buildSharedLogUrl(location.href, logItem?.at(0)),
+      buildSharedLogUrl(location.href, logKey(logItem)),
       showCopiedUrlToast
     );
   }
@@ -769,7 +770,7 @@
         isFeatching.set(false);
         if (initialService === $lastChosenService && generation === logsLoadGeneration) {
             total_logs = total_logs.filter(
-              (row) => !allLogs.some((shown) => !shown?.[2] && sameLine(shown, row))
+              (row) => !allLogs.some((shown) => sameRow(shown, row))
             );
             if (total_logs.length) {
               let numberOfPrev = total_logs.length;
@@ -1061,7 +1062,7 @@
             bind:this={elements[i]}
           >
             <div
-              class="chosenString  {$chosenLogsString === logItem?.at(0)
+              class="chosenString  {[logItem?.at(0), logItem?.at(2)].includes($chosenLogsString)
                 ? 'chosen'
                 : ''}"
             >
