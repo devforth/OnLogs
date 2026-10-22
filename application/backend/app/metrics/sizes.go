@@ -53,7 +53,7 @@ func StartSizeRefresher(ctx context.Context) {
 func writeSizes(w io.Writer) {
 	if snapshot := sizes.Load(); snapshot != nil {
 		writeHeader(w, "onlogs_logs_size_bytes", "gauge",
-			"Total size of stored logs, the number the retention quota is compared against.")
+			"Total on-disk size of stored logs; can exceed onlogs_logs_size_limit_bytes by data retention cannot delete.")
 		fmt.Fprintf(w, "onlogs_logs_size_bytes %d\n", snapshot.total)
 
 		if len(snapshot.perContainer) > 0 {

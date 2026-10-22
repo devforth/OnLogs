@@ -91,7 +91,8 @@ Once done, just go to <your host> and login as "admin" with <any password>.
 | AGENT             | Toggles agent mode. If enabled, there will be no web interface available, and all logs will be sent  and stored on HOST. Parsed as a boolean, so `false`, `0` and an unset value all mean off | `false` | -
 | HOST               | Url to OnLogs host from protocol to domain name. |                    | if `AGENT=true`
 | ONLOGS_TOKEN       | Token that will use an agent to authorize and connect to HOST | Generates with OnLogs interface   | if `AGENT=true`
-| MAX_LOGS_SIZE | Maximum allowed total logs size before cleanup triggers. Accepts human-readable formats like 5GB, 500MB, 1.5GB etc. When exceeded, 10% of logs (by count) will be removed proportionally across containers starting from oldest. Validated at startup: an unparseable value stops OnLogs rather than silently disabling retention | 10GB | -
+| ONLOGS_HOSTNAME    | Host name to store this machine's logs under when OnLogs would otherwise use its own container id, that is when `/etc/hostname` is not mounted and no `hostname` is set. Without it, OnLogs uses the Docker host's name, or else the container id, which changes on every recreate | Docker host name | -
+| MAX_LOGS_SIZE | Maximum allowed total logs size before cleanup triggers. Accepts human-readable formats like 5GB, 500MB, 1.5GB etc. Counts only stored logs, their severity index and statistics, not stream cursors or agent buffers. When exceeded, the oldest logs across all hosts and containers are deleted until it fits, and old hosts left without logs are removed. Validated at startup: an unparseable value stops OnLogs rather than silently disabling retention | 10GB | -
 | DISABLE_AUTH | Option to completely disable built in authentication in the application. When this option is set to `true` the app will behave like if the Administrator is logged in. The option to manage users will be removed. | false | -
 | METRICS_TOKEN | Bearer token for the Prometheus endpoint at `/api/v1/metrics`. While it is unset the endpoint returns `401` and exposes nothing, so metrics are off by default. See [Metrics](#metrics) | | only for `/api/v1/metrics`
 | TRUSTED_PROXIES | Peers allowed to name the client through `X-Forwarded-For` / `X-Real-IP`, as comma separated IPs and CIDR ranges. See [Behind a reverse proxy](#behind-a-reverse-proxy) | | only if behind nginx/traefik
@@ -136,7 +137,7 @@ scrape_configs:
 | `onlogs_stream_up` | host, container | 1 while a container's stream is attached |
 | `onlogs_stream_cursor_timestamp_seconds` | host, container | Newest line ingested |
 | `onlogs_dropped_replay_lines_total` | host, container | Lines dropped as replays |
-| `onlogs_logs_size_bytes` / `_limit_bytes` | | Stored size, and `MAX_LOGS_SIZE` |
+| `onlogs_logs_size_bytes` / `_limit_bytes` | | Stored size on disk, and `MAX_LOGS_SIZE`. The size can exceed the limit by stream cursors and agent buffers, which the quota does not count |
 | `onlogs_container_db_size_bytes` | host, container | Stored size per container |
 | `onlogs_retention_deleted_lines_total` | | Lines deleted by the quota |
 | `onlogs_filesystem_size_bytes` / `_avail_bytes` | | The filesystem holding the logs |
@@ -183,6 +184,20 @@ Smaller changes: passwords are now hashed (rotate them if the database may have 
 exposed); favourites are per user and need starring again; log levels are matched
 case-insensitively, so charts change shape at the upgrade; live tailing needs your reverse
 proxy to forward the original `Host` header.
+
+**Pin the image tag.** `compose up` never pulls `:latest` again, so an install that pulled it
+before 3 March 2026 still runs 1.1.10 and moves to 2.x unannounced once the cached image is
+pruned. Use `devforth/onlogs:<version>` and upgrade on purpose. Skip 2.0.1: its log
+retention can fill the disk.
+
+**Host name.** Without the `/etc/hostname` mount, older versions named the host after the
+OnLogs container id, so every recreate started a new host. OnLogs now uses `ONLOGS_HOSTNAME`
+or the Docker host's name. Behind the socket proxy, which hides the host's name, set
+`ONLOGS_HOSTNAME` or mount `/etc/hostname`. Do the same where Docker host names repeat, as on
+cloned VMs or Docker Desktop, or those machines share one host. Logs under old names stay
+visible, are deleted first when `MAX_LOGS_SIZE` is reached, and an old host disappears once
+empty. 1.x could also mix one host's logs into another after a recreate; 2.x keeps hosts
+apart.
 
 ## Docker socket URL
 By default the app will connect using the raw unix socket. But this can be overriden via the ENV variable `DOCKER_HOST`. That way you can specify fully qualified URL to the socket or URL of an docker socket proxy.

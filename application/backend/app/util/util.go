@@ -11,12 +11,15 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/syndtr/goleveldb/leveldb"
+	leveldbErrors "github.com/syndtr/goleveldb/leveldb/errors"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"golang.org/x/sys/unix"
 )
 
@@ -98,6 +101,9 @@ func IsSafeName(s string) bool {
 	return s == filepath.Base(s)
 }
 
+// Level 1 at 10 MiB, as in LevelDB, not 100: each retention round rewrites it.
+var DBOptions = &opt.Options{CompactionTotalSizeMultiplierPerLevel: []float64{1, 1}}
+
 func GetDB(host string, container string, dbType string) *leveldb.DB {
 	if !IsSafeName(host) || !IsSafeName(container) || !IsSafeName(dbType) {
 		return nil
@@ -119,16 +125,15 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 	}
 
 	path := fmt.Sprintf("leveldb/hosts/%s/containers/%s/%s", host, container, dbType)
-	db, err := leveldb.OpenFile(path, nil)
+	db, err := leveldb.OpenFile(path, DBOptions)
 
-	if err != nil {
-		for tries := 0; tries < 10; tries++ {
-			db, err = leveldb.RecoverFile(path, nil)
-			if err == nil {
-				break
-			}
-			fmt.Printf("Attempt %d to recover DB %s failed: %v\n", tries+1, path, err)
-			time.Sleep(10 * time.Millisecond)
+	// Recovery rewrites the whole DB: only for corruption, not for a full disk.
+	for tries := 0; err != nil && tries < 10; tries++ {
+		time.Sleep(10 * time.Millisecond)
+		if leveldbErrors.IsCorrupted(err) {
+			db, err = leveldb.RecoverFile(path, DBOptions)
+		} else {
+			db, err = leveldb.OpenFile(path, DBOptions)
 		}
 	}
 
@@ -196,6 +201,50 @@ func ResetDB(host string, container string, dbType string) {
 		db.Close()
 	}
 	delete(dbCaches[dbType], host+"/"+container)
+	delete(lastReopen, dbType+":"+host+"/"+container)
+}
+
+var FreeDiskBytes = func() (uint64, error) {
+	var stat unix.Statfs_t
+	if err := unix.Statfs("leveldb", &stat); err != nil {
+		return 0, err
+	}
+	return stat.Bavail * uint64(stat.Bsize), nil
+}
+
+var lastReopen = map[string]time.Time{}
+
+// ReopenDB clears goleveldb's sticky write error, at most every 10 s.
+func ReopenDB(host string, container string, dbType string, failed *leveldb.DB) *leveldb.DB {
+	if free, err := FreeDiskBytes(); err != nil || free >= uint64(2*opt.DefaultWriteBuffer) {
+		key := dbType + ":" + host + "/" + container
+		vars.DBMutex.Lock()
+		if db := getExistingDB(host, container, dbType); db != nil && db == failed && time.Since(lastReopen[key]) >= 10*time.Second {
+			db.Close()
+			delete(dbCaches[dbType], host+"/"+container)
+			lastReopen[key] = time.Now()
+		}
+		vars.DBMutex.Unlock()
+	}
+	return GetDB(host, container, dbType)
+}
+
+// CloseDBs closes every database for good: only on the way out.
+func CloseDBs() {
+	vars.DBMutex.Lock()
+	for _, cache := range dbCaches {
+		for _, db := range cache {
+			db.Close()
+		}
+	}
+	for _, db := range vars.ContainersMeta_DBs {
+		db.Close()
+	}
+	for _, db := range []*leveldb.DB{vars.AliasDB, vars.FavsDB, vars.GroupsDB, vars.UsersDB, vars.TokensDB, vars.SettingsDB} {
+		if db != nil {
+			db.Close()
+		}
+	}
 }
 
 // ContainersMeta_DBs is absent: GetContainersMetaDB keys it by bare host.
@@ -235,15 +284,63 @@ func parseHostname(raw string, readErr error) string {
 	return host
 }
 
+var hostID atomic.Pointer[string]
+
+func SetHost(id string) { hostID.Store(&id) }
+
 func GetHost() string {
+	if id := hostID.Load(); id != nil {
+		return *id
+	}
 	hostname, err := os.ReadFile("/etc/hostname")
 	return parseHostname(string(hostname), err)
 }
 
-// LogsSizes reports bytes per host/container plus the total. The only walk of
-// the logs tree, so the size a user sees and the size the quota compares against
-// cannot drift apart. One filepath.Walk per container: never call it on a
-// request that runs often.
+func RemoveHostIfEmpty(host string) (bool, error) {
+	if !IsSafeName(host) {
+		return false, nil
+	}
+	dir := "leveldb/hosts/" + host
+
+	vars.DBMutex.Lock()
+	defer vars.DBMutex.Unlock()
+	containers, err := os.ReadDir(dir + "/containers")
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	for _, c := range containers {
+		db := getExistingDB(host, c.Name(), "logs")
+		if db == nil {
+			return false, nil
+		}
+		iter := db.NewIterator(nil, nil)
+		rows, err := iter.First(), iter.Error()
+		iter.Release()
+		if rows || err != nil {
+			return false, err
+		}
+	}
+	for dbType, cache := range dbCaches {
+		for _, c := range containers {
+			key := host + "/" + c.Name()
+			if db := cache[key]; db != nil {
+				db.Close()
+			}
+			delete(cache, key)
+			delete(lastReopen, dbType+":"+key)
+		}
+	}
+	if db := vars.ContainersMeta_DBs[host]; db != nil {
+		db.Close()
+		delete(vars.ContainersMeta_DBs, host)
+	}
+	return true, os.RemoveAll(dir)
+}
+
+// LogsSizes reports on-disk bytes per host/container plus the total. It counts
+// whole directories, so it can exceed MAX_LOGS_SIZE by data retention cannot
+// delete (stream cursors, agent buffers). One filepath.Walk per container: never
+// call it on a request that runs often.
 func LogsSizes() (map[string]int64, int64) {
 	perContainer := map[string]int64{}
 	var total int64

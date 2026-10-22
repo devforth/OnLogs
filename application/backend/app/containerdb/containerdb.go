@@ -1,6 +1,8 @@
 package containerdb
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -14,6 +16,7 @@ import (
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	leveldbUtil "github.com/syndtr/goleveldb/leveldb/util"
 )
 
@@ -58,36 +61,227 @@ func forEachContainer(visit func(host, container string)) error {
 	return nil
 }
 
-// scanLimit 0 means scan every row.
-func pruneUpTo(db *leveldb.DB, cutoff time.Time, scanLimit int) int {
-	batch := new(leveldb.Batch)
-	deleted := 0
+const maxRoundBytes = 2 << 20
 
+const minRoundRows = 200
+
+var errNoRoom = errors.New("not enough free disk space to compact")
+
+func pruneUpTo(db *leveldb.DB, cutoff time.Time, scanLimit int, also ...*leveldb.DB) ([][]byte, error) {
+	var keys [][]byte
 	iter := db.NewIterator(nil, nil)
-	scanned := 0
-	for ok := iter.First(); ok && (scanLimit == 0 || scanned < scanLimit); ok = iter.Next() {
+	scanned, size := 0, 0
+	for ok := iter.First(); ok && (scanLimit == 0 || scanned < scanLimit) && size < maxRoundBytes; ok = iter.Next() {
 		scanned++
 		keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(iter.Key())))
 		if err != nil {
 			fmt.Println("Error parsing key time:", err)
 			continue
 		}
-		if !keyTime.After(cutoff) {
-			batch.Delete(iter.Key())
-			deleted++
+		if keyTime.After(cutoff) {
+			break
 		}
+		keys = append(keys, append([]byte{}, iter.Key()...))
+		size += len(iter.Key()) + 8
 	}
 	iter.Release()
 
-	if deleted == 0 {
-		return 0
+	if len(keys) == 0 {
+		return nil, nil
 	}
-	if err := db.Write(batch, nil); err != nil {
-		fmt.Println("Failed to delete batch:", err)
-		return 0
+	if err := checkRoom(size, append(also, db)...); err != nil {
+		return nil, err
 	}
-	db.CompactRange(leveldbUtil.Range{Start: nil, Limit: nil})
-	return deleted
+	written, err := applyDeletes(db, keys)
+	return keys[:written], err
+}
+
+func checkRoom(tombstones int, dbs ...*leveldb.DB) error {
+	need := uint64(opt.DefaultWriteBuffer)
+	for _, db := range dbs {
+		if db == nil {
+			continue
+		}
+		var stats leveldb.DBStats
+		if err := db.Stats(&stats); err != nil {
+			return err
+		}
+		need += uint64(tombstones)
+		for _, size := range stats.LevelSizes[:min(2, len(stats.LevelSizes))] {
+			need += uint64(size)
+		}
+	}
+	if free, err := util.FreeDiskBytes(); err == nil && free < need {
+		return fmt.Errorf("%w: %d bytes free, %d needed", errNoRoom, free, need)
+	}
+	return nil
+}
+
+func applyDeletes(db *leveldb.DB, keys [][]byte) (written int, err error) {
+	batch := new(leveldb.Batch)
+	size := 0
+	for i, key := range keys {
+		batch.Delete(key)
+		size += len(key) + 8
+		// A Write over 4 MiB becomes a transaction, which keeps its lock if it fails.
+		if size >= 1<<20 || i == len(keys)-1 {
+			if err := db.Write(batch, nil); err != nil {
+				return written, err
+			}
+			written, size = i+1, 0
+			batch.Reset()
+		}
+	}
+	// Not the whole DB: with a fresh line in the memtable that rewrites every table.
+	return written, db.CompactRange(leveldbUtil.Range{Limit: keys[len(keys)-1]})
+}
+
+type retentionRound struct {
+	scan   map[string]int
+	cutoff time.Time
+	raw    int64
+	whole  bool
+}
+
+func oldestRows(want int64) (retentionRound, error) {
+	type head struct {
+		location string
+		iter     iterator.Iterator
+		ok       bool
+		scanned  int
+	}
+	var heads []*head
+	defer func() {
+		for _, h := range heads {
+			h.iter.Release()
+		}
+	}()
+	round := retentionRound{scan: map[string]int{}}
+	if err := forEachContainer(func(h, c string) {
+		if db := util.GetDB(h, c, "logs"); db != nil {
+			iter := db.NewIterator(nil, nil)
+			heads = append(heads, &head{location: h + "/" + c, iter: iter, ok: iter.First()})
+		}
+	}); err != nil {
+		return round, err
+	}
+
+	rows, tombstones := 0, 0
+	for tombstones < maxRoundBytes && (rows < minRoundRows || round.raw < want) {
+		var next *head
+		for _, h := range heads {
+			if h.ok && (next == nil || bytes.Compare(h.iter.Key(), next.iter.Key()) < 0) {
+				next = h
+			}
+		}
+		if next == nil {
+			round.whole = true
+			break
+		}
+		key := next.iter.Key()
+		next.scanned++
+		if keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(key))); err == nil {
+			rows++
+			tombstones += len(key) + 8
+			round.raw += int64(len(key) + len(next.iter.Value()))
+			round.scan[next.location] = next.scanned
+			if keyTime.After(round.cutoff) {
+				round.cutoff = keyTime
+			}
+		}
+		next.ok = next.iter.Next()
+	}
+	return round, nil
+}
+
+func pruneContainer(h, c string, cutoff time.Time, scan int) (failed error) {
+	var deleted [][]byte
+	// Everything the quota measures, or it can never come down.
+	for _, dbType := range util.PrunableDBs() {
+		beforePrune(h, c, dbType)
+		db := util.GetDB(h, c, dbType)
+		if db == nil {
+			continue
+		}
+		var err error
+		switch dbType {
+		case "logs":
+			if scan == 0 {
+				continue
+			}
+			if deleted, err = pruneUpTo(db, cutoff, scan, util.GetDB(h, c, "statuses")); len(deleted) > 0 {
+				CountRetentionDeleted(len(deleted))
+				fmt.Printf("Deleted %d logs from %s/%s\n", len(deleted), h, c)
+			}
+		case "statuses":
+			if len(deleted) > 0 {
+				_, err = applyDeletes(db, deleted)
+			}
+			if err == nil && failed == nil {
+				err = pruneStatusesWithoutRows(db, util.GetDB(h, c, "logs"))
+			}
+		default:
+			if failed == nil {
+				_, err = pruneUpTo(db, cutoff, 0)
+			}
+		}
+		if err != nil {
+			if !errors.Is(err, errNoRoom) {
+				util.ReopenDB(h, c, dbType, db)
+			}
+			if failed == nil {
+				failed = fmt.Errorf("pruning %s of %s/%s: %w", dbType, h, c, err)
+			}
+		}
+	}
+	return failed
+}
+
+func pruneStatusesWithoutRows(statuses, logs *leveldb.DB) error {
+	if logs == nil {
+		return nil
+	}
+	var first []byte
+	iter := logs.NewIterator(nil, nil)
+	if iter.First() {
+		first = append([]byte{}, iter.Key()...)
+	}
+	unreadable := iter.Error() != nil
+	iter.Release()
+	if unreadable {
+		return nil
+	}
+
+	var keys [][]byte
+	size := 0
+	iter = statuses.NewIterator(&leveldbUtil.Range{Limit: first}, nil)
+	for size < maxRoundBytes && iter.Next() {
+		keys = append(keys, append([]byte{}, iter.Key()...))
+		size += len(iter.Key()) + 8
+	}
+	iter.Release()
+	if len(keys) == 0 {
+		return nil
+	}
+	if err := checkRoom(size, statuses); err != nil {
+		return err
+	}
+	_, err := applyDeletes(statuses, keys)
+	return err
+}
+
+func removeEmptyHosts() {
+	hosts, _ := os.ReadDir("leveldb/hosts/")
+	for _, h := range hosts {
+		if !h.IsDir() || h.Name() == util.GetHost() || len(vars.AgentContainers(h.Name())) > 0 {
+			continue
+		}
+		if removed, err := util.RemoveHostIfEmpty(h.Name()); err != nil {
+			fmt.Printf("Failed to remove empty host %s: %v\n", h.Name(), err)
+		} else if removed {
+			fmt.Println("Removed empty host", h.Name())
+		}
+	}
 }
 
 func checkAndManageLogSize(host string, container string) error {
@@ -96,103 +290,52 @@ func checkAndManageLogSize(host string, container string) error {
 		return fmt.Errorf("failed to parse MAX_LOGS_SIZE: %v", err)
 	}
 
+	ratio := 1.0
+	var lastSize, lastRaw int64
 	for {
 		var totalSize int64
 		if err := forEachContainer(func(h, c string) {
-			totalSize += int64(util.GetDirSize(h, c) * 1024 * 1024)
+			totalSize += int64(util.GetPrunableSize(h, c) * 1024 * 1024)
 		}); err != nil {
 			return err
 		}
 		if totalSize <= maxSize {
 			return nil
 		}
-
-		var cutoffKeys [][]byte
-		if err := forEachContainer(func(h, c string) {
-			logsDB := util.GetDB(h, c, "logs")
-			if logsDB == nil {
-				return
-			}
-			if key, err := getCutoffKeysForContainer(logsDB, 200); err == nil && len(key) > 0 {
-				cutoffKeys = append(cutoffKeys, key)
-			}
-		}); err != nil {
-			return err
+		if lastRaw > 0 && lastSize > totalSize {
+			ratio = max(float64(lastSize-totalSize)/float64(lastRaw), ratio/2)
 		}
 
-		if len(cutoffKeys) == 0 {
+		round, err := oldestRows(int64(float64(totalSize-maxSize) / ratio))
+		if err != nil {
+			return err
+		}
+		if len(round.scan) == 0 {
 			fmt.Println("Nothing to delete, cutoff keys not found.")
 			return nil
 		}
+		fmt.Println("Oldest time for deletion cutoff:", round.cutoff)
 
-		oldestTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(string(findOldestCutoffKey(cutoffKeys))))
-		if err != nil {
-			fmt.Println("Error parsing oldest time:", err)
-			return nil
-		}
-		fmt.Println("Oldest time for deletion cutoff:", oldestTime)
-
+		var failed error
 		if err := forEachContainer(func(h, c string) {
-			// Everything the quota measures, or it can never come down.
-			for _, dbType := range util.PrunableDBs() {
-				db := util.GetDB(h, c, dbType)
-				if db == nil {
-					continue
-				}
-				scanLimit := 0
-				if dbType == "logs" {
-					scanLimit = 200
-				}
-				if deleted := pruneUpTo(db, oldestTime, scanLimit); deleted > 0 && dbType == "logs" {
-					CountRetentionDeleted(deleted)
-					fmt.Printf("Deleted %d logs from %s/%s\n", deleted, h, c)
-				}
+			if failed == nil {
+				failed = pruneContainer(h, c, round.cutoff, round.scan[h+"/"+c])
 			}
 		}); err != nil {
 			return err
 		}
+		// Ends the run so a full disk is retried after the cooldown, not spun on.
+		if failed != nil {
+			return failed
+		}
+		removeEmptyHosts()
 
+		if round.whole {
+			return nil
+		}
+		lastSize, lastRaw = totalSize, round.raw
 		time.Sleep(100 * time.Millisecond)
 	}
-}
-
-func getCutoffKeysForContainer(db *leveldb.DB, limit int) ([]byte, error) {
-	iter := db.NewIterator(nil, nil)
-	defer iter.Release()
-
-	var cutoffKeys [][]byte
-	for ok := iter.First(); ok && len(cutoffKeys) < limit; ok = iter.Next() {
-		key := append([]byte{}, iter.Key()...)
-		cutoffKeys = append(cutoffKeys, key)
-	}
-
-	if len(cutoffKeys) < limit {
-		return nil, fmt.Errorf("insufficient records to form cutoff keys")
-	}
-
-	return cutoffKeys[len(cutoffKeys)-1], nil
-}
-
-func findOldestCutoffKey(cutoffKeys [][]byte) []byte {
-	var oldestKey []byte
-	var oldestTime time.Time
-	first := true
-
-	for _, key := range cutoffKeys {
-		keyStr := string(key)
-		keyTime, err := time.Parse(time.RFC3339Nano, getDateTimeFromKey(keyStr))
-		if err != nil {
-			fmt.Println("Error parsing key time:", err)
-			continue
-		}
-
-		if first || keyTime.Before(oldestTime) {
-			oldestKey = key
-			oldestTime = keyTime
-			first = false
-		}
-	}
-	return oldestKey
 }
 
 const (
@@ -203,10 +346,15 @@ const (
 // Bounds one scan. A var so tests can exercise the cap without a million rows.
 var maxScanIterations = 1000000
 
+var cleanupCooldown = time.Minute
+
+var beforePrune = func(host, container, dbType string) {}
+
 var (
 	logCleanupMu     sync.Mutex
 	nextCleanup      time.Time
 	isCleanupRunning bool
+	cleanupPending   bool
 	ansiEscapeRegex  = regexp.MustCompile(`[\x1B\x9B][[\]()#;?]*(?:(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><])`)
 	logKeyCounter    atomic.Uint64
 )
@@ -224,14 +372,13 @@ func MaybeScheduleCleanup(host string, container string) {
 
 	defer logCleanupMu.Unlock()
 
-	if isCleanupRunning {
-		return
-	}
-	if time.Now().Before(nextCleanup) {
+	if isCleanupRunning || time.Now().Before(nextCleanup) {
+		cleanupPending = true
 		return
 	}
 
 	isCleanupRunning = true
+	cleanupPending = false
 
 	go func() {
 		err := checkAndManageLogSize(host, container)
@@ -240,7 +387,15 @@ func MaybeScheduleCleanup(host string, container string) {
 		defer logCleanupMu.Unlock()
 
 		isCleanupRunning = false
-		nextCleanup = time.Now().Add(1 * time.Minute)
+		nextCleanup = time.Now().Add(cleanupCooldown)
+		time.AfterFunc(cleanupCooldown, func() {
+			logCleanupMu.Lock()
+			pending := cleanupPending
+			logCleanupMu.Unlock()
+			if pending {
+				MaybeScheduleCleanup(host, container)
+			}
+		})
 
 		if err != nil {
 			fmt.Printf("Log cleanup failed: %v\n", err)
@@ -361,9 +516,7 @@ func PutLogEvent(db *leveldb.DB, host string, container string, message_item []s
 
 	if statusesDB != nil {
 		if err := statusesDB.Put([]byte(logKey), []byte(status_key), nil); err != nil {
-			// The handle may have been closed by a concurrent delete; without a
-			// retry the line is invisible to every severity filter, forever.
-			if reopened := util.GetDB(host, container, "statuses"); reopened != nil {
+			if reopened := util.ReopenDB(host, container, "statuses", statusesDB); reopened != nil {
 				reopened.Put([]byte(logKey), []byte(status_key), nil)
 			}
 		}
@@ -371,11 +524,12 @@ func PutLogEvent(db *leveldb.DB, host string, container string, message_item []s
 
 	err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
 	for tries := 0; err != nil && tries < 10; tries++ {
-		time.Sleep(10 * time.Millisecond)
-		if reopened := util.GetDB(host, container, "logs"); reopened != nil {
+		if reopened := util.ReopenDB(host, container, "logs", db); reopened != nil && reopened != db {
 			db = reopened
-			err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
+		} else {
+			time.Sleep(10 * time.Millisecond)
 		}
+		err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
 	}
 	return logKey, false, err
 }
@@ -438,6 +592,15 @@ func searchInit(iter iterator.Iterator, startWith string, getPrev bool) bool {
 		return false
 	}
 	return iter.Last()
+}
+
+func rowStatus(statusDb *leveldb.DB, key []byte, value string) string {
+	if statusDb != nil {
+		if stored, err := statusDb.Get(key, nil); err == nil {
+			return string(stored)
+		}
+	}
+	return GetLogStatusKey(value)
 }
 
 func getDateTimeFromKey(key string) string {
@@ -521,12 +684,9 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		}
 		value := string(iter.Value())
 
-		if status != nil {
-			statusValue, err := statusDb.Get(key, nil)
-			if err != nil || string(statusValue) != *status {
-				move_direction()
-				continue
-			}
+		if status != nil && rowStatus(statusDb, key, value) != *status {
+			move_direction()
+			continue
 		}
 
 		if !fitsNormalizedSearch(value, normalizedMessage, caseSensetivity) {

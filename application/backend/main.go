@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/devforth/OnLogs/app/daemon"
@@ -61,6 +64,40 @@ func newServer(port string, handler http.Handler) *http.Server {
 	}
 }
 
+func closeDatabasesOnSignal() {
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		sig := <-stop
+		util.CloseDBs()
+		os.Exit(128 + int(sig.(syscall.Signal)))
+	}()
+}
+
+// Docker's default hostname is the short container id, which changes on every recreate.
+func resolveHost(ctx context.Context, cli *client.Client, id, kernel string) string {
+	// A mounted /etc/hostname differs from the kernel's hostname.
+	if id != kernel || len(id) != 12 || strings.Trim(id, "0123456789abcdef") != "" {
+		return id
+	}
+	name := os.Getenv("ONLOGS_HOSTNAME")
+	if name != "" && !util.IsSafeName(name) {
+		fmt.Printf("WARNING: ignoring ONLOGS_HOSTNAME=%q, it is not a valid host name\n", name)
+		name = ""
+	}
+	if name == "" {
+		if info, err := cli.Info(ctx); err == nil {
+			name = info.Name
+		}
+	}
+	if !util.IsSafeName(name) {
+		fmt.Printf("WARNING: host id %s is this container's id and changes when it is recreated; mount /etc/hostname or set ONLOGS_HOSTNAME\n", id)
+		return id
+	}
+	fmt.Printf("INFO: host id is %s instead of the container id %s\n", name, id)
+	return name
+}
+
 func init_config() {
 	if os.Getenv("PORT") == "" {
 		os.Setenv("PORT", "2874")
@@ -101,6 +138,7 @@ func main() {
 		fmt.Println("FATAL:", err)
 		os.Exit(1)
 	}
+	closeDatabasesOnSignal()
 
 	if os.Getenv("JWT_SECRET") == "" {
 		fmt.Println("FATAL: JWT_SECRET is empty; refusing to start. Unset it to have one generated, or set a non-empty value.")
@@ -117,6 +155,11 @@ func main() {
 	}
 	defer cli.Close()
 	fmt.Println("INFO: Docker client initialized with API version negotiation")
+
+	kernel, _ := os.Hostname()
+	hostCtx, cancelHost := context.WithTimeout(context.Background(), 10*time.Second)
+	util.SetHost(resolveHost(hostCtx, cli, util.GetHost(), kernel))
+	cancelHost()
 
 	dockerService := &docker.DockerService{
 		Client: cli,
