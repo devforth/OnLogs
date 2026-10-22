@@ -217,6 +217,9 @@ func pruneContainer(h, c string, cutoff time.Time, scan int) (failed error) {
 			if len(deleted) > 0 {
 				_, err = applyDeletes(db, deleted)
 			}
+			if err == nil && failed == nil {
+				err = pruneStatusesWithoutRows(db, util.GetDB(h, c, "logs"))
+			}
 		default:
 			if failed == nil {
 				_, err = pruneUpTo(db, cutoff, 0)
@@ -232,6 +235,39 @@ func pruneContainer(h, c string, cutoff time.Time, scan int) (failed error) {
 		}
 	}
 	return failed
+}
+
+func pruneStatusesWithoutRows(statuses, logs *leveldb.DB) error {
+	if logs == nil {
+		return nil
+	}
+	var first []byte
+	iter := logs.NewIterator(nil, nil)
+	if iter.First() {
+		first = append([]byte{}, iter.Key()...)
+	}
+	unreadable := iter.Error() != nil
+	iter.Release()
+	if unreadable {
+		return nil
+	}
+
+	var keys [][]byte
+	size := 0
+	iter = statuses.NewIterator(&leveldbUtil.Range{Limit: first}, nil)
+	for size < maxRoundBytes && iter.Next() {
+		keys = append(keys, append([]byte{}, iter.Key()...))
+		size += len(iter.Key()) + 8
+	}
+	iter.Release()
+	if len(keys) == 0 {
+		return nil
+	}
+	if err := checkRoom(size, statuses); err != nil {
+		return err
+	}
+	_, err := applyDeletes(statuses, keys)
+	return err
 }
 
 func removeEmptyHosts() {

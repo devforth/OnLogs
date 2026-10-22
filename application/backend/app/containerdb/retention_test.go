@@ -467,6 +467,32 @@ func TestRetentionKeepsSeverityOfOlderRowsStoredWhileItRuns(t *testing.T) {
 	}
 }
 
+func TestRetentionDropsSeverityEntriesWhoseRowsAreGone(t *testing.T) {
+	holdCleanup(t)
+	host := "OrphanHost"
+	seedRetentionRows(t, host, []retentionSeed{{"app", 300, 0}, {"quiet", 20, time.Hour}})
+	for _, c := range []string{"app", "quiet"} {
+		statuses := util.GetDB(host, c, "statuses")
+		for i := 0; i < 50; i++ {
+			ts := retentionBase.Add(time.Duration(i)*time.Second - time.Hour).Format("2006-01-02T15:04:05.000000000Z")
+			if err := statuses.Put([]byte(ts+" +1-"+strconv.Itoa(i)), []byte("error"), nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	t.Setenv("MAX_LOGS_SIZE", strconv.FormatInt(prunableBytes(host, "app", "quiet")/2, 10)+"B")
+
+	if err := checkAndManageLogSize(host, "app"); err != nil {
+		t.Fatal(err)
+	}
+	if rows := len(logKeys(host, "quiet")); rows != 20 {
+		t.Fatalf("precondition: the check deleted %d rows of quiet", 20-rows)
+	}
+	for _, c := range []string{"app", "quiet"} {
+		assertSurvivorsKeepTheirSeverity(t, host, c)
+	}
+}
+
 func TestRetentionPrunesAbandonedHostsFirstAndRemovesThemOnceEmpty(t *testing.T) {
 	holdCleanup(t)
 	local, old, unused, agent := util.GetHost(), "0123456789ab", "fedcba987654", "agent-host"
