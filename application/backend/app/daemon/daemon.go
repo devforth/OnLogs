@@ -258,12 +258,16 @@ func (h *DaemonService) ingestLine(host, containerName string, currentDB *leveld
 		return true
 	}
 
-	if err := containerdb.PutLogMessage(currentDB, host, containerName, logItem); err != nil {
+	key, _, err := containerdb.PutLogEvent(currentDB, host, containerName, logItem, "")
+	if err != nil {
 		fmt.Println("ERROR:", err.Error())
 		return false
 	}
 	h.saveCursor(host, containerName, cursorTS, "")
 
+	if key != "" {
+		logItem = append(logItem, key)
+	}
 	toSend, _ := json.Marshal(logItem)
 	vars.Broadcast(containerName, websocket.TextMessage, toSend)
 	return true

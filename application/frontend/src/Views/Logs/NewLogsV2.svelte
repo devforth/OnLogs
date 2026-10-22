@@ -14,7 +14,7 @@
   import { fade } from "svelte/transition";
   import { handleKeydown, copyCustomText } from "../../utils/functions.js";
   import { findSearchTextInLogs } from "../../Views/Logs/functions.js";
-  import { buildSharedLogUrl } from "./shareLink.js";
+  import { buildSharedLogUrl, readSharedLogHash } from "./shareLink.js";
   import { createLogsViewFlags } from "./shareLinkViewState.js";
 
   import {
@@ -38,6 +38,7 @@
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
   import {
     getLogLineStatus,
+    fitsSearch,
     transformLogString,
     transformLogStringForTimeBudget,
     getLogs,
@@ -52,6 +53,10 @@
   let previousLogs = [];
   let allLogs = $state([]);
   let webSocket = null;
+  let wsRetryTimer = null;
+  let wsRetryDelay = 0;
+  let wsDown = $state(false);
+  let wsCatchUp = $state(false);
   let logsFromWS = $state([]);
 
   let elements = $state([]);
@@ -85,7 +90,10 @@
   // Deliberately an object field: assigning a `let` here would retrigger the very
   // reactive blocks this is meant to hold back.
   const viewFlags = createLogsViewFlags();
-  let pauseWS = false;
+  // Generation of the newest-page load holding live rows back, 0 when none.
+  let pauseWS = 0;
+  let heldWS = [];
+  let windowAtHead = true;
   let newLogsAmount = $state(1);
   let controller = null;
   let signal = null;
@@ -138,13 +146,17 @@
   // The third element is the full storage key: the only unique row identity.
   const logKey = (logItem) => logItem?.at(2) ?? logItem?.at(0) ?? "";
 
+  const rowId = (logItem) => logItem?.at(2) ?? (logItem ? `${logItem[0]}\u0000${logItem[1]}` : "");
+  const sameRow = (a, b) =>
+    a?.[2] && b?.[2] ? a[2] === b[2] : a?.[0] === b?.[0] && a?.[1] === b?.[1];
+
   // Dropping repeats by key makes a recurrence visible as a missing row rather
   // than a doubled one, and lets the {#each} be keyed.
   function dedupeLogs(rows) {
     const seen = new Set();
     const unique = [];
     for (const row of rows) {
-      const key = logKey(row);
+      const key = rowId(row);
       if (key) {
         if (seen.has(key)) {
           continue;
@@ -163,6 +175,7 @@
     visibleLogs = [];
     previousLogs = [];
     logsFromWS = [];
+    heldWS = [];
   }
 
   async function getFullLogsSet() {
@@ -172,7 +185,7 @@
 
     const initialService = $lastChosenService;
     const generation = ++logsLoadGeneration;
-    pauseWS = true;
+    pauseWS = generation;
 
     let acc = [];
     let total_logs_amount = 0;
@@ -180,12 +193,12 @@
     let is_all_logs_processed = false;
 
     try {
-    while (total_logs_amount < limit && !is_all_logs_processed) {
+    while (total_logs_amount < 3 * limit && !is_all_logs_processed) {
       isSearching.set(true);
       const data = await api.getLogs({
         containerName: $lastChosenService,
         hostName: $lastChosenHost,
-        limit: limit * 3,
+        limit: limit * 3 - total_logs_amount,
         search: searchText,
         caseSens: !$store.caseInSensitive,
         status: $chosenStatus,
@@ -201,12 +214,18 @@
       is_all_logs_processed = data.is_end;
       total_logs_amount += data.logs.length;
 
+      // A capped scan is not the end: its cursor resumes past the rows it read.
       if (!data.logs.length) {
+        if (data.scan_capped) {
+          continue;
+        }
         break;
       }
 
-      setLastLogTime(data.logs?.at(0)?.at(0));
-      acc = [...acc, ...data.logs.reverse()];
+      if (!acc.length) {
+        setLastLogTime(data.logs.at(0)?.at(0));
+      }
+      acc = [...data.logs.reverse(), ...acc];
     }
 
     if (generation !== logsLoadGeneration || initialService !== $lastChosenService) {
@@ -219,23 +238,30 @@
     visibleLogs = allLogsCopy.splice(0, limit);
     previousLogs = allLogsCopy.splice(0, limit);
 
+    windowAtHead = true;
     autoscroll = true;
     logsFromWS = [];
+    pauseWS = 0;
+    heldWS.splice(0).forEach((row) => addLogFromWS(row, true));
     } catch (e) {
       console.error(e);
     } finally {
       isSearching.set(false);
       isPending.set(false);
-      pauseWS = false;
+      if (pauseWS === generation) {
+        pauseWS = 0;
+        heldWS.splice(0).forEach((row) => addLogFromWS(row));
+      }
     }
   }
 
   async function checkIfHashIsInUrl() {
+    WSisMuted.set(false);
     getLogsFromWS();
     topFetchIsStarted = true;
     let timeStamp = "";
     if ($urlHash) {
-      timeStamp = $urlHash.slice(1);
+      timeStamp = readSharedLogHash($urlHash);
       await fetchIfHashIsInUrl(timeStamp);
     } else {
       await fetchLogAfterChangeService();
@@ -277,6 +303,7 @@
     const viewLogs = [...getLogsArray(logsWithPrevResponse)].reverse();
     let downLogs = [];
     let upperLogs = [];
+    let atHead = false;
 
     if (viewLogs.length !== limit * 2) {
       const limitDifference = limit * 2 - viewLogs.length;
@@ -288,6 +315,7 @@
         status: $chosenStatus,
       });
       downLogs = [...getLogsArray(prevLogsResponse)];
+      atHead = Boolean(prevLogsResponse?.is_end);
     } else {
       const prevLogsResponse = await api.getPrevLogs({
         containerName: $lastChosenService,
@@ -297,6 +325,7 @@
         status: $chosenStatus,
       });
       downLogs = [...getLogsArray(prevLogsResponse)];
+      atHead = Boolean(prevLogsResponse?.is_end);
 
       if (limit - downLogs.length) {
         const upperLogsResponse = await api.getLogs({
@@ -311,6 +340,7 @@
     }
     if (initialService === $lastChosenService && generation === logsLoadGeneration) {
       allLogs = dedupeLogs([...upperLogs.reverse(), ...viewLogs, ...downLogs]);
+      windowAtHead = atHead;
 
       let allLogsCopy = [...allLogs];
 
@@ -340,10 +370,19 @@
     }, 5000);
   }
 
-  function addLogFromWS(logfromWS) {
+  function addLogFromWS(logfromWS, atBottom = false) {
+    if (pauseWS) {
+      heldWS.push(logfromWS);
+      return;
+    }
+    if (allLogs.some((row) => sameRow(row, logfromWS))) {
+      return;
+    }
     if (
-      (!mouseDownBlockFetch && endOffLogsIntersect) ||
-      (allLogs.length < 3 * limit && endOffLogsIntersect)
+      windowAtHead &&
+      (atBottom ||
+        (!mouseDownBlockFetch && endOffLogsIntersect) ||
+        (allLogs.length < 3 * limit && endOffLogsIntersect))
     ) {
       if (!pauseWS) {
         autoscroll = true;
@@ -381,12 +420,29 @@
     }
     let messageCount = 0;
     let startTime = Date.now();
-    WSisMuted.set(false);
 
-    webSocket = new WebSocket(
+    const socket = new WebSocket(
       `${api.wsUrl}getLogsStream?host=${$lastChosenHost}&id=${$lastChosenService}`
     );
+    webSocket = socket;
 
+    socket.onopen = () => {
+      wsRetryDelay = 0;
+      if (wsDown) {
+        wsDown = false;
+        wsCatchUp = true;
+      }
+    };
+    socket.onclose = () => {
+      // closeWS detaches the socket first, so a deliberate close stops here.
+      if (webSocket !== socket) {
+        return;
+      }
+      webSocket = null;
+      wsDown = true;
+      wsRetryDelay = Math.min(wsRetryDelay * 2 || 1000, 30000);
+      wsRetryTimer = setTimeout(getLogsFromWS, wsRetryDelay);
+    };
     webSocket.onmessage = (event) => {
       if (event.data !== "PING") {
         const logfromWS = JSON.parse(event.data);
@@ -427,20 +483,8 @@
           ) {
             return;
           } else {
-            if (searchText === "") {
+            if (fitsSearch(logfromWS[1], searchText, !$store.caseInSensitive)) {
               addLogFromWS(logfromWS);
-            } else {
-              if ($store.caseInSensitive) {
-                if (logfromWS[1].includes(searchText)) {
-                  addLogFromWS(logfromWS);
-                }
-              } else {
-                if (
-                  logfromWS[1].toLowerCase().includes(searchText.toLowerCase())
-                ) {
-                  addLogFromWS(logfromWS);
-                }
-              }
             }
           }
         }
@@ -500,14 +544,20 @@
   // websocket. Shared with the context modal, which renders rows of its own.
   function copyLinkToLog(logItem) {
     copyCustomText(
-      buildSharedLogUrl(location.href, logItem?.at(0)),
+      buildSharedLogUrl(location.href, logKey(logItem)),
       showCopiedUrlToast
     );
   }
 
   function closeWS() {
+    clearTimeout(wsRetryTimer);
+    wsRetryDelay = 0;
+    wsDown = false;
+    wsCatchUp = false;
     if (webSocket) {
-      webSocket.close();
+      const socket = webSocket;
+      webSocket = null;
+      socket.close();
     }
   }
 
@@ -539,6 +589,7 @@
     controller = new AbortController();
     signal = controller.signal;
     const initialService = $lastChosenService;
+    const generation = logsLoadGeneration;
     isFeatching.set(true);
 
     try {
@@ -570,8 +621,15 @@
         is_all_logs_processed = response.is_end;
         last_key = response.last_processed_key;
 
-        if (initialService !== $lastChosenService || !data.length) {
+        if (
+          initialService !== $lastChosenService ||
+          generation !== logsLoadGeneration ||
+          (!data.length && !response.scan_capped)
+        ) {
           break;
+        }
+        if (!data.length) {
+          continue;
         }
 
         const numberOfNewLogs = data.length;
@@ -610,6 +668,7 @@
   const fetchedTopLogs = async (customStartWith) => {
 
     const initialService = $lastChosenService;
+    const generation = logsLoadGeneration;
 
     if (controller) {
       controller.abort();
@@ -636,7 +695,7 @@
         const data = await getLogs({
           containerName: $lastChosenService,
           search: searchText,
-          limit,
+          limit: limit - total_received_logs_count,
           status: $chosenStatus,
 
           caseSens: !$store.caseInSensitive,
@@ -646,15 +705,15 @@
         is_all_logs_processed = data.is_end;
         last_key = data.last_processed_key;
         total_received_logs_count += data.logs.length;
-        if (!data.logs.length) {
+        if (generation !== logsLoadGeneration || (!data.logs.length && !data.scan_capped)) {
           break;
         }
-        total_logs = [...total_logs, ...data.logs.reverse()];
+        total_logs = [...data.logs.reverse(), ...total_logs];
       }
       isSearching.set(false);
       isFeatching.set(false);
 
-      if (initialService === $lastChosenService) {
+      if (initialService === $lastChosenService && generation === logsLoadGeneration) {
         // Nothing older left: stop asking, or the top loader repeats the same
         // request every tick forever.
         startOfHistoryReached = is_all_logs_processed && !total_logs.length;
@@ -680,6 +739,7 @@
     if (!$isFeatching) {
       if (scrollDirection === "down" && !scrollFromButton && !stopLogsUnfetch) {
         const initialService = $lastChosenService;
+        const generation = logsLoadGeneration;
         isFeatching.set(true);
 
         let last_key = logKey(allLogs.at(-1));
@@ -691,7 +751,7 @@
           const data = await getPrevLogs({
             containerName: $lastChosenService,
             search: searchText,
-            limit,
+            limit: limit - total_received_logs_count,
             status: $chosenStatus,
 
             caseSens: !$store.caseInSensitive,
@@ -701,14 +761,17 @@
           total_received_logs_count += data.logs.length;
           is_all_logs_processed = data.is_end;
           last_key = data.last_processed_key;
-          if (!data.logs.length) {
+          if (generation !== logsLoadGeneration || (!data.logs.length && !data.scan_capped)) {
             break;
           }
           total_logs = [...total_logs, ...data.logs];
         }
         isSearching.set(false);
         isFeatching.set(false);
-        if (initialService === $lastChosenService) {
+        if (initialService === $lastChosenService && generation === logsLoadGeneration) {
+            total_logs = total_logs.filter(
+              (row) => !allLogs.some((shown) => sameRow(shown, row))
+            );
             if (total_logs.length) {
               let numberOfPrev = total_logs.length;
               const logsToVisible = previousLogs.splice(0, numberOfPrev);
@@ -939,7 +1002,8 @@
   });
   $effect(() => {
     (async () => {
-      if (logsFromWS.length && endOffLogsIntersect) {
+      if ((logsFromWS.length || wsCatchUp) && endOffLogsIntersect) {
+        wsCatchUp = false;
         await getFullLogsSet();
         logsFromWS = [];
       }
@@ -948,6 +1012,7 @@
 </script>
 
 <LogsViewHeder bind:searchText {searchResetVersion} />
+{#if wsDown}<p class="liveTailDown">Live tail disconnected. Reconnecting…</p>{/if}
 {#if pinedDate}<div>
     {#if pinedBadgeIsVisible || endOffLogsIntersect}<div
         transition:fade={{ duration: 250 }}
@@ -976,7 +1041,7 @@
         >
           <div id="startOfLogs" bind:this={startOfLogs}></div>
         </IntersectionObserver>
-        {#each allLogs as logItem, i (logKey(logItem) || i)}
+        {#each allLogs as logItem, i (rowId(logItem) || i)}
           {#if transformLogStringForTimeBudget(logItem, $store.UTCtime) !== transformLogStringForTimeBudget(allLogs[i - 1], $store.UTCtime) && i - 1 >= 0}
             <div class="timeBudgeContainer">
               <div class="timeBadgeWrapper">
@@ -997,7 +1062,7 @@
             bind:this={elements[i]}
           >
             <div
-              class="chosenString  {$chosenLogsString === logItem?.at(0)
+              class="chosenString  {[logItem?.at(0), logItem?.at(2)].includes($chosenLogsString)
                 ? 'chosen'
                 : ''}"
             >

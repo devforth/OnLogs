@@ -34,6 +34,17 @@ export const getLogLineStatus = (logLine = "") => {
   return level === "other" ? "" : level;
 };
 
+// Mirrors containerdb.normalizeForSearch / fitsNormalizedSearch in Go.
+const normalizeForSearch = (value, caseSens) => {
+  const text = stripAnsi(value).replace(/\s+/g, " ").trim();
+  return caseSens ? text : text.toLowerCase();
+};
+
+export const fitsSearch = (logLine = "", search = "", caseSens = false) => {
+  const needle = normalizeForSearch(search, caseSens);
+  return !needle || normalizeForSearch(logLine, caseSens).includes(needle);
+};
+
 // Milliseconds are what distinguish two adjacent rows, so they must survive; and
 // the zone offset has to come from the timestamp itself, not from module-load
 // time, or anything across a DST boundary is an hour out.

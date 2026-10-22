@@ -232,7 +232,7 @@ func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 	}
 
 	statistics.EnsureWorker(context.Background(), logItem.Host, logItem.Container)
-	duplicate, err := containerdb.PutLogEvent(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine, logItem.EventID)
+	key, duplicate, err := containerdb.PutLogEvent(util.GetDB(logItem.Host, logItem.Container, "logs"), logItem.Host, logItem.Container, logItem.LogLine, logItem.EventID)
 	if err != nil {
 		defer w.WriteHeader(http.StatusInternalServerError)
 		panic(err)
@@ -241,7 +241,11 @@ func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	to_send, _ := json.Marshal([]string{logItem.LogLine[0], logItem.LogLine[1]})
+	frame := []string{logItem.LogLine[0], logItem.LogLine[1]}
+	if key != "" {
+		frame = append(frame, key)
+	}
+	to_send, _ := json.Marshal(frame)
 	vars.Broadcast(logItem.Host+"/"+logItem.Container, websocket.TextMessage, to_send)
 }
 
@@ -747,7 +751,8 @@ func (h *RouteController) GetLogWithPrev(w http.ResponseWriter, req *http.Reques
 	if params.Get("host") == "" {
 		panic("Host is not mentioned!")
 	}
-	writeJSON(w, http.StatusOK, containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, params.Get("startWith"), false, statusFilter(params)))
+	startWith := containerdb.LastKeyAt(params.Get("host"), params.Get("id"), params.Get("startWith"))
+	writeJSON(w, http.StatusOK, containerdb.GetLogs(false, true, params.Get("host"), params.Get("id"), "", limit, startWith, false, statusFilter(params)))
 }
 
 var addConnection = vars.AddConnection

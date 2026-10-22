@@ -316,22 +316,22 @@ func LogLineCounts() map[string]map[string]uint64 {
 }
 
 func PutLogMessage(db *leveldb.DB, host string, container string, message_item []string) error {
-	_, err := PutLogEvent(db, host, container, message_item, "")
+	_, _, err := PutLogEvent(db, host, container, message_item, "")
 	return err
 }
 
 var eventMu sync.Mutex
 
-func PutLogEvent(db *leveldb.DB, host string, container string, message_item []string, eventID string) (duplicate bool, err error) {
+func PutLogEvent(db *leveldb.DB, host string, container string, message_item []string, eventID string) (logKey string, duplicate bool, err error) {
 	if db == nil {
-		return false, fmt.Errorf("no database for %s/%s", host, container)
+		return "", false, fmt.Errorf("no database for %s/%s", host, container)
 	}
 	if len(message_item) < 2 {
-		return false, fmt.Errorf("malformed log line for %s/%s", host, container)
+		return "", false, fmt.Errorf("malformed log line for %s/%s", host, container)
 	}
 	if len(message_item[0]) < 30 {
 		fmt.Println("WARNING: got broken timestamp: ", "timestamp: "+message_item[0], "message: "+message_item[1])
-		return false, nil
+		return "", false, nil
 	}
 
 	if host == "" {
@@ -342,7 +342,6 @@ func PutLogEvent(db *leveldb.DB, host string, container string, message_item []s
 
 	location := host + "/" + container
 	status_key := GetLogStatusKey(message_item[1])
-	var logKey string
 	if eventID == "" {
 		logKey = buildLogKey(message_item[0])
 	} else {
@@ -350,7 +349,7 @@ func PutLogEvent(db *leveldb.DB, host string, container string, message_item []s
 		eventMu.Lock()
 		defer eventMu.Unlock()
 		if stored, _ := db.Has([]byte(logKey), nil); stored {
-			return true, nil
+			return logKey, true, nil
 		}
 	}
 
@@ -378,7 +377,23 @@ func PutLogEvent(db *leveldb.DB, host string, container string, message_item []s
 			err = db.Put([]byte(logKey), []byte(message_item[1]), nil)
 		}
 	}
-	return false, err
+	return logKey, false, err
+}
+
+func LastKeyAt(host string, container string, startWith string) string {
+	if startWith == "" || strings.Contains(startWith, " +") {
+		return startWith
+	}
+	logsDB := util.GetDBIfExists(host, container, "logs")
+	if logsDB == nil {
+		return startWith
+	}
+	iter := logsDB.NewIterator(leveldbUtil.BytesPrefix([]byte(startWith+" +")), nil)
+	defer iter.Release()
+	if iter.Last() {
+		return string(iter.Key())
+	}
+	return startWith
 }
 
 func normalizeForSearch(s string, caseSensetivity bool) string {
