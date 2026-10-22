@@ -33,10 +33,11 @@ export function bucketLabel(bucket, unit) {
   if (unit === "hour") {
     return date.toLocaleString([], { hour: "2-digit", minute: "2-digit" });
   }
+  // Day and month buckets are UTC on the backend.
   if (unit === "day") {
-    return date.toLocaleString([], { month: "short", day: "2-digit" });
+    return date.toLocaleString([], { month: "short", day: "2-digit", timeZone: "UTC" });
   }
-  return date.toLocaleString([], { month: "short", year: "numeric" });
+  return date.toLocaleString([], { month: "short", year: "numeric", timeZone: "UTC" });
 }
 
 export function totalLines(buckets = {}) {
