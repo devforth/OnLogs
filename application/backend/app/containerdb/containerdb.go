@@ -507,6 +507,15 @@ func searchInit(iter iterator.Iterator, startWith string, getPrev bool) bool {
 	return iter.Last()
 }
 
+func rowStatus(statusDb *leveldb.DB, key []byte, value string) string {
+	if statusDb != nil {
+		if stored, err := statusDb.Get(key, nil); err == nil {
+			return string(stored)
+		}
+	}
+	return GetLogStatusKey(value)
+}
+
 func getDateTimeFromKey(key string) string {
 	return strings.Split(key, " +")[0]
 }
@@ -588,12 +597,9 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 		}
 		value := string(iter.Value())
 
-		if status != nil {
-			statusValue, err := statusDb.Get(key, nil)
-			if err != nil || string(statusValue) != *status {
-				move_direction()
-				continue
-			}
+		if status != nil && rowStatus(statusDb, key, value) != *status {
+			move_direction()
+			continue
 		}
 
 		if !fitsNormalizedSearch(value, normalizedMessage, caseSensetivity) {
