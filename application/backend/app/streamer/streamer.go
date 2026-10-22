@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/devforth/OnLogs/app/agent"
@@ -16,6 +17,9 @@ import (
 
 type StreamController struct {
 	DaemonService *daemon.DaemonService
+
+	// Keeps a container event from landing between reconcile's list read and its stops.
+	mu sync.Mutex
 }
 
 func (ctrl *StreamController) ensureStreams(ctx context.Context, containers []string) {
@@ -27,6 +31,8 @@ func (ctrl *StreamController) ensureStreams(ctx context.Context, containers []st
 }
 
 func (ctrl *StreamController) reconcileStreams(ctx context.Context) {
+	ctrl.mu.Lock()
+	defer ctrl.mu.Unlock()
 	containers := vars.DockerContainerList()
 	current := map[string]struct{}{}
 	for _, container := range containers {
@@ -49,14 +55,18 @@ func (ctrl *StreamController) handleContainerEvent(ctx context.Context, msg even
 		return
 	}
 
+	ctrl.mu.Lock()
+	defer ctrl.mu.Unlock()
 	switch msg.Action {
 	case "start", "restart", "unpause":
 		vars.AddDockerContainer(containerName)
 		statistics.EnsureWorker(ctx, util.GetHost(), containerName)
 		ctrl.DaemonService.EnsureStream(ctx, containerName)
 	case "die", "stop", "pause":
+		vars.RemoveDockerContainer(containerName)
 		ctrl.DaemonService.StopStream(containerName)
 	case "destroy":
+		vars.RemoveDockerContainer(containerName)
 		ctrl.DaemonService.StopStream(containerName)
 		statistics.StopWorker(util.GetHost(), containerName)
 	}
@@ -105,7 +115,8 @@ func (ctrl *StreamController) StreamLogs(ctx context.Context) {
 		return
 	}
 
-	vars.SetDockerContainers(ctrl.DaemonService.GetContainersList(ctx))
+	since := vars.ContainerEventSeq()
+	vars.SetDockerContainers(ctrl.DaemonService.GetContainersList(ctx), since)
 	ctrl.reconcileStreams(ctx)
 	if util.IsAgentMode() {
 		agent.SendInitRequest(vars.DockerContainerList())
@@ -121,7 +132,8 @@ func (ctrl *StreamController) StreamLogs(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-reconcileTicker.C:
-			vars.SetDockerContainers(ctrl.DaemonService.GetContainersList(ctx))
+			since := vars.ContainerEventSeq()
+			vars.SetDockerContainers(ctrl.DaemonService.GetContainersList(ctx), since)
 			ctrl.reconcileStreams(ctx)
 			if util.IsAgentMode() {
 				agent.SendUpdate(vars.DockerContainerList())

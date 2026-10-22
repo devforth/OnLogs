@@ -1,6 +1,7 @@
 package vars
 
 import (
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -14,7 +15,8 @@ func TestSharedStateSurvivesConcurrentAccess(t *testing.T) {
 		func() { AddActiveStream("container") },
 		func() { RemoveActiveStream("container") },
 		func() { AddDockerContainer("container") },
-		func() { SetDockerContainers([]string{"a", "b"}) },
+		func() { RemoveDockerContainer("container") },
+		func() { SetDockerContainers([]string{"a", "b"}, ContainerEventSeq()) },
 		func() { SetAgentContainers("host", []string{"a"}) },
 		func() { QueueDelete("host", "container") },
 	}
@@ -59,5 +61,27 @@ func TestQueuedDeletesAreKeptPerHostAndDrainedOnce(t *testing.T) {
 	}
 	if again := TakeQueuedDeletes(host); len(again) != 0 {
 		t.Fatalf("the queue was not drained: %v", again)
+	}
+}
+
+func TestDockerContainersKeepEventsNewerThanTheList(t *testing.T) {
+	SetDockerContainers(nil, ContainerEventSeq())
+	AddDockerContainer("started-before-request")
+	since := ContainerEventSeq()
+	AddDockerContainer("started")
+	AddDockerContainer("short-job")
+	RemoveDockerContainer("short-job")
+	RemoveDockerContainer("died")
+
+	SetDockerContainers([]string{"listed", "died"}, since)
+	got := DockerContainerList()
+	slices.Sort(got)
+	if !slices.Equal(got, []string{"listed", "started"}) {
+		t.Fatalf("a list requested before the events undid them: %v", got)
+	}
+
+	SetDockerContainers([]string{"listed"}, ContainerEventSeq())
+	if got := DockerContainerList(); !slices.Equal(got, []string{"listed"}) {
+		t.Fatalf("a list requested after the events did not replace them: %v", got)
 	}
 }

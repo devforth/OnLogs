@@ -48,21 +48,59 @@ func DockerContainerList() []string {
 	return append([]string{}, DockerContainers...)
 }
 
-func SetDockerContainers(containers []string) {
+var (
+	containerEventSeq uint64
+	containerEvents   = map[string]containerEvent{}
+)
+
+type containerEvent struct {
+	seq     uint64
+	running bool
+}
+
+// Read just before requesting the list passed to SetDockerContainers.
+func ContainerEventSeq() uint64 {
+	stateMutex.RLock()
+	defer stateMutex.RUnlock()
+	return containerEventSeq
+}
+
+func SetDockerContainers(containers []string, since uint64) {
 	stateMutex.Lock()
 	defer stateMutex.Unlock()
-	DockerContainers = append([]string{}, containers...)
+	list := slices.Clone(containers)
+	for container, event := range containerEvents {
+		switch {
+		case event.seq <= since:
+			delete(containerEvents, container)
+		case !event.running:
+			list = slices.DeleteFunc(list, func(existing string) bool { return existing == container })
+		case !slices.Contains(list, container):
+			list = append(list, container)
+		}
+	}
+	DockerContainers = list
 }
 
 func AddDockerContainer(container string) {
 	stateMutex.Lock()
 	defer stateMutex.Unlock()
+	containerEventSeq++
+	containerEvents[container] = containerEvent{seq: containerEventSeq, running: true}
 	for _, existing := range DockerContainers {
 		if existing == container {
 			return
 		}
 	}
 	DockerContainers = append(DockerContainers, container)
+}
+
+func RemoveDockerContainer(container string) {
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+	containerEventSeq++
+	containerEvents[container] = containerEvent{seq: containerEventSeq, running: false}
+	DockerContainers = slices.DeleteFunc(DockerContainers, func(existing string) bool { return existing == container })
 }
 
 func SetAgentContainers(host string, containers []string) {
