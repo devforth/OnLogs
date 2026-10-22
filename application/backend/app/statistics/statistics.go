@@ -4,12 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
+)
+
+// Held by a flush across save and reset, and by readers of both sources.
+var flushMu sync.RWMutex
+
+// One flush per location: two reading the same cursor count lines twice.
+var flushLocks sync.Map
+
+var (
+	afterStatsRead   func()
+	beforeStatsSave  func(location string)
+	beforeStatsReset func(location string)
 )
 
 // The caller must never receive the live map: it is written on every log line.
@@ -33,6 +47,9 @@ func restartStats(host string, container string) {
 	if container != "" {
 		location += "/" + container
 	}
+	lock, _ := flushLocks.LoadOrStore(location, new(sync.Mutex))
+	lock.(*sync.Mutex).Lock()
+	defer lock.(*sync.Mutex).Unlock()
 
 	last_stat_time := getLastStatTime(current_db)
 	if last_stat_time == "" {
@@ -40,19 +57,39 @@ func restartStats(host string, container string) {
 		// clock is ahead of lines docker has not replayed yet, and the forward
 		// scan would then seek straight past them.
 		calc_stat, newest := collectLogs(host, container, "", false)
+		flushMu.Lock()
+		defer flushMu.Unlock()
 		if newest != "" {
 			saveStats(current_db, calc_stat, newest)
 		}
 	} else {
 		calc_stat, new_datetime := collectLogs(host, container, last_stat_time, true)
+		flushMu.Lock()
+		defer flushMu.Unlock()
 		// Nothing new: saving would rewrite the previous interval's record with
 		// an empty one and move the cursor off the log timeline onto the clock.
 		if last_stat_time != new_datetime {
+			if beforeStatsSave != nil {
+				beforeStatsSave(location)
+			}
 			saveStats(current_db, calc_stat, new_datetime)
 		}
 	}
 
+	if beforeStatsReset != nil {
+		beforeStatsReset(location)
+	}
 	resetInMemoryStats(location)
+}
+
+func readStats(db *leveldb.DB, location string) (map[string]uint64, iterator.Iterator) {
+	flushMu.RLock()
+	live, iter := snapshotCounter(location), db.NewIterator(nil, nil)
+	flushMu.RUnlock()
+	if afterStatsRead != nil {
+		afterStatsRead()
+	}
+	return live, iter
 }
 
 func getLastStatTime(db *leveldb.DB) string {
@@ -138,18 +175,16 @@ func RunStatisticForContainerWithContext(ctx context.Context, host string, conta
 
 func GetStatisticsByService(host string, service string, value int) map[string]uint64 {
 	location := host + "/" + service
-	to_return := snapshotCounter(location)
-
 	if value < 1 {
-		return to_return
+		return snapshotCounter(location)
 	}
 
 	searchTo := time.Now().Add(-(time.Hour * time.Duration(value/2))).UTC()
 	current_db := util.GetDBIfExists(host, service, "statistics")
 	if current_db == nil {
-		return to_return
+		return snapshotCounter(location)
 	}
-	iter := current_db.NewIterator(nil, nil)
+	to_return, iter := readStats(current_db, location)
 	defer iter.Release()
 	iter.Last()
 
@@ -192,7 +227,7 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 	if statsDB == nil {
 		return to_return
 	}
-	iter := statsDB.NewIterator(nil, nil)
+	live, iter := readStats(statsDB, location)
 	iter.Last()
 	defer iter.Release()
 	hasPrev := true
@@ -220,7 +255,7 @@ func GetChartData(host string, service string, unit string, uAmount int) map[str
 		hasPrev = iter.Prev()
 	}
 
-	to_return["now"] = snapshotCounter(location)
+	to_return["now"] = live
 
 	return to_return
 }
