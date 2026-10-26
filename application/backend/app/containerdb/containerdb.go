@@ -388,6 +388,7 @@ func MaybeScheduleCleanup(host string, container string) {
 
 		isCleanupRunning = false
 		nextCleanup = time.Now().Add(cleanupCooldown)
+		cleanupPending = cleanupPending || err != nil
 		time.AfterFunc(cleanupCooldown, func() {
 			logCleanupMu.Lock()
 			pending := cleanupPending

@@ -440,3 +440,56 @@ func TestRetentionDeletesNothingWithoutRoomToCompact(t *testing.T) {
 		t.Errorf("retention deleted %d rows it had no room to reclaim", len(before)-len(after))
 	}
 }
+
+func TestRetentionRetriesAFailedCheckAfterTheCooldownWithoutAnotherLine(t *testing.T) {
+	holdCleanup(t)
+	host, c := "FailedCheckHost", "idle"
+	const limit = 256 * 1024
+	t.Setenv("MAX_LOGS_SIZE", strconv.Itoa(limit)+"B")
+	full := new(atomic.Bool)
+	full.Store(true)
+	saved := util.FreeDiskBytes
+	t.Cleanup(func() { util.FreeDiskBytes = saved })
+	util.FreeDiskBytes = func() (uint64, error) {
+		if full.Load() {
+			return 0, nil
+		}
+		return 1 << 40, nil
+	}
+	logCleanupMu.Lock()
+	savedCooldown := cleanupCooldown
+	cleanupCooldown = time.Second
+	logCleanupMu.Unlock()
+	t.Cleanup(func() {
+		logCleanupMu.Lock()
+		cleanupCooldown = savedCooldown
+		logCleanupMu.Unlock()
+	})
+	seedRetentionRows(t, host, []retentionSeed{{c, 250, 0}})
+	idle := func() bool {
+		logCleanupMu.Lock()
+		defer logCleanupMu.Unlock()
+		return !isCleanupRunning && !nextCleanup.IsZero()
+	}
+	waitFor := func(cond func() bool) bool {
+		for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(5 * time.Millisecond) {
+			if cond() {
+				return true
+			}
+		}
+		return false
+	}
+
+	logCleanupMu.Lock()
+	cleanupPending, nextCleanup = false, time.Time{}
+	logCleanupMu.Unlock()
+	MaybeScheduleCleanup(host, c)
+	if !waitFor(idle) || len(logKeys(host, c)) != 250 {
+		t.Fatal("precondition: the check on the full disk did not end without deleting")
+	}
+
+	full.Store(false)
+	if !waitFor(func() bool { return idle() && prunableBytes(host, c) <= limit }) {
+		t.Fatalf("the idle store is still %d bytes against a %d byte limit after space was freed", prunableBytes(host, c), limit)
+	}
+}
