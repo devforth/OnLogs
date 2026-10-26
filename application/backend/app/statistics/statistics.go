@@ -3,6 +3,7 @@ package statistics
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -73,7 +74,7 @@ func restartStats(host string, container string) {
 			// Late counts are dropped: the full scan counted every stored row.
 			containerdb.TakeLateStats(location, key)
 			resume()
-			current_db.Write(batch, nil)
+			writeBatch(host, container, current_db, batch)
 		}
 	} else {
 		hours, new_datetime := collectLogs(host, container, last_stat_time, true)
@@ -95,7 +96,7 @@ func restartStats(host string, container string) {
 			if beforeStatsSave != nil {
 				beforeStatsSave(location)
 			}
-			current_db.Write(batch, nil)
+			current_db = writeBatch(host, container, current_db, batch)
 		}
 		if len(late) > 0 {
 			addStats(current_db, late, last_stat_time)
@@ -106,6 +107,17 @@ func restartStats(host string, container string) {
 		beforeStatsReset(location)
 	}
 	resetInMemoryStats(location)
+}
+
+func writeBatch(host, container string, db *leveldb.DB, batch *leveldb.Batch) *leveldb.DB {
+	// Reopening a closed handle would recreate a deleted service.
+	if err := db.Write(batch, nil); err != nil && !errors.Is(err, leveldb.ErrClosed) {
+		if reopened := util.ReopenDB(host, container, "statistics", db); reopened != nil {
+			reopened.Write(batch, nil)
+			return reopened
+		}
+	}
+	return db
 }
 
 func readStats(db *leveldb.DB, location string) (map[string]uint64, iterator.Iterator) {

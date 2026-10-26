@@ -80,6 +80,25 @@ func TestStoppedWorkerFinalFlushDoesNotRecreateADeletedService(t *testing.T) {
 	}
 }
 
+func TestFlushDoesNotRecreateAServiceDeletedBeforeItsWrite(t *testing.T) {
+	host, svc := "DeletedMidFlushHost", "svc"
+	dir := newServiceWithLine(t, host, svc)
+	putMetaLine(t, host, svc)
+	t.Cleanup(func() { SetBeforeStatsSave(nil) })
+	SetBeforeStatsSave(func(location string) {
+		if location == WorkerKey(host, svc) {
+			containerdb.DeleteContainer(host, svc, true)
+		}
+	})
+
+	restartStats(host, svc)
+
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		entries, _ := os.ReadDir(dir)
+		t.Fatalf("a flush recreated the service deleted before its write: %v %v", err, entries)
+	}
+}
+
 func TestClearedServiceCountsLinesLoggedAfterTheClear(t *testing.T) {
 	host, svc := "ClearedHost", "svc"
 	newServiceWithLine(t, host, svc)
