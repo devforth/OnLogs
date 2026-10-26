@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -393,6 +394,34 @@ func TestRenameWhilePausedKeepsTheReplacementsLines(t *testing.T) {
 	}
 	if got := storedCount("tp", "old-after"); got != 0 {
 		t.Errorf("the renamed container's line was stored under its old name %d times", got)
+	}
+}
+
+func TestSecondRenameWhileTheReusedNameDrainsKeepsStreaming(t *testing.T) {
+	fd, ctrl, ctx := newRenameFixture(t, "sd-a", "sd-b", "sd-c")
+	x, a := fd.add("sd-b"), fd.add("sd-a")
+	ctrl.handleContainerEvent(ctx, containerEvent("start", x))
+	ctrl.handleContainerEvent(ctx, containerEvent("start", a))
+	fd.write(a, "a-0")
+	waitStored(t, "sd-a", "a-0")
+	lagged := fd.stamp()
+
+	die, destroy := containerEvent("die", x), containerEvent("destroy", x)
+	fd.update(func() { x.name = "removed-x" })
+	ctrl.handleContainerEvent(ctx, die)
+	ctrl.handleContainerEvent(ctx, destroy)
+	fd.update(func() { a.name = "sd-b" })
+	ctrl.handleContainerEvent(ctx, containerEvent("rename", a, "oldName", "/sd-a"))
+	fd.update(func() { a.name = "sd-c" })
+	ctrl.handleContainerEvent(ctx, containerEvent("rename", a, "oldName", "/sd-b"))
+	fd.update(func() { a.lines = append(a.lines, fakeLine{lagged, "a-lagged"}) })
+	fd.write(a, "a-1")
+	waitStored(t, "sd-c", "a-lagged", "a-1")
+
+	fd.update(func() { x.running = false })
+	waitStored(t, "sd-b", "ONLOGS: Container listening stopped! (EOF)")
+	if slices.Contains(vars.ActiveStreams(), "sd-b") {
+		t.Error("the drained name was attached again after the container left it")
 	}
 }
 
