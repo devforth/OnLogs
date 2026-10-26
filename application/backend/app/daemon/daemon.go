@@ -332,7 +332,9 @@ func (h *DaemonService) saveCursor(host, containerName string, ts time.Time, sen
 		batch.Put([]byte(sentAtCursorKey), []byte(strings.Join(append(sentAtCursor(db, cursor), sent), "\n")))
 	}
 	if err := db.Write(batch, nil); err != nil {
-		fmt.Println("ERROR: unable to save stream cursor:", err)
+		if db = util.ReopenDB(host, containerName, "streamstate", db); db == nil || db.Write(batch, nil) != nil {
+			fmt.Println("ERROR: unable to save stream cursor:", err)
+		}
 	}
 }
 
