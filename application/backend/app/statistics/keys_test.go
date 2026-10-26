@@ -8,6 +8,7 @@ import (
 	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func TestSavedStatisticsKeysParseAsTimestamps(t *testing.T) {
@@ -74,8 +75,10 @@ func TestSaveStatsAlwaysWritesAParseableKey(t *testing.T) {
 	}
 
 	fullLogKey := "2026-02-10T12:44:02.123456789Z +1786097928311912188-9"
-	saveStats(db, containerdb.NewStatCounter(), fullLogKey)
-	saveStats(db, containerdb.NewStatCounter(), "not a timestamp at all")
+	batch := new(leveldb.Batch)
+	saveStats(batch, containerdb.NewStatCounter(), fullLogKey)
+	saveStats(batch, containerdb.NewStatCounter(), "not a timestamp at all")
+	db.Write(batch, nil)
 
 	iter := db.NewIterator(nil, nil)
 	defer iter.Release()

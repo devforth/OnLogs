@@ -22,6 +22,7 @@ var flushLocks sync.Map
 
 var (
 	afterStatsRead   func()
+	afterStatsScan   func(location string)
 	beforeStatsSave  func(location string)
 	beforeStatsReset func(location string)
 )
@@ -39,7 +40,8 @@ func snapshotCounter(location string) map[string]uint64 {
 }
 
 func restartStats(host string, container string) {
-	current_db := util.GetDB(host, container, "statistics")
+	// A deleted service stays deleted until a log line or agent report recreates it.
+	current_db := util.GetDBIfExists(host, container, "statistics")
 	if current_db == nil {
 		return
 	}
@@ -51,28 +53,52 @@ func restartStats(host string, container string) {
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
 
+	// Writes wait for the new cursor, so each row is scanned or counted late.
+	resume := sync.OnceFunc(containerdb.PauseIngest(location))
+	defer resume()
 	last_stat_time := getLastStatTime(current_db)
+	batch := new(leveldb.Batch)
 	if last_stat_time == "" {
 		// Anchored to the newest line actually seen, never to the clock: the
 		// clock is ahead of lines docker has not replayed yet, and the forward
 		// scan would then seek straight past them.
-		calc_stat, newest := collectLogs(host, container, "", false)
+		hours, newest := collectLogs(host, container, "", false)
 		flushMu.Lock()
 		defer flushMu.Unlock()
+		if afterStatsScan != nil {
+			afterStatsScan(location)
+		}
 		if newest != "" {
-			saveStats(current_db, calc_stat, newest)
+			key := saveHours(batch, hours)
+			// Late counts are dropped: the full scan counted every stored row.
+			containerdb.TakeLateStats(location, key)
+			resume()
+			current_db.Write(batch, nil)
 		}
 	} else {
-		calc_stat, new_datetime := collectLogs(host, container, last_stat_time, true)
+		hours, new_datetime := collectLogs(host, container, last_stat_time, true)
 		flushMu.Lock()
 		defer flushMu.Unlock()
+		if afterStatsScan != nil {
+			afterStatsScan(location)
+		}
 		// Nothing new: saving would rewrite the previous interval's record with
 		// an empty one and move the cursor off the log timeline onto the clock.
+		cursor, key := last_stat_time, ""
 		if last_stat_time != new_datetime {
+			key = saveHours(batch, hours)
+			cursor = max(cursor, key)
+		}
+		late := containerdb.TakeLateStats(location, cursor)
+		resume()
+		if key != "" {
 			if beforeStatsSave != nil {
 				beforeStatsSave(location)
 			}
-			saveStats(current_db, calc_stat, new_datetime)
+			current_db.Write(batch, nil)
+		}
+		if len(late) > 0 {
+			addStats(current_db, late, last_stat_time)
 		}
 	}
 
@@ -103,10 +129,15 @@ func getLastStatTime(db *leveldb.DB) string {
 	return string(iter.Key())
 }
 
+type hourStats struct {
+	newest string
+	stats  map[string]uint64
+}
+
 // A forward scan returns the cursor it finished on; a backward scan returns the
 // newest key it saw, which is where a first cursor belongs.
-func collectLogs(host, container, cursor string, forward bool) (map[string]uint64, string) {
-	stats := containerdb.NewStatCounter()
+func collectLogs(host, container, cursor string, forward bool) (map[string]*hourStats, string) {
+	hours := map[string]*hourStats{}
 	newest := ""
 
 	for {
@@ -121,7 +152,19 @@ func collectLogs(host, container, cursor string, forward bool) (map[string]uint6
 		}
 
 		for _, log := range logs {
-			stats[containerdb.GetLogStatusKey(log[1])]++
+			hour := ""
+			if _, err := time.Parse(time.RFC3339Nano, log[0]); err == nil {
+				hour = strings.Split(log[0], ":")[0]
+			}
+			h := hours[hour]
+			if h == nil {
+				h = &hourStats{stats: containerdb.NewStatCounter()}
+				hours[hour] = h
+			}
+			h.stats[containerdb.GetLogStatusKey(log[1])]++
+			if log[2] > h.newest {
+				h.newest = log[2]
+			}
 		}
 
 		cursor = page["last_processed_key"].(string)
@@ -130,18 +173,61 @@ func collectLogs(host, container, cursor string, forward bool) (map[string]uint6
 		}
 	}
 
-	if forward {
-		return stats, cursor
+	if odd := hours[""]; odd != nil {
+		top := odd
+		for _, h := range hours {
+			if h.newest > top.newest {
+				top = h
+			}
+		}
+		if top != odd {
+			for level, count := range odd.stats {
+				top.stats[level] += count
+			}
+			delete(hours, "")
+		}
 	}
-	return stats, newest
+
+	if forward {
+		return hours, cursor
+	}
+	return hours, newest
+}
+
+func saveHours(batch *leveldb.Batch, hours map[string]*hourStats) string {
+	newest := ""
+	for _, h := range hours {
+		newest = max(newest, saveStats(batch, h.stats, h.newest))
+	}
+	return newest
 }
 
 // Statistics are keyed by time and read back with time.Parse, so a full log key
 // (which carries a " +<nano>-<counter>" suffix) must be reduced to its timestamp.
-func saveStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
+func statKey(timestamp string) string {
 	key := strings.Split(timestamp, " +")[0]
 	if _, err := time.Parse(time.RFC3339Nano, key); err != nil {
 		key = time.Now().UTC().Format(time.RFC3339Nano)
+	}
+	return key
+}
+
+func saveStats(batch *leveldb.Batch, stats map[string]uint64, timestamp string) string {
+	key := statKey(timestamp)
+	to_put, _ := json.Marshal(stats)
+	batch.Put([]byte(key), to_put)
+	return key
+}
+
+func addStats(db *leveldb.DB, stats map[string]uint64, timestamp string) {
+	key := statKey(timestamp)
+	if old, err := db.Get([]byte(key), nil); err == nil {
+		record := map[string]uint64{}
+		if json.Unmarshal(old, &record) == nil {
+			for level, count := range record {
+				stats[level] += count
+			}
+		}
 	}
 
 	to_put, _ := json.Marshal(stats)
