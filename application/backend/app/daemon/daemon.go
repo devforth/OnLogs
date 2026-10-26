@@ -581,16 +581,18 @@ func (h *DaemonService) StopRenamedStream(oldName, newName string) bool {
 	if !pending {
 		cursor = h.storedThrough(util.GetHost(), oldName)
 	}
-	delete(h.renamedCursors, oldName)
 	_, streaming := h.streamCancels[newName]
 	if _, draining := h.draining[newName]; !streaming || draining {
 		h.renamedCursors[newName] = cursor
 	}
+	if moved {
+		// The waiting start may be the previous holder's own, so it stays.
+		return true
+	}
+	delete(h.renamedCursors, oldName)
 	h.draining[oldName] = nil
 	vars.RemoveActiveStream(oldName)
-	if !moved {
-		cancel(errRenamed)
-	}
+	cancel(errRenamed)
 	return true
 }
 

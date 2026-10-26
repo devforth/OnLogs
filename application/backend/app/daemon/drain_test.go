@@ -247,3 +247,51 @@ func TestShutdownDuringDrainWritesNoStoppedRow(t *testing.T) {
 		}
 	}
 }
+
+func TestRenameThroughADrainingNameKeepsItsWaitingStart(t *testing.T) {
+	x, a := "drain-pass-x", "drain-pass-a"
+	var xAttaches atomic.Int32
+	release := make(chan struct{})
+	d := newDrainService(t, x, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.docker.multiplexed-stream")
+		w.(http.Flusher).Flush()
+		if strings.Contains(r.URL.Path, "/"+x+"/") && xAttaches.Add(1) == 1 {
+			select {
+			case <-release:
+			case <-r.Context().Done():
+			}
+			return
+		}
+		<-r.Context().Done()
+	})
+	t.Cleanup(func() {
+		waitUntil(t, "stream released", func() bool { return !streamRegistered(d, a) })
+		for _, kind := range []string{"logs", "streamstate", "statistics", "statuses"} {
+			util.ResetDB(util.GetHost(), a, kind)
+		}
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	d.EnsureStream(ctx, x)
+	d.EnsureStream(ctx, a)
+	d.StopStream(x)
+	d.EnsureStream(ctx, x)
+	if d.StopRenamedStream(x, "drain-pass-tmp") {
+		t.Fatal("a rename was handled while the container's own start waited")
+	}
+	if !d.StopRenamedStream(a, x) {
+		t.Fatal("rename onto the draining name was ignored")
+	}
+	d.EnsureStream(ctx, x)
+	if !d.StopRenamedStream(x, a) {
+		t.Fatal("rename off the draining name was ignored")
+	}
+	d.EnsureStream(ctx, a)
+	if d.StopRenamedStream("drain-pass-tmp", x) {
+		t.Fatal("a rename from a name with no stream was handled")
+	}
+
+	close(release)
+	waitUntil(t, "x attached again once its old stream ended", func() bool { return xAttaches.Load() == 2 })
+}

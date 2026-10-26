@@ -420,9 +420,7 @@ func TestSecondRenameWhileTheReusedNameDrainsKeepsStreaming(t *testing.T) {
 
 	fd.update(func() { x.running = false })
 	waitStored(t, "sd-b", "ONLOGS: Container listening stopped! (EOF)")
-	if slices.Contains(vars.ActiveStreams(), "sd-b") {
-		t.Error("the drained name was attached again after the container left it")
-	}
+	waitFor(t, "the drained name released", func() bool { return !slices.Contains(vars.ActiveStreams(), "sd-b") })
 }
 
 func TestRestartAfterATickSawTheRenameFirstStoresEachLineOnce(t *testing.T) {
