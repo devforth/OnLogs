@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/devforth/OnLogs/app/groups"
@@ -61,6 +62,46 @@ func TestEditUserRejectsAnEmptyPassword(t *testing.T) {
 	}
 	if !userdb.CheckUserPassword("emptyrotate", "a-real-password") {
 		t.Error("the original password stopped working")
+	}
+}
+
+func TestCreateUserRejectsCredentialsNobodyCanLogInWith(t *testing.T) {
+	for _, c := range []map[string]string{
+		{"login": "", "password": "a-password"},
+		{"login": " leading-space", "password": "a-password"},
+		{"login": "trailing-space ", "password": "a-password"},
+		{"login": "empty-password", "password": ""},
+	} {
+		userdb.DeleteUser(c["login"])
+		code, body := call(t, testCtrl.CreateUser, authedRequest(t, "admin", "POST", "/api/v1/createUser", c))
+		if code != http.StatusBadRequest || !strings.Contains(string(body), "error") {
+			t.Errorf("createUser %q: %d %s", c, code, body)
+		}
+		if userdb.IsUserExists(c["login"]) {
+			userdb.DeleteUser(c["login"])
+			t.Errorf("createUser %q stored the account", c)
+		}
+	}
+
+	userdb.DeleteUser("spaced-password")
+	t.Cleanup(func() { userdb.DeleteUser("spaced-password") })
+	adminCall(t, testCtrl.CreateUser, "/api/v1/createUser", map[string]string{"login": "spaced-password", "password": " pw with spaces "})
+	if !userdb.CheckUserPassword("spaced-password", " pw with spaces ") {
+		t.Error("a password with spaces was not stored as typed")
+	}
+}
+
+func TestEditUserAnswers400ToAnEmptyPassword(t *testing.T) {
+	userdb.CreateUser("emptyedit", "a-real-password")
+	t.Cleanup(func() { userdb.DeleteUser("emptyedit") })
+
+	code, body := call(t, testCtrl.EditUser, authedRequest(t, "admin", "POST", "/api/v1/editUser", map[string]string{"login": "emptyedit", "password": ""}))
+	if code != http.StatusBadRequest || !strings.Contains(string(body), "error") {
+		t.Errorf("editUser with an empty password: %d %s", code, body)
+	}
+	adminCall(t, testCtrl.EditUser, "/api/v1/editUser", map[string]string{"login": "emptyedit", "password": "   "})
+	if !userdb.CheckUserPassword("emptyedit", "   ") {
+		t.Error("a password of spaces was not stored as typed")
 	}
 }
 

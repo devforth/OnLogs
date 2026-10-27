@@ -901,6 +901,15 @@ func (h *RouteController) CreateUser(w http.ResponseWriter, req *http.Request) {
 	if !decodeBody(w, req, &loginData) {
 		return
 	}
+	// The login form trims the login, so such an account could never sign in.
+	if loginData.Login == "" || strings.TrimSpace(loginData.Login) != loginData.Login {
+		fail(w, http.StatusBadRequest, "Login can not be empty or start or end with a space")
+		return
+	}
+	if loginData.Password == "" {
+		fail(w, http.StatusBadRequest, "Password can not be empty")
+		return
+	}
 
 	err := userdb.CreateUser(loginData.Login, loginData.Password)
 	if err == nil {
@@ -966,7 +975,7 @@ func (h *RouteController) EditUser(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if loginData.Password == "" {
-		fail(w, http.StatusOK, "Password can not be empty")
+		fail(w, http.StatusBadRequest, "Password can not be empty")
 		return
 	}
 
