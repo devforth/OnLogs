@@ -16,6 +16,7 @@
     addHostMenuIsVisible,
     listScrollIsVisible,
     confirmationObj,
+    toast,
     toastIsVisible,
     chosenLogsString,
     store,
@@ -59,13 +60,15 @@
   let userForAdding = $state("");
   let withoutRightPanel = false;
 
+  let toastBeforeClick = null;
   function handleClick({ target }) {
     if (!target.classList.contains("buttonToBottom")) {
       lastLogTimestamp.set(new Date().getTime());
     }
     if (!target.id.includes("shared") && !target.id.includes("toastClose")) {
       if (!$toastIsVisible) chosenLogsString.set("");
-      toastIsVisible.set(false);
+      // A toast raised by this same click stays up.
+      if ($toast === toastBeforeClick) toastIsVisible.dismiss();
     }
   }
 
@@ -309,4 +312,7 @@
     {closeModal}
   /></Modal
 >
-<svelte:window onclick={handleClick} />
+<svelte:window
+  onclickcapture={() => (toastBeforeClick = $toast)}
+  onclick={handleClick}
+/>

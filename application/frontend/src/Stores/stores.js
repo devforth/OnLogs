@@ -1,4 +1,4 @@
-import { writable } from "svelte/store";
+import { get, writable } from "svelte/store";
 
 export const store = writable({
   UTCtime: true,
@@ -43,8 +43,54 @@ export const toast = writable({
   status: "",
   additionButton: {},
 });
-export const toastIsVisible = writable(false);
-export const toastTimeoutId = writable(null);
+// A toast hides itself TOAST_MS after it was last shown, unless it offers an
+// action. While that timer runs set(false) is ignored: it comes from a timer
+// armed for an earlier toast. A timer registered in toastTimeoutId takes over
+// the hiding. dismiss() is the user closing the toast.
+const TOAST_MS = 5000;
+let autoHide = null;
+let registeredHide = null;
+
+function stopToastTimers() {
+  clearTimeout(autoHide);
+  clearTimeout(registeredHide);
+  autoHide = null;
+  registeredHide = null;
+}
+
+const toastVisible = writable(false);
+export const toastIsVisible = {
+  subscribe: toastVisible.subscribe,
+  set(visible) {
+    if (!visible) {
+      if (!autoHide) toastVisible.set(false);
+      return;
+    }
+    stopToastTimers();
+    if (!get(toast).additionButton?.isVisible) {
+      autoHide = setTimeout(() => {
+        autoHide = null;
+        toastVisible.set(false);
+      }, TOAST_MS);
+    }
+    toastVisible.set(true);
+  },
+  dismiss() {
+    stopToastTimers();
+    toastVisible.set(false);
+  },
+};
+
+const toastTimeout = writable(null);
+export const toastTimeoutId = {
+  subscribe: toastTimeout.subscribe,
+  set(id) {
+    clearTimeout(autoHide);
+    autoHide = null;
+    registeredHide = id;
+    toastTimeout.set(id);
+  },
+};
 
 // active menu option
 export const activeMenuOption = writable("home");

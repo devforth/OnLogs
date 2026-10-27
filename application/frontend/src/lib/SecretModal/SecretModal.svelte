@@ -96,9 +96,6 @@
               status: "Success",
             });
             toastIsVisible.set(true);
-            setTimeout(() => {
-              toastIsVisible.set(false);
-            }, 5000);
           });
         }}
       />

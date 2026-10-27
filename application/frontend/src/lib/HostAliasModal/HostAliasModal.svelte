@@ -26,7 +26,6 @@
   function notify(status, tittle, message) {
     toast.set({ message, tittle, status, position: "" });
     toastIsVisible.set(true);
-    setTimeout(() => toastIsVisible.set(false), 5000);
   }
 
   function close() {

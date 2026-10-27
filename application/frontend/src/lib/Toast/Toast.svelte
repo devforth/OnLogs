@@ -47,7 +47,7 @@
         title={"Close"}
         minHeight={24}
         CB={() => {
-          toastIsVisible.set(false);
+          toastIsVisible.dismiss();
         }}
       />
     </div>
@@ -57,10 +57,7 @@
 <svelte:window
   onkeydown={(e) => {
     handleKeydown(e, "Escape", () => {
-      toastIsVisible.set(false);
-      if (toastTimeoutId) {
-        clearTimeout($toastTimeoutId);
-      }
+      toastIsVisible.dismiss();
     });
   }}
 />
