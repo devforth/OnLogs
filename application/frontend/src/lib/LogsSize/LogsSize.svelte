@@ -29,7 +29,7 @@
 
   async function fetchAllLogs() {
     const data = await fetchApi.getAllLogsSize();
-    logsSize = data.sizeMiB;
+    logsSize = data?.sizeMiB ?? logsSize;
   }
   async function fetchServiceLogs() {
     if ($lastChosenService) {
@@ -37,7 +37,7 @@
         $lastChosenHost,
         $lastChosenService
       );
-      logsSize = data.sizeMiB;
+      logsSize = data?.sizeMiB ?? logsSize;
     }
   }
 
