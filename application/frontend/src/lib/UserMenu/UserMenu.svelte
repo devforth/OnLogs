@@ -208,6 +208,11 @@
         thumbClass={"editInputContainer"}
         bind:value={userPasswordValue}
         width={300}
+        onkeydown={(e) => {
+          if (e.key === "Enter") {
+            editUser(chosenUserLogin, userPasswordValue);
+          }
+        }}
         />
 
         <span class="buttonModalContainer" style="justify-content: space-between; margin-top: 20px; margin-bottom: 0;"

@@ -164,6 +164,12 @@ main(async () => {
     rowOf("bob").querySelector("button").click();
     await settle();
     assert.equal(doc.querySelector(".editInput").value, "", "a cancelled password was kept");
+
+    type(doc.querySelector(".editInput"), "bob-new");
+    pressEnter(doc.querySelector(".editInput"));
+    await settle();
+    assert.deepEqual(bodiesOf("editUser").at(-1), { login: "bob", password: "bob-new" }, "Enter did not submit");
+    assert.equal(doc.querySelector(".editInput"), null);
     await page.done();
   }
 
