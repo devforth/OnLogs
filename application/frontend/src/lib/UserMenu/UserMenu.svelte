@@ -75,7 +75,7 @@
 
     if (!data.error) {
       usersList = usersList.filter((u) => {
-        return u !== login;
+        return u.username !== login;
       });
 
       userDeleteOpen.set(false);

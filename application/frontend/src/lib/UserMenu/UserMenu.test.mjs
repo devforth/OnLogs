@@ -140,5 +140,18 @@ main(async () => {
     await page.done();
   }
 
+  // Delete removes the row.
+  {
+    const page = await usersPage(["admin", "alice", "bob"]);
+    buttonIn(rowOf("bob"), "Delete").click();
+    await settle();
+    buttonIn(doc.querySelector(".modalContainer"), "Delete").click();
+    await settle();
+    assert.deepEqual(bodiesOf("deleteUser"), [{ login: "bob" }]);
+    assert.equal(doc.querySelector(".modalContainer"), null, "the delete dialog stayed open");
+    assert.deepEqual(rows(), ["admin", "alice"], "the deleted user is still listed");
+    await page.done();
+  }
+
   console.log("Users page tests passed");
 });
