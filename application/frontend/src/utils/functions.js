@@ -62,5 +62,9 @@ export function getTimeDifference(t) {
     return "";
   }
 
-  return [showIfExisted(hours, "h"), showIfExisted(minutes, "m")];
+  // Days lead only when present: StreamInfo tells "Recently" and "No logs"
+  // apart by the first two parts.
+  const parts = [showIfExisted(hours, "h"), showIfExisted(minutes, "m")];
+  const days = Math.floor(difference / 86400);
+  return days > 0 ? [[days, "d"], ...parts] : parts;
 }

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { tryToParseLogString } from "./functions.js";
+import { tryToParseLogString, getTimeDifference } from "./functions.js";
 
 const PAYLOAD = '<img src=x onerror=alert(document.domain)>';
 
@@ -40,6 +40,12 @@ function run() {
 
   assert.equal(tryToParseLogString("plain log line"), null);
   assert.equal(tryToParseLogString("not json { at all"), null);
+
+  const ago = (seconds) => new Date(Date.now() - seconds * 1000).toISOString();
+  assert.deepEqual(getTimeDifference(ago(26 * 3600 + 60)), [[1, "d"], [2, "h"], [1, "m"]]);
+  assert.deepEqual(getTimeDifference(ago(3 * 3600 + 120)), [[3, "h"], [2, "m"]]);
+  assert.deepEqual(getTimeDifference(ago(10)), [[0, "h"], [0, "m"]]);
+  assert.deepEqual(getTimeDifference(""), ["", ""]);
 
   console.log("functions tests passed");
 }
