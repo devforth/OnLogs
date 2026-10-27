@@ -778,7 +778,9 @@
               previousLogs = [...previousLogs, ...total_logs];
               allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
               if (total_logs.length === limit) {
-                scrollToNewLogsEnd(".newLogsEnd", true);
+                // Wait for the shifted rows, or the anchor is a row of the old window.
+                await tick();
+                isCurrentQuery(query) && scrollToNewLogsEnd(".newLogsEnd", true);
               }
 
               lastFetchActionIsFetch = false;
@@ -845,6 +847,7 @@
         const data = await fetchedTopLogs();
         newLogsAmount = data.length;
         isFeatching.set(false);
+        await tick();
 
         data.length && scrollToSpecificLog(".fetchFromStart", {
           behavior: "auto",
