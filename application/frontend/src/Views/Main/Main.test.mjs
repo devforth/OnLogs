@@ -94,5 +94,13 @@ main(async () => {
   }
   assert.equal(polls.size, 0, "a host poller outlived its page");
 
+  // A service named like the users page does not highlight the Users icon.
+  {
+    const { app } = await mountAt("/view/h1/qa-users-svc");
+    assert.equal(activeMenu(), "home");
+    bundle.unmount(app);
+    await settle();
+  }
+
   console.log("Main tests passed");
 });

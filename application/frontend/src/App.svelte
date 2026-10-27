@@ -50,7 +50,7 @@
     }
 
     //set active menu option after page refresh
-    if (location.pathname.includes("users")) {
+    if (location.pathname === `${changeKey}/users`) {
       activeMenuOption.set("users");
     } else {
       activeMenuOption.set("home");
