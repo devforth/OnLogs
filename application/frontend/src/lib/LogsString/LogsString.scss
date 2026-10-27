@@ -55,6 +55,20 @@
       background-color: $active-transparent-color;
       border-radius: 6px;
     }
+
+    // Outranks the dark theme's text colour for every div; same as main.scss.
+    &.error {
+      color: #ff4242;
+    }
+    &.debug {
+      color: #178f15;
+    }
+    &.warn {
+      color: #ff8a00;
+    }
+    &.info {
+      color: skyblue;
+    }
   }
 
   .time {
