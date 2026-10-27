@@ -67,13 +67,13 @@ func verifyAdminUser(w http.ResponseWriter, req *http.Request) bool {
 	}
 
 	username, err := util.GetUserFromJWT(*req)
-	if username != os.Getenv("ADMIN_USERNAME") {
-		fail(w, http.StatusForbidden, "Only admin can perform this request")
+	if err != nil {
+		fail(w, http.StatusUnauthorized, err.Error())
 		return false
 	}
 
-	if err != nil {
-		fail(w, http.StatusUnauthorized, err.Error())
+	if username != os.Getenv("ADMIN_USERNAME") {
+		fail(w, http.StatusForbidden, "Only admin can perform this request")
 		return false
 	}
 	return true

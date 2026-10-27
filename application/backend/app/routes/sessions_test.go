@@ -113,6 +113,20 @@ func TestLoggedOutAdminCookieLosesAdminRoutes(t *testing.T) {
 	}
 }
 
+func TestAdminRoutesAnswer401ForAnInvalidSession(t *testing.T) {
+	adm := loginCookie(t, "admin", "admin-password-for-tests")
+	call(t, testCtrl.Logout, withCookie(t, adm, "GET", "/api/v1/logout", nil))
+
+	for name, cookie := range map[string]string{"logged-out": adm, "garbage": "not-a-token"} {
+		if code, body := call(t, testCtrl.GetUsers, withCookie(t, cookie, "GET", "/api/v1/getUsers", nil)); code != http.StatusUnauthorized {
+			t.Errorf("a %s admin cookie got %d %s", name, code, body)
+		}
+	}
+	if code, _ := call(t, testCtrl.GetUsers, authedRequest(t, "viewer", "GET", "/api/v1/getUsers", nil)); code != http.StatusForbidden {
+		t.Errorf("a valid non-admin session got %d", code)
+	}
+}
+
 func TestRecreatedAccountRejectsSessionsOfTheDeletedOne(t *testing.T) {
 	old := freshUser(t, "session-recreated", "first-owner")
 
