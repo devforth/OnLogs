@@ -34,6 +34,7 @@
     chosenStatus,
     WSisMuted,
     manuallyUnmuted,
+    logsCleared,
   } from "../../Stores/stores";
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
   import {
@@ -1018,6 +1019,19 @@
   $effect(() => {
     if ([...allLogs]) {
       highlightSearchText();
+    }
+  });
+  // Not reloaded: the server clears in the background, and a reload could
+  // still read the old rows. Lines written from now on stream in as usual.
+  let seenLogsCleared = get(logsCleared);
+  $effect(() => {
+    if ($logsCleared !== seenLogsCleared) {
+      seenLogsCleared = $logsCleared;
+      untrack(() => {
+        logsLoadGeneration += 1;
+        resetAllLogs();
+        windowAtHead = true;
+      });
     }
   });
   $effect(() => {

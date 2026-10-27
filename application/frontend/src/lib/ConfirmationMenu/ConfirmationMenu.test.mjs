@@ -84,6 +84,15 @@ main(async () => {
   assert.equal(read(bundle.confirmationObj).isVisible, true);
   assert.deepEqual(rendered(), ["old-1", "old-2", "old-3"]);
 
+  deleteStatus = 200;
+  deleteButton().click();
+  await settle(20);
+  assert.equal(read(bundle.confirmationObj).isVisible, false);
+  assert.deepEqual(rendered(), [], "cleared rows are still shown");
+  store("after-clear");
+  await settle(10);
+  assert.deepEqual(rendered(), ["after-clear"]);
+
   bundle.unmount(menu);
   bundle.unmount(view);
   console.log("ConfirmationMenu tests passed");

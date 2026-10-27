@@ -114,6 +114,8 @@ export const confirmationObj = writable({
 
   isVisible: false,
 });
+// Bumped after the chosen service's logs are cleared.
+export const logsCleared = writable(0);
 
 //serviceSettings
 export const lastChosenSetting = writable("General");

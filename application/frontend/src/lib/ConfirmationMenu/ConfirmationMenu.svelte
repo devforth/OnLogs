@@ -9,6 +9,7 @@
     toast,
     toastIsVisible,
     toastTimeoutId,
+    logsCleared,
   } from "../../Stores/stores.js";
   import Input from "../Input/Input.svelte";
   import Checkbox from "../CheckBox/Checkbox.svelte";
@@ -48,6 +49,10 @@
     }
     if (data && !data.error) {
       closeMenu();
+      // Clearing Docker's log file leaves the stored rows in place.
+      if (!fromDocker) {
+        logsCleared.update((n) => n + 1);
+      }
     } else {
       toast.set({
         tittle: "Error",
