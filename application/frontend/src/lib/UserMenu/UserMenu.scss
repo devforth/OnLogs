@@ -15,6 +15,9 @@
     justify-content: center;
     padding: 12px;
   }
+  td:first-child {
+    overflow-wrap: anywhere;
+  }
   .buttonSpanContainer {
     max-width: 150px;
     margin-left: auto;
