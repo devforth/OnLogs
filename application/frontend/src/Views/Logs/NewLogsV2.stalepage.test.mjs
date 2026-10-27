@@ -306,6 +306,25 @@ async function scrollUpPageAfterCaseToggleIsDiscarded(bundle) {
   bundle.unmount(view);
 }
 
+async function topSentinelSeenOnEmptyListIsDropped(bundle) {
+  const view = await openView(bundle, "prod-1", "error");
+  holdLoads = 10;
+  bundle.chosenStatus.set("");
+  await settle(10);
+  assert.ok(heldLoads.length >= 1 && rendered().length === 0, "control: clearing the filter reloads");
+  // While the list is empty the top sentinel is in view.
+  byId("startOfLogs").set(true);
+  await settle(5);
+  const before = cursorRequests.length;
+  holdLoads = 0;
+  heldLoads.splice(0).forEach((resolve) => resolve());
+  await settle(30);
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  assert.equal(cursorRequests.length, before, "the reloaded list loaded older rows on its own");
+  assert.equal(rendered().at(-1), db["prod-1"].at(-1).msg);
+  bundle.unmount(view);
+}
+
 main(async () => {
   installDom({ fetchImpl });
   recordJumps();
@@ -318,5 +337,6 @@ main(async () => {
   await pageMergedJustBeforeReloadDoesNotMoveReloadedView(bundle);
   await scrollUpAfterReloadStillLoadsOlderRows(bundle);
   await scrollUpPageAfterCaseToggleIsDiscarded(bundle);
+  await topSentinelSeenOnEmptyListIsDropped(bundle);
   console.log("NewLogsV2 stale page tests passed");
 });

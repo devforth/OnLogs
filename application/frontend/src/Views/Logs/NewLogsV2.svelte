@@ -237,6 +237,9 @@
 
     logsLoadGeneration += 1;
     allLogs = dedupeLogs(acc);
+    // Seen on the list these rows replace; the observer only reports again
+    // once they render, and the top loader must not act on it until then.
+    startOfLogsIntersect = false;
     const allLogsCopy = [...allLogs];
     newLogs = allLogsCopy.splice(0, limit);
     visibleLogs = allLogsCopy.splice(0, limit);
