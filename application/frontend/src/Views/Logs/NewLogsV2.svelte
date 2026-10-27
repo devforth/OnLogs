@@ -5,7 +5,7 @@
   import Modal from "../../lib/Modal/Modal.svelte";
   import LogContext from "../../lib/LogContext/LogContext.svelte";
   import fetchApi from "../../utils/fetch";
-  import { onDestroy, onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick, untrack } from "svelte";
   import { get } from "svelte/store";
   import LogsViewHeder from "./LogsViewHeder/LogsViewHeder.svelte";
   import IntersectionObserver from "svelte-intersection-observer";
@@ -516,7 +516,7 @@
   }
 
   async function flushBufferedLogs() {
-    if (logsFromWS.length) {
+    if (logsFromWS.length || !windowAtHead) {
       await getFullLogsSet();
       logsFromWS = [];
     }
@@ -644,6 +644,7 @@
         }
 
         const numberOfNewLogs = data.length;
+        const newest = allLogs.at(-1);
         const logsToPrevious = visibleLogs.splice(
           visibleLogs.length - numberOfNewLogs,
           numberOfNewLogs
@@ -658,6 +659,7 @@
         visibleLogs = [...logsToVisible, ...visibleLogs];
         previousLogs = [...logsToPrevious, ...previousLogs].slice(0, limit);
         allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
+        windowAtHead &&= sameRow(allLogs.at(-1), newest);
 
         if (data.length === limit && !doNotScroll) {
           setTimeout(() => {
@@ -727,6 +729,7 @@
         // partial one, and requiring a whole page threw the start of history away.
         if (total_logs.length) {
           let numberOfNewLogs = total_logs.length;
+          const newest = allLogs.at(-1);
           const logsToPrevious = visibleLogs.splice(0, numberOfNewLogs);
           const logsToVisible = newLogs.splice(0, numberOfNewLogs);
           previousLogs.splice(0, numberOfNewLogs);
@@ -734,6 +737,7 @@
           visibleLogs = [...logsToVisible, ...visibleLogs];
           previousLogs = [...logsToPrevious, ...previousLogs];
           allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
+          windowAtHead &&= sameRow(allLogs.at(-1), newest);
         }
         fetchedData = total_logs;
       }
@@ -788,6 +792,12 @@
 
               lastFetchActionIsFetch = false;
               stopLogsUnfetch = false;
+            }
+            if (is_all_logs_processed && !windowAtHead) {
+              windowAtHead = true;
+              logsFromWS = logsFromWS.filter(
+                (row) => !allLogs.some((shown) => sameRow(shown, row))
+              );
             }
           return total_logs;
         }
@@ -1003,13 +1013,20 @@
     }
   });
   $effect(() => {
-    (async () => {
-      if ((logsFromWS.length || wsCatchUp) && endOffLogsIntersect) {
-        wsCatchUp = false;
-        await getFullLogsSet();
-        logsFromWS = [];
+    if (!((logsFromWS.length || wsCatchUp) && endOffLogsIntersect) || mouseDownBlockFetch) {
+      return;
+    }
+    // Untracked: the loaders read and write state this effect must not follow.
+    untrack(async () => {
+      if (!windowAtHead) {
+        // Reloading the newest rows here would skip everything in between.
+        await unfetchedLogs();
+        return;
       }
-    })();
+      wsCatchUp = false;
+      await getFullLogsSet();
+      logsFromWS = [];
+    });
   });
 </script>
 

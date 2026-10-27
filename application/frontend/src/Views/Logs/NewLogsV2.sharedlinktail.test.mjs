@@ -79,6 +79,18 @@ function firstSkip(list) {
 
 let bundle;
 
+const endOfLogs = () => globalThis.__onlogsObservers.find((h) => h.element?.id === "endOfLogs");
+
+async function scrollDown() {
+  const el = document.querySelector("#logs");
+  let top = 100;
+  Object.defineProperty(el, "scrollTop", { configurable: true, get: () => top });
+  el.dispatchEvent(new window.Event("scroll"));
+  top = 200;
+  el.dispatchEvent(new window.Event("scroll"));
+  await settle(5);
+}
+
 async function openSharedLinkAtBottom(stored, linkTs) {
   rows = [];
   pos = new Map();
@@ -91,7 +103,10 @@ async function openSharedLinkAtBottom(stored, linkTs) {
   const view = bundle.mount(bundle.NewLogsV2, { target: document.body });
   await settle(60);
   const win = rendered();
-  globalThis.__onlogsObservers.find((h) => h.element?.id === "endOfLogs").set(true);
+  // The scroll listener is attached about a second after opening.
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  await scrollDown();
+  endOfLogs().set(true);
   await settle(10);
   requests = [];
   return { view, win };
@@ -112,10 +127,23 @@ main(async () => {
 
     store("live-1");
     await settle(30);
-    const after = rendered();
-    const skip = firstSkip(after);
-    assert.ok(!skip, `${c.name}: "${skip?.[0]}" is followed by "${skip?.[1]}" with stored rows hidden between`);
-    assert.equal(after.at(-1), "live-1", `${c.name}: the live line should end the newest page`);
+    // Each return to the end of the window loads the next newer page.
+    for (let step = 0; rendered().at(-1) !== "live-1"; step++) {
+      assert.ok(step < 10, `${c.name}: paging never reached the live line`);
+      const after = rendered();
+      const skip = firstSkip(after);
+      assert.ok(!skip, `${c.name}: "${skip?.[0]}" is followed by "${skip?.[1]}" with stored rows hidden between`);
+      assert.ok(after.includes(win.at(-1)) || step > 0, `${c.name}: the window jumped past the next page`);
+      endOfLogs().set(false);
+      await settle(5);
+      endOfLogs().set(true);
+      await settle(30);
+    }
+    assert.ok(!firstSkip(rendered()), `${c.name}: rows skipped before the live line`);
+    assert.ok(!requests.includes("getLogs"), `${c.name}: the end of a past window reloaded the newest rows`);
+    store("live-2");
+    await settle(10);
+    assert.equal(rendered().at(-1), "live-2", `${c.name}: the live tail did not resume at the newest row`);
     bundle.unmount(view);
   }
 
