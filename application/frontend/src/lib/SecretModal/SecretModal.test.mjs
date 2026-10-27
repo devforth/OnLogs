@@ -59,6 +59,12 @@ main(async () => {
   copyButton.click();
   await settle();
   assert.ok(copied?.includes("example_onlogs:"), `copied the wrong text: ${copied}`);
+  // Valid as pasted: the named volume is declared, and the agent can truncate
+  // Docker's own log files like the docker run variant.
+  assert.match(copied, /^services:\n/);
+  assert.match(copied, /\nvolumes:\n  onlogs-volume:\n?$/);
+  assert.ok(copied.includes("- /var/lib/docker/containers:/var/lib/docker/containers"));
+  assert.ok(copied.includes("- ONLOGS_TOKEN=tok123"));
 
   bundle.unmount(modal);
   console.log("SecretModal tests passed");
