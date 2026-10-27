@@ -98,8 +98,12 @@ func restartStats(host string, container string) {
 			}
 			current_db = writeBatch(host, container, current_db, batch)
 		}
-		if len(late) > 0 {
-			addStats(current_db, late, last_stat_time)
+		for hour, rows := range late {
+			at := rows.Newest
+			if hour == "" {
+				at = last_stat_time
+			}
+			addStats(current_db, rows.Stats, at)
 		}
 	}
 

@@ -446,8 +446,13 @@ func countLogStatus(location string, statusKey string) {
 // Rows stored at or behind the statistics cursor, which its next scan skips.
 var (
 	statCursors = map[string]string{}
-	lateCounts  = map[string]map[string]uint64{}
+	lateCounts  = map[string]map[string]*LateHour{}
 )
+
+type LateHour struct {
+	Newest string
+	Stats  map[string]uint64
+}
 
 func countIfBehindStatCursor(location string, statusKey string, logKey string) {
 	vars.Mutex.Lock()
@@ -458,10 +463,22 @@ func countIfBehindStatCursor(location string, statusKey string, logKey string) {
 	if cursor == "" || (logKey >= cursor && !strings.HasPrefix(logKey, cursor+" +")) {
 		return
 	}
-	if lateCounts[location] == nil {
-		lateCounts[location] = NewStatCounter()
+	hour := ""
+	if ts := getDateTimeFromKey(logKey); ts != "" {
+		if _, err := time.Parse(time.RFC3339Nano, ts); err == nil {
+			hour = strings.Split(ts, ":")[0]
+		}
 	}
-	lateCounts[location][statusKey]++
+	if lateCounts[location] == nil {
+		lateCounts[location] = map[string]*LateHour{}
+	}
+	late := lateCounts[location][hour]
+	if late == nil {
+		late = &LateHour{Stats: NewStatCounter()}
+		lateCounts[location][hour] = late
+	}
+	late.Stats[statusKey]++
+	late.Newest = max(late.Newest, logKey)
 }
 
 // Shared by a write from its late check to its store, exclusive while a flush scans.
@@ -478,7 +495,7 @@ func PauseIngest(location string) (resume func()) {
 	return lock.Unlock
 }
 
-func TakeLateStats(location string, cursor string) map[string]uint64 {
+func TakeLateStats(location string, cursor string) map[string]*LateHour {
 	vars.Mutex.Lock()
 	defer vars.Mutex.Unlock()
 

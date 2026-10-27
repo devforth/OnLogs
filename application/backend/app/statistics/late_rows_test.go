@@ -242,3 +242,49 @@ func TestRowsStoredWhileAFlushScansAreCountedOnce(t *testing.T) {
 		})
 	}
 }
+
+func TestLateRowsCountInTheHoursTheyWereLogged(t *testing.T) {
+	host, container := "LateHours", "svc"
+	os.RemoveAll("leveldb/hosts/" + host)
+	t.Cleanup(func() {
+		for _, dbType := range []string{"logs", "statuses", "statistics"} {
+			util.ResetDB(host, container, dbType)
+		}
+		os.RemoveAll("leveldb/hosts/" + host)
+		vars.Mutex.Lock()
+		delete(vars.Container_Stat_Counter, host+"/"+container)
+		vars.Mutex.Unlock()
+	})
+
+	put := func(at time.Time, level string) {
+		t.Helper()
+		line := []string{at.UTC().Format(fixedWidthNanos), level + " " + at.String()}
+		if err := containerdb.PutLogMessage(util.GetDB(host, container, "logs"), host, container, line); err != nil {
+			t.Fatalf("put: %v", err)
+		}
+	}
+	now := time.Now().UTC()
+	put(now.Add(-time.Minute), "INFO")
+	restartStats(host, container)
+	threeHoursAgo, fortyDaysAgo := now.Add(-3*time.Hour), now.Add(-40*24*time.Hour)
+	put(threeHoursAgo, "WARN")
+	put(fortyDaysAgo, "ERROR")
+	restartStats(host, container)
+
+	if got := GetStatisticsByService(host, container, 2); got["info"] != 1 || got["warn"] != 0 || got["error"] != 0 {
+		t.Errorf("last hour counts %v, want only the info row logged in it", got)
+	}
+	if got := GetStatisticsByService(host, container, 48); got["warn"] != 1 || got["error"] != 0 {
+		t.Errorf("last day counts %v, want the 3-hour-old warn row and not the 40-day-old error row", got)
+	}
+	if got := GetChartData(host, container, "hour", 24)[threeHoursAgo.Format("2006-01-02T15")+":00Z"]["warn"]; got != 1 {
+		t.Errorf("the hour the warn row was logged in charts %d warn rows, want 1", got)
+	}
+	var errors uint64
+	for _, levels := range GetChartData(host, container, "month", 3) {
+		errors += levels["error"]
+	}
+	if errors != 1 {
+		t.Errorf("the 40-day-old error row is charted %d times, want once", errors)
+	}
+}
