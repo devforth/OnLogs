@@ -13,7 +13,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func TestIngestedLinesCarryTheirStorageKey(t *testing.T) {
+func TestStoredLinesAreSentLiveWithTheirKey(t *testing.T) {
 	host := util.GetHost()
 	container := "LiveKey"
 	reset := func() {
@@ -47,9 +47,10 @@ func TestIngestedLinesCarryTheirStorageKey(t *testing.T) {
 			t.Fatalf("%q was not stored", msg)
 		}
 	}
+	noteMeta(db, host, container, "", false, "ONLOGS: Container listening stopped! (EOF)")
 
 	sent := map[string]bool{}
-	for range 2 {
+	for range 3 {
 		client.SetReadDeadline(time.Now().Add(5 * time.Second))
 		_, raw, err := client.ReadMessage()
 		if err != nil {

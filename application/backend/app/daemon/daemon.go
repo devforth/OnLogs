@@ -87,20 +87,17 @@ func NewDaemonService(dockerClient *docker.DockerService) *DaemonService {
 }
 
 func noteMeta(db *leveldb.DB, host, containerName, token string, toHost bool, message string) {
+	logItem := []string{time.Now().UTC().Format(streamTimestampFmt), message}
 	if toHost {
-		agent.SendLogMessage(token, containerName,
-			strings.SplitN(createLogMessage(nil, host, containerName, message), " ", 2))
+		agent.SendLogMessage(token, containerName, logItem)
 		return
 	}
-	createLogMessage(db, host, containerName, message)
-}
-
-func createLogMessage(db *leveldb.DB, host string, container string, message string) string {
-	datetime := time.Now().UTC().Format(streamTimestampFmt)
-	if db != nil {
-		containerdb.PutLogMessage(db, host, container, []string{datetime, message})
+	key, _, err := containerdb.PutLogEvent(db, host, containerName, logItem, "")
+	if err != nil {
+		return
 	}
-	return datetime + " " + message
+	toSend, _ := json.Marshal(append(logItem, key))
+	vars.Broadcast(containerName, websocket.TextMessage, toSend)
 }
 
 func normalizeTimestamp(raw string) (string, time.Time, error) {
