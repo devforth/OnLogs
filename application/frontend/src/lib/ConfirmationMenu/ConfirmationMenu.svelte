@@ -32,21 +32,26 @@
   }
 
   async function deletelogs() {
-    let data = {};
-    if ($store.deleteFromDocker) {
-      data = await apiFetch.cleanDockerLogs(
-        $lastChosenHost,
-        $lastChosenService
-      );
-    } else {
-      data = await apiFetch.cleanLogs($lastChosenHost, $lastChosenService);
+    let data = null;
+    const fromDocker = $store.deleteFromDocker;
+    try {
+      if (fromDocker) {
+        data = await apiFetch.cleanDockerLogs(
+          $lastChosenHost,
+          $lastChosenService
+        );
+      } else {
+        data = await apiFetch.cleanLogs($lastChosenHost, $lastChosenService);
+      }
+    } catch (e) {
+      console.error(e);
     }
-    if (!data.error) {
+    if (data && !data.error) {
       closeMenu();
     } else {
       toast.set({
         tittle: "Error",
-        message: "Something went wrong. Please try again later",
+        message: data?.error || "Something went wrong. Please try again later",
         position: "",
         status: "Error",
       });
