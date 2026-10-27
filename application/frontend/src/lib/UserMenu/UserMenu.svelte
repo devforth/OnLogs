@@ -19,18 +19,9 @@
   let editModalIsOpen = $state(false);
   let userPasswordValue = $state("");
 
-  let { userForAdding = "" } = $props();
-
-
-  function addUser(u) {
-    if (u) {
-      usersList = [...usersList, u];
-    }
-  }
-
   const api = new fetchApi();
 
-  async function getUsers() {
+  export async function getUsers() {
     const data = await api.getUsers();
     if (data?.users.at(0)) {
       usersList = data.users;
@@ -131,9 +122,6 @@
   });
   onDestroy(() => {
     delUnsubscribe(), editUnsubscribe();
-  });
-  $effect(() => {
-    userForAdding && addUser(userForAdding);
   });
 </script>
 

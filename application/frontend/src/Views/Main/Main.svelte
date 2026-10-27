@@ -56,8 +56,7 @@
 
   let userMenuState = false;
   let addUserModOpen = $state(false);
-  let newUserData = $state({ login: "", password: "" });
-  let userForAdding = $state("");
+  let userMenu = $state();
   let withoutRightPanel = false;
 
   let toastBeforeClick = null;
@@ -84,13 +83,28 @@
     addUserModalOpen.set(false);
   }
 
-  async function createUser() {
-    if (newUserData.login && newUserData.password) {
-      const data = await api.createUser(newUserData);
-      if (!data.error) {
-        userForAdding = newUserData.login;
-      }
+  async function createUser({ login, password }) {
+    login = login.trim();
+    if (!login || !password) {
+      return "Type a username and a password.";
     }
+    const data = await api.createUser({ login, password });
+    if (!data || data.error) {
+      return data?.error ?? "";
+    }
+    closeModal();
+    toastIsVisible.set(true);
+    toast.set({
+      message: "User was created",
+      tittle: "Success",
+      status: "debug",
+      position: "",
+    });
+    setTimeout(() => {
+      toastIsVisible.set(false);
+    }, 5000);
+    userMenu?.getUsers();
+    return "";
   }
 
   async function logout() {
@@ -256,7 +270,7 @@
     <!-- <Container minHeightVh={17.36}>1213414</Container> -->
     <Container minHeightVh={92.6}>
       {#if location.pathname === `${changeKey}/users`}
-        <UserMenu {userForAdding} />
+        <UserMenu bind:this={userMenu} />
       {:else if location.pathname.includes("/view") || location.pathname === `${changeKey}/`}
         <NewLogsV2 />
       {/if}
@@ -307,7 +321,6 @@
 
 <Modal modalIsOpen={addUserModOpen} storeProp={addUserModalOpen}
   ><UserManageForm
-    bind:userData={newUserData}
     createHandler={createUser}
     {closeModal}
   /></Modal
