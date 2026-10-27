@@ -1,3 +1,5 @@
+import { toast, toastIsVisible } from "../Stores/stores.js";
+
 
 export const handleKeydown = (e, keyValue, cb) => {
   if (e.key === keyValue) {
@@ -25,25 +27,50 @@ export const tryToParseLogString = (str) => {
 };
 
 export const copyText = function (ref, cb) {
-  const text = ref;
-  let textToCopy = text.innerText;
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(textToCopy).then(() => {
-      cb();
-    });
-  } else {
-    console.log("Browser Not compatible");
-  }
+  copyCustomText(ref.innerText, cb);
 };
 
+// navigator.clipboard only exists in secure contexts; OnLogs is often served
+// over plain HTTP.
+function copyWithTextarea(text) {
+  const focused = document.activeElement;
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.focus();
+  area.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  area.remove();
+  focused?.focus?.();
+  return copied;
+}
+
 export const copyCustomText = function (text, cb) {
-  let textToCopy = text;
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(textToCopy).then(() => {
+  const fallback = () => {
+    if (copyWithTextarea(text)) {
       cb();
+      return;
+    }
+    toast.set({
+      tittle: "Error",
+      message: "Could not copy to the clipboard.",
+      position: "",
+      status: "Error",
     });
+    toastIsVisible.set(true);
+  };
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).then(cb, fallback);
   } else {
-    console.log("Browser Not compatible");
+    fallback();
   }
 };
 
