@@ -207,12 +207,11 @@
           <div class="onLogsPanelHeader">
             <h1
               onclick={() => {
-                navigate(
-                  `${changeKey}/view/${$lastChosenHost}/${$lastChosenService}`,
-                  {
-                    replace: true,
-                  }
-                );
+                const path =
+                  $lastChosenHost && $lastChosenService
+                    ? `/view/${$lastChosenHost}/${$lastChosenService}`
+                    : "/";
+                navigate(`${changeKey}${path}`, { replace: true });
                 activeMenuOption.set("home");
               }}
             >

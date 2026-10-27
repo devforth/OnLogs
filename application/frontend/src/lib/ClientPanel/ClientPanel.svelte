@@ -35,9 +35,12 @@
     });
   }
   function goToHome() {
-    navigate(`${changeKey}/view/${$lastChosenHost}/${$lastChosenService}`, {
-      replace: true,
-    });
+    // Nothing chosen yet (e.g. a fresh /users visit): the root route picks one.
+    const path =
+      $lastChosenHost && $lastChosenService
+        ? `/view/${$lastChosenHost}/${$lastChosenService}`
+        : "/";
+    navigate(`${changeKey}${path}`, { replace: true });
     activeMenuOption.set("home");
   }
 

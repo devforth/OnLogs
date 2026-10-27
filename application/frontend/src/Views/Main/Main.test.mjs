@@ -82,5 +82,17 @@ main(async () => {
     assert.equal(polls.size, 0);
   }
 
+  // Home and the title lead to a service even when none was chosen yet.
+  for (const link of [".clientPanelOptionsList li:nth-child(2)", ".onLogsPanelHeader h1"]) {
+    const { window, app } = await mountAt("/users");
+    assert.equal(activeMenu(), "users");
+    window.document.querySelector(link).click();
+    await settle();
+    assert.equal(pathOf(window), "/view/h1/s1", `${link} led to ${pathOf(window)}`);
+    bundle.unmount(app);
+    await settle();
+  }
+  assert.equal(polls.size, 0, "a host poller outlived its page");
+
   console.log("Main tests passed");
 });
