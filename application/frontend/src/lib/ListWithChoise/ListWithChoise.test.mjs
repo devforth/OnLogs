@@ -144,6 +144,23 @@ main(async () => {
     "a stopped service should render disabled"
   );
 
+  // Collapsing a host hides its stopped services too.
+  const hostEl = (name) =>
+    [...target.querySelectorAll(".listElement")].find(
+      (li) => li.querySelector(".hostName")?.title === name
+    );
+  const isOpen = (name) =>
+    !hostEl(name).querySelector(".dropDownList").classList.contains("visuallyHidden");
+  target.querySelector(".stopedServicesBox").click();
+  await settle();
+  assert.equal(target.querySelector("ul.inactiveServices").closest(".visuallyHidden"), null, "the stopped list did not open");
+  hostEl("host1").querySelector(".hostHeader").click();
+  await settle();
+  assert.equal(isOpen("host1"), false, "the host did not collapse");
+  assert.ok(target.querySelector(".stopedServicesBox").closest(".visuallyHidden"), "the stopped toggle stayed visible under a collapsed host");
+  assert.ok(target.querySelector("ul.inactiveServices").closest(".visuallyHidden"), "the stopped list stayed visible under a collapsed host");
+
   bundle.unmount(tree);
+
   console.log("ListWithChoise rendering tests passed");
 });

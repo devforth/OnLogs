@@ -390,7 +390,7 @@
             {/each}
           </ul>
         </div>
-        <div>
+        <div class={openHeaderIndexs.includes(index) ? "" : "visuallyHidden"}>
           <div
             class="flex flex-start stopedServicesBox clickable inactiveServices {listEl.services.find(
               (e) => {
