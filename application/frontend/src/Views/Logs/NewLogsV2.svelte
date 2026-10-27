@@ -38,6 +38,7 @@
   import ButtonToBottom from "../../lib/ButtonToBottom/ButtonToBottom.svelte";
   import {
     getLogLineStatus,
+    classifyLogLine,
     fitsSearch,
     transformLogString,
     transformLogStringForTimeBudget,
@@ -484,7 +485,7 @@
 
           if (
             $chosenStatus &&
-            $chosenStatus !== getLogLineStatus(logfromWS[1])
+            $chosenStatus !== classifyLogLine(logfromWS[1])
           ) {
             return;
           } else {

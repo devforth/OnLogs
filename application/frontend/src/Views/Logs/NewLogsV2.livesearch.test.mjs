@@ -36,8 +36,10 @@ function store(msg) {
 function newestPage(p) {
   const caseSens = p.get("caseSens") === "true";
   const search = normalize(p.get("search") || "", caseSens);
+  const status = p.get("status") || "";
   const logs = rows
     .filter((r) => !search || normalize(r.msg, caseSens).includes(search))
+    .filter((r) => !status || bundle.classifyLogLine(r.msg) === status)
     .slice(-(Number(p.get("limit")) || 30))
     .reverse()
     .map((r) => [r.ts, r.msg, r.key]);
@@ -120,6 +122,25 @@ main(async () => {
     "case-sensitive search drops live lines that differ in case"
   );
   bundle.unmount(view);
+
+  store("plain boot line");
+  view = await openWithSearch(true, "");
+  bundle.chosenStatus.set("other");
+  await settle(40);
+  globalThis.__onlogsObservers.find((o) => o.element?.id === "endOfLogs").set(true);
+  await settle(5);
+  const unclassified = rendered();
+  assert.deepEqual(unclassified, ["plain boot line"]);
+  store("plain line without a level");
+  store("INFO classified");
+  await settle(10);
+  assert.deepEqual(
+    rendered(),
+    [...unclassified, "plain line without a level"],
+    "the Other filter dropped a matching live line"
+  );
+  bundle.unmount(view);
+  bundle.chosenStatus.set("");
 
   console.log("live search filter tests passed");
 });
