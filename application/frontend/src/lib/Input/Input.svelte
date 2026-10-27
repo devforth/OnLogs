@@ -5,7 +5,8 @@
     value = $bindable(""),
     customClass = "",
     thumbClass = "",
-    placeholder = ""
+    placeholder = "",
+    ...rest
   } = $props();
 </script>
 
@@ -15,6 +16,7 @@
     class={customClass}
     type="text"
     {placeholder}
+    {...rest}
     style:width={`${width}px`}
     style:height={`${height}px`}
   />

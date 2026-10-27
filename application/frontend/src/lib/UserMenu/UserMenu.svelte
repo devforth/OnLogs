@@ -115,6 +115,9 @@
 
   const editUnsubscribe = editUserOpen.subscribe((v) => {
     editModalIsOpen = v;
+    if (v) {
+      userPasswordValue = "";
+    }
   });
 
   onMount(() => {
@@ -198,6 +201,8 @@
     <div style="width: auto;">
         <h3 style="text-align: center;">Please type new password</h3>
         <Input
+        type="password"
+        autocomplete="new-password"
         placeholder={"Password"}
         customClass={"editInput"}
         thumbClass={"editInputContainer"}

@@ -140,6 +140,33 @@ main(async () => {
     await page.done();
   }
 
+  // Change password: masked, empty on every open.
+  {
+    const page = await usersPage(["admin", "alice", "bob"]);
+    rowOf("alice").querySelector("button").click();
+    await settle();
+    let pw = doc.querySelector(".editInput");
+    assert.equal(pw.type, "password", "the new password is shown in clear text");
+    assert.equal(pw.value, "");
+    type(pw, "alice-new");
+    buttonIn(pw.closest(".modalContainer"), "Confirm").click();
+    await settle();
+    assert.deepEqual(bodiesOf("editUser"), [{ login: "alice", password: "alice-new" }]);
+    assert.equal(doc.querySelector(".editInput"), null, "the edit dialog stayed open");
+
+    rowOf("bob").querySelector("button").click();
+    await settle();
+    pw = doc.querySelector(".editInput");
+    assert.equal(pw.value, "", "the previous user's new password was prefilled");
+    type(pw, "half-typed");
+    buttonIn(pw.closest(".modalContainer"), "Cancel").click();
+    await settle();
+    rowOf("bob").querySelector("button").click();
+    await settle();
+    assert.equal(doc.querySelector(".editInput").value, "", "a cancelled password was kept");
+    await page.done();
+  }
+
   // Delete removes the row.
   {
     const page = await usersPage(["admin", "alice", "bob"]);
