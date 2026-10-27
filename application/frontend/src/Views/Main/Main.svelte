@@ -137,10 +137,11 @@
     // rather than folded into the host polling.
     reloadGroups();
     reloadHostAliases();
-    const data = await getHosts();
+    // Started before the await so onDestroy can always clear it.
     intervalId = setInterval(async () => {
       await getHosts();
     }, INTERVAL);
+    const data = await getHosts();
     const isalreadyChosenHost = data.filter((h) => {
       return h.host === $lastChosenHost;
     });
