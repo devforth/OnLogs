@@ -402,7 +402,9 @@ func TestSecondRenameWhileTheReusedNameDrainsKeepsStreaming(t *testing.T) {
 	x, a := fd.add("sd-b"), fd.add("sd-a")
 	ctrl.handleContainerEvent(ctx, containerEvent("start", x))
 	ctrl.handleContainerEvent(ctx, containerEvent("start", a))
+	fd.write(x, "x-0")
 	fd.write(a, "a-0")
+	waitStored(t, "sd-b", "x-0")
 	waitStored(t, "sd-a", "a-0")
 	lagged := fd.stamp()
 
