@@ -123,7 +123,9 @@ func parseDockerLogLine(line string) ([]string, time.Time, bool) {
 		return nil, time.Time{}, false
 	}
 
-	return []string{tsStr, parts[1]}, ts, true
+	// Docker splits a line over 16 KiB into partial messages, each prefixed with
+	// the same timestamp, and they arrive joined.
+	return []string{tsStr, strings.ReplaceAll(parts[1], parts[0]+" ", "")}, ts, true
 }
 
 func (h *DaemonService) rememberFingerprint(containerName, fingerprint string) {

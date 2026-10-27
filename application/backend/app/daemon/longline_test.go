@@ -134,3 +134,92 @@ func TestOversizedLineDoesNotBlockLaterLogsAcrossReattaches(t *testing.T) {
 		t.Fatalf("cursor did not move past the long line: %v", cursor)
 	}
 }
+
+func ttyFrames(rec logRecord) []byte {
+	var out []byte
+	for b := partialFrames(rec); len(b) > 0; {
+		n := binary.BigEndian.Uint32(b[4:8])
+		out = append(out, b[8:8+n]...)
+		b = b[8+n:]
+	}
+	return out
+}
+
+func TestLongLineIsStoredWithoutPartialTimestamps(t *testing.T) {
+	for _, tty := range []bool{false, true} {
+		t.Run(strconv.FormatBool(tty), func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			t.Setenv("AGENT", "false")
+			t.Setenv("MAX_LOGS_SIZE", "10GB")
+			host, name := util.GetHost(), "long-line"
+
+			now := time.Now()
+			long := strings.Repeat("abcdefghi|", 4000)
+			huge := strings.Repeat("0123456789", 200*1024)
+			backlog := []logRecord{
+				{now.Add(-3 * time.Second), long},
+				{now.Add(-2 * time.Second), huge},
+				{now.Add(-1 * time.Second), "after"},
+			}
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if !strings.HasSuffix(r.URL.Path, "/logs") {
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(`{"Config":{"Tty":` + strconv.FormatBool(tty) + `}}`))
+					return
+				}
+				sec, _ := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
+				w.Header().Set("Content-Type", "application/vnd.docker.raw-stream")
+				for _, rec := range backlog {
+					if rec.ts.Before(time.Unix(sec, 0)) {
+						continue
+					}
+					if tty {
+						_, _ = w.Write(ttyFrames(rec))
+					} else {
+						_, _ = w.Write(partialFrames(rec))
+					}
+				}
+			}))
+			cli, err := client.NewClientWithOpts(client.WithHost(srv.URL), client.WithVersion("1.45"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				_ = cli.Close()
+				srv.Close()
+				for _, kind := range []string{"logs", "streamstate", "statistics", "statuses"} {
+					util.ResetDB(host, name, kind)
+				}
+			})
+
+			d := NewDaemonService(&docker.DockerService{Client: cli})
+			for i := 0; i < 2; i++ {
+				ctx, cancel := context.WithCancel(context.Background())
+				d.runContainerStream(ctx, name, false, 0)
+				cancel()
+			}
+
+			counts := map[string]int{}
+			iter := util.GetDB(host, name, "logs").NewIterator(nil, nil)
+			for iter.Next() {
+				msg := string(iter.Value())
+				if kept, ok := strings.CutSuffix(msg, truncatedLineMark); ok {
+					if !strings.HasPrefix(huge, kept) {
+						t.Errorf("truncated line is not a prefix of what the container wrote: %q", kept[len(kept)-80:])
+					}
+					msg = "truncated"
+				}
+				counts[msg]++
+			}
+			iter.Release()
+
+			if counts[long] != 1 || counts["truncated"] != 1 || counts["after"] != 1 {
+				t.Fatalf("expected the long line as written, the truncated one and after stored once each, got long=%d truncated=%d after=%d",
+					counts[long], counts["truncated"], counts["after"])
+			}
+			if cursor := d.storedThrough(host, name); !cursor.Equal(backlog[2].ts.UTC()) {
+				t.Fatalf("cursor not at the last line: %v", cursor)
+			}
+		})
+	}
+}
