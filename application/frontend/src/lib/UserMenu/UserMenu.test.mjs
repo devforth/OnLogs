@@ -186,5 +186,13 @@ main(async () => {
     await page.done();
   }
 
+  // Non-admin: the refusal is shown instead of a TypeError and an empty table.
+  {
+    const page = await usersPage(["admin", "alice"], { admin: false });
+    assert.ok(doc.body.textContent.includes(FORBIDDEN), "the getUsers refusal was not shown");
+    assert.equal(doc.querySelector(".userTable"), null);
+    await page.done();
+  }
+
   console.log("Users page tests passed");
 });

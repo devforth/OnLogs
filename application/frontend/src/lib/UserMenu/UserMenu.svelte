@@ -18,12 +18,15 @@
   let deleteModalIsOpen = $state(false);
   let editModalIsOpen = $state(false);
   let userPasswordValue = $state("");
+  let loadError = $state("");
 
   const api = new fetchApi();
 
   export async function getUsers() {
     const data = await api.getUsers();
-    if (data?.users.at(0)) {
+    if (data?.error) {
+      loadError = data.error;
+    } else if (data?.users?.at(0)) {
       usersList = data.users;
     }
   }
@@ -131,7 +134,8 @@
 <div>
   <h2 class="userMenu">UserMenu</h2>
 
-  {#if usersList}<div>
+  {#if loadError}<p class="error">{loadError}</p>
+  {:else}<div>
       <div class="usersHeaderContainer">
         <h3>Users:</h3>
         <div class="addUserButton" onclick={showAddUserMenu}>
