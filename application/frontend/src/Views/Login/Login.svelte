@@ -26,7 +26,7 @@
   async function confirm() {
     const login = document.getElementById("login").value;
     const password = document.getElementById("password").value;
-    result = await api.login(login.trim(), password.trim());
+    result = await api.login(login.trim(), password);
 
     if (!result) {
       wrong = "wrong";
