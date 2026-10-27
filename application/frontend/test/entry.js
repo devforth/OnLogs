@@ -16,3 +16,4 @@ export {
 } from "../src/Views/Logs/functions.js";
 export { tick, mount, unmount, flushSync } from "svelte";
 export { reactiveProps } from "./reactiveProps.svelte.js";
+export { default as SecretModal } from "../src/lib/SecretModal/SecretModal.svelte";

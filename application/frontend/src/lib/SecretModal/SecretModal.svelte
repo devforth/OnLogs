@@ -88,7 +88,7 @@
         minWidth={55}
         border={true}
         CB={() => {
-          copyText(document.querySelector("pre"), () => {
+          copyText(document.querySelector(".secretModalContainer .secretSnippet"), () => {
             toast.set({
               tittle: "Success",
               message: "Text has been copied",
