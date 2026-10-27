@@ -94,8 +94,9 @@
     highlightSearch();
   }
 
+  // Never final: new lines can arrive after the newest one shown.
   async function showNewer() {
-    if (isPaging || newerDone) {
+    if (isPaging) {
       return;
     }
     isPaging = true;
@@ -176,10 +177,10 @@
 
       <button
         class="logContextMore"
-        disabled={newerDone || isPaging}
+        disabled={isPaging}
         onclick={showNewer}
       >
-        {newerDone ? "No newer lines" : `Load ${PAGE} newer`}
+        {newerDone ? "Check for newer lines" : `Load ${PAGE} newer`}
       </button>
     </div>
   {/if}

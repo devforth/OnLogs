@@ -176,6 +176,20 @@ main(async () => {
     `the context share button copied no log anchor: ${copied}`
   );
 
+  // The newer end is only the newest line so far; it must be able to grow.
+  const newerButton = () => [...box.querySelectorAll(".logContextMore")].at(-1);
+  const inContext = () => messagesIn(target, "#logContext .message p");
+  for (let i = 0; i < 10 && !inContext().includes("line-0"); i++) {
+    newerButton().click();
+    await settle(20);
+  }
+  assert.ok(inContext().includes("line-0"), "control: paging newer reached the newest line");
+  const lateTs = "2026-02-10T12:44:03.950000000Z";
+  ROWS.unshift([lateTs, "line-late", `${lateTs} +1786123141845584283-9999`]);
+  newerButton().click();
+  await settle(20);
+  assert.ok(inContext().includes("line-late"), "a line written after the context reached the newest row cannot be shown");
+
   let status;
   bundle.chosenStatus.set("info");
   await settle(40);
