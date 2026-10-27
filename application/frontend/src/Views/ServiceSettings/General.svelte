@@ -6,6 +6,8 @@
     lastChosenHost,
     lastChosenService,
     confirmationObj,
+    toast,
+    toastIsVisible,
   } from "../../Stores/stores.js";
   import { navigate } from "svelte-routing";
   import { changeKey } from "../../utils/changeKey.js";
@@ -16,10 +18,25 @@
   async function deleteService() {
     confirmationObj.set({
       action: async function () {
-        const data = await fetchApi.deleteService(
-          $lastChosenHost,
-          $lastChosenService
-        );
+        let data;
+        try {
+          data = await fetchApi.deleteService(
+            $lastChosenHost,
+            $lastChosenService
+          );
+        } catch {
+          data = { error: "Could not delete the service. Please try again later." };
+        }
+        if (data?.error) {
+          toast.set({
+            tittle: "Error",
+            message: data.error,
+            position: "",
+            status: "Error",
+          });
+          toastIsVisible.set(true);
+          return;
+        }
         if (data) {
           const data = await fetchApi.getHosts();
           const newServiceName = data.filter((h) => {
