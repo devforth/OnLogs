@@ -95,6 +95,43 @@ main(async () => {
   assert.ok(lastCall("getGroups"), "the sidebar was not refreshed after a create");
   bundle.unmount(app);
 
+  // --- Enter submits, from the name field or a ticked box ------------------
+  const pressEnter = (el) =>
+    el.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  bundle.groupBeingEdited.set(null);
+  bundle.groupModalIsVisible.set(true);
+  app = await mountModal();
+  setName(window, "by enter");
+  pressEnter(window.document.querySelector(".groupNameInput"));
+  await settle();
+  assert.deepEqual(lastCall("createGroup")?.body, { name: "by enter", members: [] }, "Enter in the name field did not save");
+  bundle.unmount(app);
+
+  bundle.groupBeingEdited.set(null);
+  bundle.groupModalIsVisible.set(true);
+  app = await mountModal();
+  setName(window, "by enter on a box");
+  pressEnter(check(window, "host1", "api"));
+  await settle();
+  assert.deepEqual(lastCall("createGroup")?.body, {
+    name: "by enter on a box",
+    members: [{ host: "host1", service: "api" }],
+  });
+  bundle.unmount(app);
+
+  bundle.hostBeingRenamed.set("host1");
+  calls = [];
+  const alias = bundle.mount(bundle.HostAliasModal, { target });
+  await settle();
+  const aliasInput = window.document.querySelector(".hostAliasInput");
+  aliasInput.value = "Primary";
+  aliasInput.dispatchEvent(new window.Event("input", { bubbles: true }));
+  pressEnter(aliasInput);
+  await settle();
+  assert.deepEqual(lastCall("setHostAlias")?.body, { host: "host1", alias: "Primary" }, "Enter did not rename the host");
+  bundle.unmount(alias);
+  bundle.hostBeingRenamed.set(null);
+
   // --- a group with no members is allowed and renders as an empty folder ---
   bundle.groupBeingEdited.set(null);
   bundle.groupModalIsVisible.set(true);

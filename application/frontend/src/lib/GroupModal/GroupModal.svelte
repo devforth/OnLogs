@@ -116,6 +116,10 @@
     close();
   }
 
+  function saveOnEnter(e) {
+    if (e.key === "Enter" && !e.isComposing) save();
+  }
+
   let confirmingDelete = $state(false);
 
   async function remove() {
@@ -150,6 +154,7 @@
       type="text"
       placeholder="Group name"
       bind:value={name}
+      onkeydown={saveOnEnter}
     />
 
     <div class="groupModalTree">
@@ -165,6 +170,7 @@
               data-service={service.name}
               checked={isSelected(host.host, service.name)}
               onchange={() => toggle(host.host, service.name)}
+              onkeydown={saveOnEnter}
             />
             <span class={service.missing ? "disabled" : ""} title={service.name}
               >{service.name}</span

@@ -61,6 +61,7 @@
       maxlength={MAX_NAME_LENGTH}
       placeholder="Display name"
       bind:value={alias}
+      onkeydown={(e) => e.key === "Enter" && !e.isComposing && save()}
     />
     <p class="hostAliasHint">
       Shown instead of the machine's own hostname. Logs stay stored under
