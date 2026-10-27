@@ -101,5 +101,28 @@ main(async () => {
     bundle.unmount(opened.component);
   }
 
+  // Opened while logged out: the link has to survive the login page.
+  let loggedOut = true;
+  const inner = stubFetch({ getLogs: 0, withPrev: 0 }, 0);
+  const { window } = installDom({
+    fetchImpl: async (url) => (loggedOut ? jsonResponse({ error: "unauthorized" }, 401) : inner(url)),
+  });
+  bundle.lastChosenHost.set("testhost");
+  bundle.lastChosenService.set("testservice");
+  bundle.isPending.set(false);
+  bundle.urlHash.set("#" + LINKED);
+  let component = bundle.mount(bundle.NewLogsV2, { target: window.document.body });
+  await settle(40);
+  assert.equal(location.pathname, `${bundle.changeKey}/login`, "control: a logged-out load opens the login page");
+  bundle.unmount(component);
+  loggedOut = false;
+  component = bundle.mount(bundle.NewLogsV2, { target: window.document.body });
+  await settle(40);
+  assert.ok(
+    renderedMessages(window.document.body).includes("linked-row"),
+    "the linked row was lost on the way through the login page"
+  );
+  bundle.unmount(component);
+
   console.log("shared link deep-link window tests passed");
 });

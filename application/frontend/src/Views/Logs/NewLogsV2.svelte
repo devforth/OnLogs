@@ -278,7 +278,10 @@
       scrollToBottom();
     }
 
-    urlHash.set("");
+    // Logged out: keep the link for the view that opens after login.
+    if (api.authorized) {
+      urlHash.set("");
+    }
     viewFlags.endDeepLink();
     setTimeout(() => {
       setTimeout(() => {
@@ -308,6 +311,9 @@
       limit: limit * 2,
       startWith,
     });
+    if (!api.authorized) {
+      return;
+    }
     const viewLogs = [...getLogsArray(logsWithPrevResponse)].reverse();
     let downLogs = [];
     let upperLogs = [];
