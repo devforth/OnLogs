@@ -110,6 +110,26 @@ main(async () => {
   bundle.unmount(view);
 
   view = await openService("api");
+  store("api", "before-pause");
+  await settle(10);
+  bundle.WSisMuted.set(true);
+  bundle.manuallyUnmuted.set(false);
+  store("api", "paused-1");
+  store("api", "paused-2");
+  await settle(10);
+  assert.equal(count("paused-1"), 0, "control: a paused tail shows no new lines");
+  bundle.WSisMuted.set(false);
+  bundle.manuallyUnmuted.set(true);
+  await settle(30);
+  assert.deepEqual(
+    rendered().slice(-3),
+    ["before-pause", "paused-1", "paused-2"],
+    "lines written while the tail was paused are missing after resume"
+  );
+  bundle.manuallyUnmuted.set(false);
+  bundle.unmount(view);
+
+  view = await openService("api");
   const sentinel = globalThis.__onlogsObservers.find((h) => h.element?.id === "endOfLogs");
   sentinel.set(false);
   await settle(10);

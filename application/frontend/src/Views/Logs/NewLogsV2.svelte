@@ -58,6 +58,8 @@
   let wsRetryDelay = 0;
   let wsDown = $state(false);
   let wsCatchUp = $state(false);
+  // Set when a paused tail dropped a line, so resuming reloads the gap.
+  let mutedDrops = false;
   let logsFromWS = $state([]);
 
   let elements = $state([]);
@@ -493,6 +495,8 @@
               addLogFromWS(logfromWS);
             }
           }
+        } else {
+          mutedDrops = true;
         }
       } else {
         webSocket.send("PONG");
@@ -560,6 +564,7 @@
     wsRetryDelay = 0;
     wsDown = false;
     wsCatchUp = false;
+    mutedDrops = false;
     if (webSocket) {
       const socket = webSocket;
       webSocket = null;
@@ -1010,6 +1015,12 @@
   $effect(() => {
     if ([...allLogs]) {
       highlightSearchText();
+    }
+  });
+  $effect(() => {
+    if ((!$WSisMuted || $manuallyUnmuted) && mutedDrops) {
+      mutedDrops = false;
+      wsCatchUp = true;
     }
   });
   $effect(() => {
