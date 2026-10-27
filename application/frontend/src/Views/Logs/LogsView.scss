@@ -47,7 +47,8 @@ div .chosen {
   }
   #endOfLogs {
     position: absolute;
-    bottom: 5vh;
+    // 5vh above the end, but never above a pane shorter than that.
+    top: max(1px, calc(100% - 5vh));
   }
 }
 

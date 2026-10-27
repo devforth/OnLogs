@@ -382,6 +382,8 @@
     if (
       windowAtHead &&
       (atBottom ||
+        // An empty pane is 0 px tall, so its bottom sentinel never shows.
+        !allLogs.length ||
         (!mouseDownBlockFetch && endOffLogsIntersect) ||
         (allLogs.length < 3 * limit && endOffLogsIntersect))
     ) {
@@ -1022,7 +1024,9 @@
   </div>{/if}
 
 {#if allLogs.length === 0 && !$isPending}
-  <h2 class="noLogsMessage">No logs written yet</h2>
+  <h2 class="noLogsMessage">
+    {searchText || $chosenStatus ? "No matching log lines" : "No logs written yet"}
+  </h2>
 {/if}
 {#if $isPending}<Spiner />{:else}
   <div id="logs" class="logs" bind:this={div}>
