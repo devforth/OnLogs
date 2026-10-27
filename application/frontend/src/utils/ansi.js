@@ -14,6 +14,10 @@ export function stripAnsi(value = "") {
   return String(value).replace(ANSI_PATTERN, "");
 }
 
+// The converter renders SGR (colour) codes only and leaves the final letter of
+// any other sequence in the text, so those are dropped first.
 export function toAnsiHtml(value = "") {
-  return ansiConverter.toHtml(String(value));
+  return ansiConverter.toHtml(
+    String(value).replace(ANSI_PATTERN, (seq) => (seq.endsWith("m") ? seq : ""))
+  );
 }

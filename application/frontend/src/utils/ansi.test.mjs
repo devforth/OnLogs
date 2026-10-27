@@ -28,6 +28,11 @@ function run() {
   const unknown = "\u001b[999mX\u001b[0m";
   assert.ok(toAnsiHtml(unknown).includes("X"));
 
+  const cursor = "\u001b[2K\u001b[1Gprogress 50% \u001b[32mok\u001b[0m";
+  const cursorHtml = toAnsiHtml(cursor);
+  assert.ok(cursorHtml.startsWith("progress 50% "), `cursor codes left text behind: ${cursorHtml}`);
+  assert.ok(cursorHtml.includes("<span") && cursorHtml.includes("ok"));
+
   console.log("ansi tests passed");
 }
 
