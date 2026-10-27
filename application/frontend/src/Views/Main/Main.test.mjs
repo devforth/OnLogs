@@ -96,7 +96,7 @@ main(async () => {
 
   // A service named like the users page does not highlight the Users icon.
   {
-    const { app } = await mountAt("/view/h1/qa-users-svc");
+    const { app } = await mountAt("/view/h1/users-billing");
     assert.equal(activeMenu(), "home");
     bundle.unmount(app);
     await settle();
