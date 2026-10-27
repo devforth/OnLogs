@@ -95,6 +95,15 @@ main(async () => {
     return form().querySelectorAll("input");
   }
 
+  // No debug heading, and Logout is not drawn as the selected entry.
+  {
+    const page = await usersPage(["admin"]);
+    assert.ok(!doc.body.textContent.includes("UserMenu"), "the heading is the component name");
+    assert.ok(doc.querySelector(".commonList")?.textContent.includes("Logout"));
+    assert.equal(doc.querySelector(".commonList .highlightedOverlay.active"), null, "Logout starts selected");
+    await page.done();
+  }
+
   // Create: validation, success, reopen, Enter, server errors.
   {
     const page = await usersPage(["admin", "alice"]);

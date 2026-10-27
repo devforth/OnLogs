@@ -19,9 +19,10 @@ main(async () => {
   });
   await settle(2);
   assert.ok(target.textContent.includes("alpha"), "a populated list should still render");
-  assert.ok(
+  assert.equal(
     target.querySelector(".highlightedOverlay.active"),
-    "the first row should start active"
+    null,
+    "no row should start active"
   );
   bundle.unmount(filled);
 

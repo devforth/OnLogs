@@ -1,8 +1,5 @@
 <script>
-  import { untrack } from "svelte";
-
   let { listData = [], isRowClickable = false, storeProp = null } = $props();
-  let initialActive = $state(untrack(() => listData?.[0]?.name));
 </script>
 
 <div class="commonList">
@@ -12,7 +9,6 @@
         class="listElement {isRowClickable && 'clickable'}"
         onclick={() => {
           isRowClickable && storeProp?.set && storeProp.set(listEl.name);
-          initialActive = null;
           listEl.callBack();
         }}
       >
@@ -25,9 +21,7 @@
           <i class="log log-{listEl.ico}"></i>
         </div>
         <div
-          class="highlightedOverlay {($storeProp === listEl.name ||
-            initialActive === listEl.name) &&
-            'active'}"
+          class="highlightedOverlay {$storeProp === listEl.name && 'active'}"
 ></div>
       </li>
     {/each}

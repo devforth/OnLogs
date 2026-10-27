@@ -132,8 +132,6 @@
 </script>
 
 <div>
-  <h2 class="userMenu">UserMenu</h2>
-
   {#if loadError}<p class="error">{loadError}</p>
   {:else}<div>
       <div class="usersHeaderContainer">
