@@ -176,6 +176,18 @@ main(async () => {
     `the context share button copied no log anchor: ${copied}`
   );
 
+  let status;
+  bundle.chosenStatus.set("info");
+  await settle(40);
+  window.document.body.dispatchEvent(
+    new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })
+  );
+  await settle(10);
+  assert.equal(target.querySelector("#logContext"), null, "control: Escape closes the context");
+  bundle.chosenStatus.subscribe((v) => (status = v))();
+  assert.equal(status, "info", "the Escape that closed the context also cleared the status filter");
+  bundle.chosenStatus.set("");
+
   bundle.unmount(component);
   console.log("show-context tests passed");
 });

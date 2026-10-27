@@ -142,5 +142,18 @@ main(async () => {
   bundle.unmount(view);
   bundle.chosenStatus.set("");
 
+  view = await openWithSearch(true, "error");
+  bundle.chosenStatus.set("error");
+  await settle(40);
+  const input = document.querySelector("#top-line input[type=text]");
+  input.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  await settle(40);
+  let status;
+  bundle.chosenStatus.subscribe((v) => (status = v))();
+  assert.equal(input.value, "", "Escape in the search box left the search in place");
+  assert.equal(status, "error", "Escape in the search box cleared the status filter");
+  bundle.unmount(view);
+  bundle.chosenStatus.set("");
+
   console.log("live search filter tests passed");
 });

@@ -12,7 +12,7 @@
   import Spiner from "./Spiner.svelte";
   import Loader from "./Loader.svelte";
   import { fade } from "svelte/transition";
-  import { handleKeydown, copyCustomText } from "../../utils/functions.js";
+  import { copyCustomText } from "../../utils/functions.js";
   import { findSearchTextInLogs } from "../../Views/Logs/functions.js";
   import { buildSharedLogUrl, readSharedLogHash } from "./shareLink.js";
   import { createLogsViewFlags } from "./shareLinkViewState.js";
@@ -1230,10 +1230,17 @@
     clearInterval(extremalScrollId);
     interceptorsWait = false;
   }}
-  onkeydown={(e) => {
-    handleKeydown(e, "Escape", () => {
-      chosenLogsString.set("");
-      chosenStatus.set("");
-    });
+  onkeydowncapture={(e) => {
+    // Capture: the modal's own handler clears contextAnchor on the way back up.
+    if (e.key !== "Escape" || contextAnchor) {
+      return;
+    }
+    if (e.target?.matches?.("#top-line input")) {
+      e.target.value = "";
+      resetSearchParams();
+      return;
+    }
+    chosenLogsString.set("");
+    chosenStatus.set("");
   }}
 />
