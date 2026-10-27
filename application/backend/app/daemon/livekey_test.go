@@ -27,7 +27,7 @@ func TestIngestedLinesCarryTheirStorageKey(t *testing.T) {
 	registered := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if conn, err := (&websocket.Upgrader{}).Upgrade(w, r, nil); err == nil {
-			vars.AddConnection(container, "", conn)
+			vars.AddConnection(container, "", "", conn)
 		}
 		close(registered)
 	}))

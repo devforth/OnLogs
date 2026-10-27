@@ -795,11 +795,11 @@ func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request
 	// Under the lock a revocation either fails this check or finds the viewer.
 	registered := false
 	userdb.WithSessionsHeld(func() {
-		user, err := util.GetUserFromJWT(*req)
+		user, session, _, err := util.GetSessionFromJWT(*req)
 		if err != nil && os.Getenv("DISABLE_AUTH") != "true" {
 			return
 		}
-		addConnection(container, user, ws)
+		addConnection(container, user, session, ws)
 		registered = true
 	})
 	if !registered {
@@ -883,8 +883,8 @@ func (h *RouteController) Logout(w http.ResponseWriter, req *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
-	if user, err := util.GetUserFromJWT(*req); err == nil {
-		if err := userdb.RevokeSessions(user); err != nil {
+	if _, session, exp, err := util.GetSessionFromJWT(*req); err == nil {
+		if err := userdb.EndSession(session, exp); err != nil {
 			fail(w, http.StatusInternalServerError, err.Error())
 			return
 		}

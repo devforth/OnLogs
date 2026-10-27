@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/devforth/OnLogs/app/vars"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -145,6 +146,35 @@ func revokeSessions(login string) error {
 	}
 	vars.CloseUserConnections(login)
 	return nil
+}
+
+// Ends one session only; the other sessions of its login keep working.
+func EndSession(session string, exp int64) error {
+	usersMu.Lock()
+	defer usersMu.Unlock()
+
+	batch := new(leveldb.Batch)
+	now := time.Now().Unix()
+	iter := vars.EndedSessionsDB.NewIterator(nil, nil)
+	for iter.Next() {
+		if until, err := strconv.ParseInt(string(iter.Value()), 10, 64); err != nil || until < now {
+			batch.Delete(iter.Key())
+		}
+	}
+	iter.Release()
+	if err := iter.Error(); err != nil {
+		return err
+	}
+	batch.Put([]byte(session), []byte(strconv.FormatInt(exp, 10)))
+	if err := vars.EndedSessionsDB.Write(batch, nil); err != nil {
+		return err
+	}
+	vars.CloseSessionConnections(session)
+	return nil
+}
+
+func IsSessionEnded(session string) (bool, error) {
+	return vars.EndedSessionsDB.Has([]byte(session), nil)
 }
 
 func CheckUserPassword(login string, gotPassword string) bool {

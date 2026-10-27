@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/devforth/OnLogs/app/userdb"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/devforth/OnLogs/app/vars"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 )
 
@@ -93,6 +95,86 @@ func TestLogoutEndsTheSessionServerSide(t *testing.T) {
 	}
 	if code := cookieStatus(t, loginCookie(t, "session-logout", "logout-password")); code != http.StatusOK {
 		t.Errorf("a new login after logout got %d", code)
+	}
+}
+
+func TestLogoutEndsOnlyThatSession(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(testCtrl.GetLogsStream))
+	defer server.Close()
+
+	const container = "stream-two-browsers"
+	leaving := freshUser(t, "session-two-browsers", "two-browsers")
+	staying := loginCookie(t, "session-two-browsers", "two-browsers")
+	leavingStream := openStream(t, server, container, leaving)
+	stayingStream := openStream(t, server, container, staying)
+	for deadline := time.Now().Add(2 * time.Second); vars.ConnectionCount(container) < 2; time.Sleep(time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("streams not registered: %d", vars.ConnectionCount(container))
+		}
+	}
+
+	if code, body := call(t, testCtrl.Logout, withCookie(t, leaving, "GET", "/api/v1/logout", nil)); code != http.StatusOK {
+		t.Fatalf("logout: %d %s", code, body)
+	}
+	if code := cookieStatus(t, leaving); code != http.StatusUnauthorized {
+		t.Errorf("the logged-out cookie got %d", code)
+	}
+	if code := cookieStatus(t, staying); code != http.StatusOK {
+		t.Errorf("the same login's other session got %d", code)
+	}
+
+	vars.Broadcast(container, websocket.TextMessage, []byte("after logout"))
+	stayingStream.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if _, msg, err := stayingStream.ReadMessage(); err != nil || string(msg) != "after logout" {
+		t.Errorf("the other session's stream got %q, %v", msg, err)
+	}
+	leavingStream.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if _, msg, err := leavingStream.ReadMessage(); err == nil {
+		t.Errorf("the logged-out stream received %q", msg)
+	}
+}
+
+func TestLogoutEndsASessionIssuedBeforeTheUpgrade(t *testing.T) {
+	const login = "session-pre-upgrade"
+	// Written directly: CreateUser would start a session generation the old
+	// token does not carry.
+	vars.UsersDB.Put([]byte(login), []byte(userdb.HashPassword("pre-upgrade")), nil)
+	vars.SessionsDB.Delete([]byte(login), nil)
+	t.Cleanup(func() { userdb.DeleteUser(login) })
+
+	legacy, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user": login,
+		"exp":  time.Now().Add(time.Hour).Unix(),
+	}).SignedString([]byte(os.Getenv("JWT_SECRET")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	other := loginCookie(t, login, "pre-upgrade")
+	if code := cookieStatus(t, legacy); code != http.StatusOK {
+		t.Fatalf("the pre-upgrade cookie got %d before logout", code)
+	}
+
+	if code, body := call(t, testCtrl.Logout, withCookie(t, legacy, "GET", "/api/v1/logout", nil)); code != http.StatusOK {
+		t.Fatalf("logout: %d %s", code, body)
+	}
+	if code := cookieStatus(t, legacy); code != http.StatusUnauthorized {
+		t.Errorf("the logged-out pre-upgrade cookie got %d", code)
+	}
+	if code := cookieStatus(t, other); code != http.StatusOK {
+		t.Errorf("the same login's other session got %d", code)
+	}
+}
+
+func TestLoggedOutCookieStaysEndedWhenRespelled(t *testing.T) {
+	cookie := freshUser(t, "session-respelled", "respelled-password")
+	call(t, testCtrl.Logout, withCookie(t, cookie, "GET", "/api/v1/logout", nil))
+
+	// The last character of an HMAC-SHA256 signature carries two unused bits.
+	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+	last := strings.IndexByte(alphabet, cookie[len(cookie)-1])
+	respelled := cookie[:len(cookie)-1] + string(alphabet[last^1])
+	if code := cookieStatus(t, respelled); code != http.StatusUnauthorized {
+		t.Errorf("the logged-out cookie, respelled, got %d", code)
 	}
 }
 
@@ -207,16 +289,21 @@ func (h hijackHook) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 }
 
 func TestStreamRevokedDuringTheUpgradeIsClosed(t *testing.T) {
-	for name, revoke := range map[string]func(login string) error{
-		"delete": userdb.DeleteUser,
-		"revoke": userdb.RevokeSessions,
+	for name, revoke := range map[string]func(cookie string){
+		"delete": func(string) { userdb.DeleteUser("stream-upgrading") },
+		"revoke": func(string) { userdb.RevokeSessions("stream-upgrading") },
+		"logout": func(cookie string) {
+			logout, _ := http.NewRequest("GET", "/api/v1/logout", nil)
+			logout.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: cookie})
+			testCtrl.Logout(httptest.NewRecorder(), logout)
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			cookie := freshUser(t, "stream-upgrading", "upgrading-password")
 			done := make(chan struct{})
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				defer close(done)
-				testCtrl.GetLogsStream(hijackHook{w, func() { revoke("stream-upgrading") }}, r)
+				testCtrl.GetLogsStream(hijackHook{w, func() { revoke(cookie) }}, r)
 			}))
 			defer server.Close()
 
@@ -259,7 +346,7 @@ func TestStreamGetsNoLineBroadcastAfterItsUserWasDeleted(t *testing.T) {
 	cookie := freshUser(t, login, "opening-password")
 	deleted := make(chan error, 1)
 	var returned atomic.Bool
-	addConnection = func(key, user string, ws *websocket.Conn) {
+	addConnection = func(key, user, session string, ws *websocket.Conn) {
 		go func() {
 			err := userdb.DeleteUser(login)
 			returned.Store(true)
@@ -270,7 +357,7 @@ func TestStreamGetsNoLineBroadcastAfterItsUserWasDeleted(t *testing.T) {
 			deleted <- err
 		case <-time.After(100 * time.Millisecond):
 		}
-		vars.AddConnection(key, user, ws)
+		vars.AddConnection(key, user, session, ws)
 		line := "before delete returned"
 		if returned.Load() {
 			line = "after delete returned"

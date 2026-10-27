@@ -16,13 +16,13 @@ func TestTotalConnections(t *testing.T) {
 	second, closeSecond := dialTestSocket(t)
 	defer closeSecond()
 
-	AddConnection("container-a", "", first)
+	AddConnection("container-a", "", "", first)
 	if got := TotalConnections(); got != 1 {
 		t.Errorf("one viewer: got %d, want 1", got)
 	}
 
 	// Across keys, not within one.
-	AddConnection("host-b/container-b", "", second)
+	AddConnection("host-b/container-b", "", "", second)
 	if got := TotalConnections(); got != 2 {
 		t.Errorf("two viewers on two keys: got %d, want 2", got)
 	}

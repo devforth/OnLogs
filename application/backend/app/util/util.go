@@ -3,6 +3,8 @@ package util
 import (
 	"bytes"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -83,6 +85,9 @@ func CreateJWT(login string) string {
 	claims["exp"] = time.Now().AddDate(0, 0, 2).Unix()
 	claims["user"] = login
 	claims["gen"], _ = userdb.SessionGeneration(login)
+	// Two logins in the same second would otherwise share a cookie, and
+	// logging out of one would end both.
+	claims["jti"] = rand.Text()
 	tokenString, _ := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
 
 	return tokenString
@@ -240,7 +245,7 @@ func CloseDBs() {
 	for _, db := range vars.ContainersMeta_DBs {
 		db.Close()
 	}
-	for _, db := range []*leveldb.DB{vars.AliasDB, vars.FavsDB, vars.GroupsDB, vars.UsersDB, vars.TokensDB, vars.SettingsDB, vars.SessionsDB} {
+	for _, db := range []*leveldb.DB{vars.AliasDB, vars.FavsDB, vars.GroupsDB, vars.UsersDB, vars.TokensDB, vars.SettingsDB, vars.SessionsDB, vars.EndedSessionsDB} {
 		if db != nil {
 			db.Close()
 		}
@@ -413,49 +418,60 @@ func PrunableDBs() []string {
 }
 
 func GetUserFromJWT(req http.Request) (string, error) {
+	user, _, _, err := GetSessionFromJWT(req)
+	return user, err
+}
+
+// The session key names this one cookie; exp is when it lapses on its own.
+func GetSessionFromJWT(req http.Request) (user string, session string, exp int64, err error) {
+	unauthorized := errors.New("401 - Unauthorized!")
 	c, _ := req.Cookie("onlogs-cookie")
 	if c == nil {
-		return "", errors.New("401 - Unauthorized!")
+		return "", "", 0, unauthorized
 	}
 
 	// An empty key verifies every HMAC token.
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		return "", errors.New("401 - Unauthorized!")
+		return "", "", 0, unauthorized
 	}
 
 	claims := jwt.MapClaims{}
-	_, err := jwt.ParseWithClaims(c.Value, claims, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(c.Value, claims, func(token *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil
 	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}), jwt.WithExpirationRequired())
 
 	if err != nil {
-		return "", err
+		return "", "", 0, err
 	}
 
-	exp, ok := claims["exp"].(float64)
-	if !ok {
-		return "", errors.New("Token is expired")
-	}
-	if int64(exp) < time.Now().Unix() {
-		return "", errors.New("Token is expired")
+	expClaim, ok := claims["exp"].(float64)
+	if !ok || int64(expClaim) < time.Now().Unix() {
+		return "", "", 0, errors.New("Token is expired")
 	}
 
-	user, ok := claims["user"].(string)
+	user, ok = claims["user"].(string)
 	if !ok || user == "" {
-		return "", errors.New("401 - Unauthorized!")
+		return "", "", 0, unauthorized
 	}
 
 	// A valid signature is not enough: deleting an account must revoke it.
 	if exists, err := vars.UsersDB.Has([]byte(user), nil); err != nil || !exists {
-		return "", errors.New("401 - Unauthorized!")
+		return "", "", 0, unauthorized
 	}
 	// Sessions issued before generations existed carry none and read as 0.
 	gen, _ := claims["gen"].(float64)
 	if current, err := userdb.SessionGeneration(user); err != nil || gen != float64(current) {
-		return "", errors.New("401 - Unauthorized!")
+		return "", "", 0, unauthorized
 	}
-	return user, nil
+	// The decoded signature, not the cookie text: base64 lets one signature be
+	// spelled several ways. It also names cookies issued without a jti.
+	sum := sha256.Sum256(token.Signature)
+	session = hex.EncodeToString(sum[:])
+	if ended, err := userdb.IsSessionEnded(session); err != nil || ended {
+		return "", "", 0, unauthorized
+	}
+	return user, session, int64(expClaim), nil
 }
 
 // Mints agent ingestion tokens, so it must be cryptographically random.

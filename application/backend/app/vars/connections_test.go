@@ -56,7 +56,7 @@ func TestConnectionsSurviveConcurrentRegistrationAndBroadcast(t *testing.T) {
 				return
 			default:
 			}
-			AddConnection(key+"-other", "", conn)
+			AddConnection(key+"-other", "", "", conn)
 		}
 	}()
 
@@ -84,7 +84,7 @@ func TestBroadcastDropsAConnectionThatFailsToWrite(t *testing.T) {
 	conn, cleanup := dialTestSocket(t)
 	defer cleanup()
 
-	AddConnection(key, "", conn)
+	AddConnection(key, "", "", conn)
 	if ConnectionCount(key) != 1 {
 		t.Fatalf("expected the connection to be registered, got %d", ConnectionCount(key))
 	}
@@ -99,7 +99,7 @@ func TestBroadcastDropsAConnectionThatFailsToWrite(t *testing.T) {
 
 func TestAddConnectionIgnoresNil(t *testing.T) {
 	key := "nilhost/nilcontainer"
-	AddConnection(key, "", nil)
+	AddConnection(key, "", "", nil)
 
 	if got := ConnectionCount(key); got != 0 {
 		t.Fatalf("a nil connection was stored; a background goroutine will dereference it (%d stored)", got)

@@ -14,6 +14,7 @@ const wsWriteDeadline = 10 * time.Second
 type viewer struct {
 	conn    *websocket.Conn
 	user    string
+	session string
 	writeMu sync.Mutex
 }
 
@@ -26,25 +27,35 @@ func (v *viewer) write(messageType int, payload []byte) error {
 }
 
 // AddConnection registers a viewer's websocket for a host/container.
-func AddConnection(key string, user string, conn *websocket.Conn) {
+func AddConnection(key string, user string, session string, conn *websocket.Conn) {
 	if conn == nil {
 		return
 	}
 	connectionsMutex.Lock()
 	defer connectionsMutex.Unlock()
-	connections[key] = append(connections[key], &viewer{conn: conn, user: user})
+	connections[key] = append(connections[key], &viewer{conn: conn, user: user, session: session})
 }
 
+// Streams opened without a session (DISABLE_AUTH) belong to no one, so an
+// empty user or session closes nothing.
 func CloseUserConnections(user string) {
-	// Streams opened without a session (DISABLE_AUTH) belong to no one.
-	if user == "" {
-		return
+	if user != "" {
+		closeViewers(func(v *viewer) bool { return v.user == user })
 	}
+}
+
+func CloseSessionConnections(session string) {
+	if session != "" {
+		closeViewers(func(v *viewer) bool { return v.session == session })
+	}
+}
+
+func closeViewers(match func(*viewer) bool) {
 	owned := map[*viewer]string{}
 	connectionsMutex.RLock()
 	for key, viewers := range connections {
 		for _, v := range viewers {
-			if v.user == user {
+			if match(v) {
 				owned[v] = key
 			}
 		}

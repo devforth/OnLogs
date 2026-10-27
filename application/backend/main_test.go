@@ -118,7 +118,7 @@ func TestSigtermClosesTheDatabasesBeforeExiting(t *testing.T) {
 	if !strings.Contains(string(logFile), "db@close done") {
 		t.Error("the logs database was left open at exit")
 	}
-	for _, name := range []string{"hostaliases", "favourites", "groups", "users", "tokens", "usersSettings", "sessions"} {
+	for _, name := range []string{"hostaliases", "favourites", "groups", "users", "tokens", "usersSettings", "sessions", "endedSessions"} {
 		if logFile, err := os.ReadFile(dir + "/leveldb/" + name + "/LOG"); err != nil || !strings.Contains(string(logFile), "db@close done") {
 			t.Errorf("leveldb/%s was left open at exit (%v)", name, err)
 		}

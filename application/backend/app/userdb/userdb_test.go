@@ -2,6 +2,7 @@ package userdb
 
 import (
 	"testing"
+	"time"
 
 	"github.com/devforth/OnLogs/app/vars"
 )
@@ -67,5 +68,22 @@ func TestCheckUserPassword(t *testing.T) {
 	}
 	if CheckUserPassword("testpassword", "1") {
 		t.Error("Password shouldn't be correct")
+	}
+}
+
+func TestEndedSessionsArePrunedOnceTheyExpire(t *testing.T) {
+	if err := EndSession("lapsed-session", time.Now().Add(-time.Minute).Unix()); err != nil {
+		t.Fatal(err)
+	}
+	if err := EndSession("live-session", time.Now().Add(time.Hour).Unix()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { vars.EndedSessionsDB.Delete([]byte("live-session"), nil) })
+
+	if ended, _ := IsSessionEnded("lapsed-session"); ended {
+		t.Error("an entry past its cookie's expiry was kept")
+	}
+	if ended, _ := IsSessionEnded("live-session"); !ended {
+		t.Error("an entry for an unexpired cookie was dropped")
 	}
 }
