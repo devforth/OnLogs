@@ -116,7 +116,13 @@
     close();
   }
 
+  let confirmingDelete = $state(false);
+
   async function remove() {
+    if (!confirmingDelete) {
+      confirmingDelete = true;
+      return;
+    }
     let data;
     try {
       data = await api.deleteGroup(editing.name);
@@ -170,7 +176,12 @@
 
     <div class="groupModalButtons">
       {#if editing}
-        <Button id="groupModalDelete" title="Delete" minWidth={86} CB={remove} />
+        <Button
+          id="groupModalDelete"
+          title={confirmingDelete ? "Confirm delete" : "Delete"}
+          minWidth={86}
+          CB={remove}
+        />
       {/if}
       <Button
         id="groupModalSave"

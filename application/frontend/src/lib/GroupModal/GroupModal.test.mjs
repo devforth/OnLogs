@@ -194,6 +194,10 @@ main(async () => {
   app = await mountModal();
   window.document.querySelector("#groupModalDelete").click();
   await settle();
+  assert.equal(lastCall("deleteGroup"), undefined, "the group was deleted without a confirmation");
+  assert.equal(window.document.querySelector("#groupModalDelete").textContent.trim(), "Confirm delete");
+  window.document.querySelector("#groupModalDelete").click();
+  await settle();
 
   const deleted = lastCall("deleteGroup");
   assert.ok(deleted, "deleteGroup was not called");
