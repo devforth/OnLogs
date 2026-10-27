@@ -4,7 +4,9 @@
   import { onMount, untrack } from "svelte";
 
   import { navigate } from "svelte-routing";
-  let openStopedServIndexes = $state([]);
+  // Host names, not indexes: a host added or removed shifts every index.
+  let openStopedHosts = $state([]);
+  let openHosts = $state([]);
   import {
     activeMenuOption,
     groups,
@@ -20,7 +22,6 @@
   import { changeKey } from "../../utils/changeKey.js";
   let {
     listData = $bindable([]),
-    openHeaderIndexs = $bindable([0]),
     activeElementName = $bindable(""),
     customListClass = "",
     customListElClass = "",
@@ -78,24 +79,18 @@
   });
 
 
-  // Appends only when the index is new, so the effect's own write cannot
+  // Appends only when the host is new, so the effect's own write cannot
   // retrigger it forever.
   $effect(() => {
     if (initialVisitcounter) {
       return;
     }
-    const openedStopedServiceIndex = sortedData
-      .map((e) => e.services.map((s) => s.isDisabled && s.serviceName))
-      .findIndex((el) => el.includes($lastChosenService));
+    const openedStopedHost = sortedData.find((e) =>
+      e.services.some((s) => s.isDisabled && s.serviceName === $lastChosenService)
+    )?.host;
 
-    if (
-      openedStopedServiceIndex !== -1 &&
-      !openStopedServIndexes.includes(openedStopedServiceIndex)
-    ) {
-      openStopedServIndexes = [
-        ...openStopedServIndexes,
-        openedStopedServiceIndex,
-      ];
+    if (openedStopedHost && !openStopedHosts.includes(openedStopedHost)) {
+      openStopedHosts = [...openStopedHosts, openedStopedHost];
     }
   });
 
@@ -116,18 +111,18 @@
     const data = await fetchApi.changeFavorite(host, service);
   }
 
-  function toggleSublistVisible(i) {
-    if (openHeaderIndexs.includes(i)) {
-      openHeaderIndexs = openHeaderIndexs.filter((e) => e !== i);
+  function toggleSublistVisible(host) {
+    if (openHosts.includes(host)) {
+      openHosts = openHosts.filter((e) => e !== host);
     } else {
-      openHeaderIndexs = [...openHeaderIndexs, i];
+      openHosts = [...openHosts, host];
     }
   }
-  function toggleArchivedVisible(i) {
-    if (openStopedServIndexes.includes(i)) {
-      openStopedServIndexes = openStopedServIndexes.filter((e) => e !== i);
+  function toggleArchivedVisible(host) {
+    if (openStopedHosts.includes(host)) {
+      openStopedHosts = openStopedHosts.filter((e) => e !== host);
     } else {
-      openStopedServIndexes = [...openStopedServIndexes, i];
+      openStopedHosts = [...openStopedHosts, host];
     }
   }
 
@@ -187,20 +182,27 @@
     );
   }
   let autoOpenedHost = "";
+  let firstHostOpened = false;
 
   function choseInitialHost() {
+    // The first host starts open.
+    if (!firstHostOpened && listData[0]) {
+      firstHostOpened = true;
+      if (!openHosts.includes(listData[0].host)) {
+        openHosts = [...openHosts, listData[0].host];
+      }
+    }
     const host = $lastChosenHost;
     if (!host || autoOpenedHost === host) {
       return;
     }
-    const index = listData.findIndex((h) => h.host === host);
-    if (index === -1) {
+    if (!listData.some((h) => h.host === host)) {
       return;
     }
 
     autoOpenedHost = host;
-    if (!openHeaderIndexs.includes(index)) {
-      openHeaderIndexs = [index, ...openHeaderIndexs];
+    if (!openHosts.includes(host)) {
+      openHosts = [host, ...openHosts];
     }
   }
 
@@ -354,9 +356,9 @@
     </ul>
   {/if}
   <ul class={customListClass}>
-    {#each sortedData as listEl, index}
+    {#each sortedData as listEl}
       <li class="listElement">
-        <div class="hostHeader clickable" onclick={() => toggleSublistVisible(index)}>
+        <div class="hostHeader clickable" onclick={() => toggleSublistVisible(listEl.host)}>
           <div>
             <i class="log log-Server"></i>
           </div>
@@ -374,13 +376,13 @@
             <i class="log log-Pencil"></i>
           </div>
           <i
-            class="log log-Pointer hostToggle {openHeaderIndexs.includes(index)
+            class="log log-Pointer hostToggle {openHosts.includes(listEl.host)
               ? ''
               : 'rotated'}"
           ></i>
         </div>
         <div
-          class="dropDownList {openHeaderIndexs.includes(index)
+          class="dropDownList {openHosts.includes(listEl.host)
             ? ''
             : 'visuallyHidden'}"
         >
@@ -390,7 +392,7 @@
             {/each}
           </ul>
         </div>
-        <div class={openHeaderIndexs.includes(index) ? "" : "visuallyHidden"}>
+        <div class={openHosts.includes(listEl.host) ? "" : "visuallyHidden"}>
           <div
             class="flex flex-start stopedServicesBox clickable inactiveServices {listEl.services.find(
               (e) => {
@@ -400,22 +402,22 @@
               ? ''
               : 'visuallyHidden'}"
             onclick={() => {
-              toggleArchivedVisible(index);
+              toggleArchivedVisible(listEl.host);
               initialVisitcounter = 1;
             }}
           >
             <i class="log log-Archive"></i>
             <p class="stopedServices">stopped services</p>
             <i
-              class="log log-Pointer {!openStopedServIndexes.includes(index)
+              class="log log-Pointer {!openStopedHosts.includes(listEl.host)
                 ? 'rotated'
                 : ''}"
 ></i>
           </div>
 
           <ul
-            class="activeServices inactiveServices {!openStopedServIndexes.includes(
-              index
+            class="activeServices inactiveServices {!openStopedHosts.includes(
+              listEl.host
             )
               ? 'visuallyHidden'
               : ''}"

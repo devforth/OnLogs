@@ -162,5 +162,22 @@ main(async () => {
 
   bundle.unmount(tree);
 
+  // Open hosts stay open when a host is added in front of them.
+  const svc = (serviceName) => ({ serviceName, isDisabled: false, isFavorite: false });
+  bundle.lastChosenHost.set("hostB");
+  bundle.lastChosenService.set("b1");
+  const props = bundle.reactiveProps({ listData: [{ host: "hostB", services: [svc("b1")] }] });
+  const sorted = bundle.mount(bundle.ListWithChoise, { target, props });
+  await settle();
+  assert.equal(isOpen("hostB"), true);
+  props.listData = [
+    { host: "hostA", services: [svc("a1")] },
+    { host: "hostB", services: [svc("b1")] },
+  ];
+  await settle();
+  assert.equal(isOpen("hostB"), true, "the open host collapsed when a host was added before it");
+  assert.equal(isOpen("hostA"), false, "a newly added host opened by itself");
+  bundle.unmount(sorted);
+
   console.log("ListWithChoise rendering tests passed");
 });
