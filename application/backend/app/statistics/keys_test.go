@@ -26,7 +26,7 @@ func TestSavedStatisticsKeysParseAsTimestamps(t *testing.T) {
 	}
 	writeLines := func(base time.Time, count int) {
 		for i := 0; i < count; i++ {
-			ts := base.Add(time.Duration(i) * time.Second).UTC().Format(time.RFC3339Nano)
+			ts := base.Add(time.Duration(i) * time.Second).UTC().Format("2006-01-02T15:04:05.000000000Z07:00")
 			if err := containerdb.PutLogMessage(logsDB, host, container, []string{ts, "ERROR something"}); err != nil {
 				t.Fatal(err)
 			}
