@@ -193,6 +193,22 @@ main(async () => {
   nextResponse = () => jsonResponse({ error: null });
   bundle.unmount(app);
 
+  // --- an ended session goes to the login page without an error toast ------
+  bundle.toastIsVisible.dismiss();
+  bundle.groupBeingEdited.set(null);
+  bundle.groupModalIsVisible.set(true);
+  app = await mountModal();
+  nextResponse = () => jsonResponse({ error: "401 - Unauthorized!" }, 401);
+  setName(window, "after logout");
+  window.document.querySelector("#groupModalSave").click();
+  await settle();
+  bundle.toastIsVisible.subscribe((v) => (toastVisible = v))();
+  bundle.groupModalIsVisible.subscribe((v) => (stillOpen = v))();
+  assert.equal(toastVisible, false, "a 401 raised an error toast over the login page");
+  assert.equal(stillOpen, false, "the modal waits behind the login page");
+  nextResponse = () => jsonResponse({ error: null });
+  bundle.unmount(app);
+
   // --- edit --------------------------------------------------------------
   bundle.groupBeingEdited.set({
     name: "backend",

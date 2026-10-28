@@ -121,6 +121,10 @@
       return;
     }
 
+    if (data === null) {
+      close();
+      return;
+    }
     if (!data || data.error) {
       notify("error", "Error", data?.error || "Could not save the group.");
       return;
@@ -153,6 +157,10 @@
       return;
     }
 
+    if (data === null) {
+      close();
+      return;
+    }
     if (!data || data.error) {
       notify("error", "Error", data?.error || "Could not delete the group.");
       return;
