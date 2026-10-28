@@ -118,10 +118,9 @@
         <span class="boldText">"OFF" </span>
         logs will be deleted only from onLogs. Logs will be available in docker containers, but not for onLogs.
         When
-        <span class="boldText"> enabled </span>, each deletion of logs will
-        clear logs from both onLogs and the
-        <span class="boldText">Docker container</span>
-        .
+        <span class="boldText"> enabled </span>, only the
+        <span class="boldText">Docker container</span>'s own log file is
+        cleared; logs already stored in onLogs are kept.
       </div>{/if}
   </div>
 
