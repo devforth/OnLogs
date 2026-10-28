@@ -924,7 +924,9 @@
     window.addEventListener("resize", onResize);
   });
 
+  let destroyed = false;
   onDestroy(() => {
+    destroyed = true;
     clearInterval(topScrollIntervalId);
     clearInterval(scrollListenerIntervalId);
     if (scrollTarget && scrollHandler) {
@@ -979,6 +981,7 @@
         // Let this flush settle first: resetting synchronously re-enters this
         // effect through the state it writes.
         await tick();
+        if (destroyed) return;
         setInitialScroll(0);
         resetAllLogs();
         resetParams();
@@ -988,6 +991,7 @@
         isPending.set(true);
         closeWS();
         await checkIfHashIsInUrl();
+        if (destroyed) return;
         addScrollLIstenersToLogs();
       }
     })();
