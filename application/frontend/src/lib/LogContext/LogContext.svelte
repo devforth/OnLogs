@@ -33,6 +33,7 @@
   let isPaging = $state(false);
   let olderDone = $state(false);
   let newerDone = $state(false);
+  let newerEmpty = $state(false);
   let olderCursor = keyOf(anchor);
   let newerCursor = keyOf(anchor);
   let box = $state();
@@ -63,6 +64,7 @@
     });
     const page = linesOf(response); // oldest first
     newerDone = !page.length || Boolean(response?.is_end);
+    newerEmpty = !page.length;
     if (!page.length) {
       return;
     }
@@ -180,7 +182,11 @@
         disabled={isPaging}
         onclick={showNewer}
       >
-        {newerDone ? "Check for newer lines" : `Load ${PAGE} newer`}
+        {newerEmpty
+          ? "No newer lines yet · Check again"
+          : newerDone
+            ? "Check for newer lines"
+            : `Load ${PAGE} newer`}
       </button>
     </div>
   {/if}

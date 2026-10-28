@@ -184,6 +184,9 @@ main(async () => {
     await settle(20);
   }
   assert.ok(inContext().includes("line-0"), "control: paging newer reached the newest line");
+  newerButton().click();
+  await settle(20);
+  assert.match(newerButton().textContent, /No newer lines/, "an empty check for newer lines gave no feedback");
   const lateTs = "2026-02-10T12:44:03.950000000Z";
   ROWS.unshift([lateTs, "line-late", `${lateTs} +1786123141845584283-9999`]);
   newerButton().click();
