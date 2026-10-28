@@ -70,6 +70,8 @@ func TestCreateUserRejectsCredentialsNobodyCanLogInWith(t *testing.T) {
 		{"login": "", "password": "a-password"},
 		{"login": " leading-space", "password": "a-password"},
 		{"login": "trailing-space ", "password": "a-password"},
+		{"login": "\ufeffleading-bom", "password": "a-password"},
+		{"login": "trailing-bom\ufeff", "password": "a-password"},
 		{"login": "empty-password", "password": ""},
 	} {
 		userdb.DeleteUser(c["login"])

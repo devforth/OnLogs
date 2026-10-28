@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/daemon"
@@ -901,8 +902,8 @@ func (h *RouteController) CreateUser(w http.ResponseWriter, req *http.Request) {
 	if !decodeBody(w, req, &loginData) {
 		return
 	}
-	// The login form trims the login, so such an account could never sign in.
-	if loginData.Login == "" || strings.TrimSpace(loginData.Login) != loginData.Login {
+	// The login form trims the login (JS trim, which also strips U+FEFF), so such an account could never sign in.
+	if loginData.Login == "" || strings.TrimFunc(loginData.Login, func(r rune) bool { return unicode.IsSpace(r) || r == '\uFEFF' }) != loginData.Login {
 		fail(w, http.StatusBadRequest, "Login can not be empty or start or end with a space")
 		return
 	}
