@@ -41,6 +41,10 @@
       notify("error", "Error", e.message);
       return;
     }
+    if (data === null) {
+      close();
+      return;
+    }
     if (!data || data.error) {
       notify("error", "Error", data?.error || "Could not save the display name.");
       return;

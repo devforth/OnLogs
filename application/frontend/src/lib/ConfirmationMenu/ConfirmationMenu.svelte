@@ -33,7 +33,7 @@
   }
 
   async function deletelogs() {
-    let data = null;
+    let data;
     const fromDocker = $store.deleteFromDocker;
     try {
       if (fromDocker) {
@@ -46,6 +46,11 @@
       }
     } catch (e) {
       console.error(e);
+    }
+    // null: the session ended and the app is already on the login page.
+    if (data === null) {
+      closeMenu();
+      return;
     }
     if (data && !data.error) {
       closeMenu();

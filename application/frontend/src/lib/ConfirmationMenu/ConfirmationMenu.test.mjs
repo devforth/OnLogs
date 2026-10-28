@@ -32,6 +32,7 @@ async function fetchImpl(url) {
   const name = u.pathname.split("/").pop();
   if (name === "deleteContainerLogs") {
     if (deleteStatus === 403) return jsonResponse({ error: "Only admin can perform this request" }, 403);
+    if (deleteStatus === 401) return jsonResponse({ error: "401 - Unauthorized!" }, 401);
     rows = [];
     return jsonResponse({ error: null });
   }
@@ -87,6 +88,15 @@ main(async () => {
   assert.equal(read(bundle.toast).message, "Only admin can perform this request", "the server's refusal was replaced");
   assert.equal(read(bundle.confirmationObj).isVisible, true);
   assert.deepEqual(rendered(), ["old-1", "old-2", "old-3"]);
+
+  bundle.toastIsVisible.dismiss();
+  deleteStatus = 401;
+  deleteButton().click();
+  await settle(20);
+  assert.equal(read(bundle.toastIsVisible), false, "an ended session showed an error over the login page");
+  assert.equal(read(bundle.confirmationObj).isVisible, false, "the dialog waits behind the login page");
+  bundle.confirmationObj.set({ action: null, message: "", isVisible: true });
+  await settle(5);
 
   bundle.store.update((s) => ({ ...s, deleteFromDocker: true }));
   await settle(5);
