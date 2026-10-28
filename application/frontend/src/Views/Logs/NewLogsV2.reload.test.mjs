@@ -147,6 +147,10 @@ main(async () => {
 
   bundle.lastChosenService.set("web");
   await settle(40);
+  // With a filter on, the switch first reloads with the old filter, then
+  // with the reset one: two overlapping loads.
+  bundle.chosenStatus.set("other");
+  await settle(40);
   await setAtBottom(true);
   holdGetLogs = true;
   bundle.lastChosenService.set("api");

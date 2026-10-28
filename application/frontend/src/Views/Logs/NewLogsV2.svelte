@@ -294,8 +294,26 @@
   function setLastLogTimestamp() {
     lastLogTimestamp.set(new Date().getTime());
   }
+  // Opening a service or changing a filter re-runs up to three effects at once,
+  // each after the same newest page: they share the load already under way.
+  let runningLoad = null;
+  const loadKey = () => JSON.stringify([pageQuery(), limit]);
+  const loadRunning = () => runningLoad?.key === loadKey();
+  function reloadLogs() {
+    if (!loadRunning()) {
+      const promise = getFullLogsSet();
+      runningLoad = { key: loadKey(), promise };
+      promise.finally(() => {
+        if (runningLoad?.promise === promise) {
+          runningLoad = null;
+        }
+      });
+    }
+    return runningLoad.promise;
+  }
+
   async function fetchLogAfterChangeService() {
-    await getFullLogsSet();
+    await reloadLogs();
     isPending.set(false);
   }
 
@@ -977,17 +995,17 @@
   $effect(() => {
     const currentSearchText = searchText;
     (async () => {
-      if (viewFlags.consumeSearchSkip() || viewFlags.isDeepLinkPending()) {
+      if (viewFlags.consumeSearchSkip() || viewFlags.isDeepLinkPending() || loadRunning()) {
         return;
       }
       if (currentSearchText) {
         resetParams();
         resetAllLogs();
         isPending.set(true);
-        await getFullLogsSet();
+        await reloadLogs();
       } else {
         resetAllLogs();
-        await getFullLogsSet();
+        await reloadLogs();
       }
       addScrollLIstenersToLogs();
     })();
@@ -995,17 +1013,17 @@
   $effect(() => {
     const currentStatus = $chosenStatus;
     (async () => {
-      if (viewFlags.consumeStatusSkip() || viewFlags.isDeepLinkPending()) {
+      if (viewFlags.consumeStatusSkip() || viewFlags.isDeepLinkPending() || loadRunning()) {
         return;
       }
       if (currentStatus) {
         resetParams();
         resetAllLogs();
         isPending.set(true);
-        await getFullLogsSet();
+        await reloadLogs();
       } else {
         resetAllLogs()
-        await getFullLogsSet();
+        await reloadLogs();
       }
       addScrollLIstenersToLogs();
     })();
