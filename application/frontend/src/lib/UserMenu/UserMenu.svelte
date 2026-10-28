@@ -44,6 +44,7 @@
         saving = false;
       }
 
+      if (!data) return;
       if (!data.error) {
         editUserOpen.set(false);
         toastIsVisible.set(true);
@@ -85,6 +86,7 @@
   async function removeUser(login) {
     const data = await api.removeUser(login);
 
+    if (!data) return;
     if (!data.error) {
       usersList = usersList.filter((u) => {
         return u.username !== login;

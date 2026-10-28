@@ -14,11 +14,15 @@ const FORBIDDEN = "Only admin can perform this request";
 let users = [];
 let isAdmin = true;
 let calls = [];
+let expired = false;
 
 async function stubFetch(url, opts = {}) {
   const path = String(url).split("/api/v1/")[1]?.split("?")[0];
   const body = opts.body ? JSON.parse(opts.body) : null;
   calls.push({ path, body });
+  if (expired && (path === "editUser" || path === "deleteUser")) {
+    return jsonResponse({ error: "401 - Unauthorized!" }, 401);
+  }
   if (path === "getUsers") {
     return isAdmin
       ? jsonResponse({ users: users.map((u) => ({ ...u })), error: null })
@@ -216,6 +220,31 @@ main(async () => {
     const page = await usersPage(["admin", "alice"], { admin: false });
     assert.ok(doc.body.textContent.includes(FORBIDDEN), "the getUsers refusal was not shown");
     assert.equal(doc.querySelector(".userTable"), null);
+    await page.done();
+  }
+
+  // A session that ended meanwhile sends the admin to the login page without a TypeError.
+  {
+    const page = await usersPage(["admin", "alice", "bob"]);
+    const rejections = [];
+    const onRejection = (e) => rejections.push(e);
+    process.on("unhandledRejection", onRejection);
+    expired = true;
+    rowOf("alice").querySelector("button").click();
+    await settle();
+    type(doc.querySelector(".editInput"), "alice-new");
+    buttonIn(doc.querySelector(".modalContainer"), "Confirm").click();
+    await settle();
+    buttonIn(doc.querySelector(".modalContainer"), "Cancel").click();
+    await settle();
+    buttonIn(rowOf("bob"), "Delete").click();
+    await settle();
+    buttonIn(doc.querySelector(".modalContainer"), "Delete").click();
+    await settle();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expired = false;
+    process.off("unhandledRejection", onRejection);
+    assert.deepEqual(rejections.map(String), [], "an ended session threw instead of going to the login page");
     await page.done();
   }
 
