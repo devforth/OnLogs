@@ -56,7 +56,11 @@
     } else {
       toast.set({
         tittle: "Error",
-        message: data?.error || "Something went wrong. Please try again later",
+        // The Docker route sends a Go error, which encodes as an object.
+        message:
+          typeof data?.error === "string" && data.error
+            ? data.error
+            : "Something went wrong. Please try again later",
         position: "",
         status: "Error",
       });

@@ -35,6 +35,10 @@ async function fetchImpl(url) {
     rows = [];
     return jsonResponse({ error: null });
   }
+  if (name === "deleteDockerLogs") {
+    // A Go error value encodes as an object, not a string.
+    return jsonResponse({ error: {} });
+  }
   if (name === "getLogs" && !u.searchParams.get("startWith")) {
     const logs = rows
       .slice(-(Number(u.searchParams.get("limit")) || 30))
@@ -83,6 +87,14 @@ main(async () => {
   assert.equal(read(bundle.toast).message, "Only admin can perform this request", "the server's refusal was replaced");
   assert.equal(read(bundle.confirmationObj).isVisible, true);
   assert.deepEqual(rendered(), ["old-1", "old-2", "old-3"]);
+
+  bundle.store.update((s) => ({ ...s, deleteFromDocker: true }));
+  await settle(5);
+  deleteButton().click();
+  await settle(20);
+  assert.equal(read(bundle.toast).message, "Something went wrong. Please try again later");
+  bundle.store.update((s) => ({ ...s, deleteFromDocker: false }));
+  await settle(5);
 
   deleteStatus = 200;
   deleteButton().click();
