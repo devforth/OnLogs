@@ -16,6 +16,7 @@ let pos = new Map();
 let seq = 0;
 let sockets = [];
 let requests = [];
+let slowReloads = false;
 
 function store(msg) {
   seq += 1;
@@ -62,6 +63,8 @@ async function fetchImpl(url) {
   const name = u.pathname.split("/").pop();
   const from = u.searchParams.get("startWith");
   requests.push(name === "getLogs" && !from ? "reload" : name);
+  if (name === "getPrevLogs" && !from) return jsonResponse({ error: 'Need to specify "startWith"!' });
+  if (name === "getLogs" && !from && slowReloads) await sleep(1500);
   if (name === "getPrevLogs") return jsonResponse(page(u.searchParams, true));
   if (name === "getLogs") return jsonResponse(page(u.searchParams, false));
   return jsonResponse(null);
@@ -192,6 +195,31 @@ main(async () => {
     assert.equal(rendered().at(-1), `after-${release}`, `the live tail stayed frozen after ${release}`);
   }
   assertContiguous(rendered(), "after a lost release");
+  bundle.unmount(view);
+
+  // A next-page request armed while the mouse is held fires after a filter
+  // change has emptied the list.
+  view = await open(600);
+  await scroll("down");
+  const failures = [];
+  const onRejection = (e) => failures.push(String(e));
+  process.on("unhandledRejection", onRejection);
+  window.dispatchEvent(new window.MouseEvent("mousedown"));
+  await settle(5);
+  const lastRow = [...document.querySelectorAll("#logs .chosenString")].at(-1);
+  sentinels().find((h) => h.element?.isConnected && lastRow.contains(h.element)).set(true);
+  await settle(5);
+  slowReloads = true;
+  bundle.chosenStatus.set("warn");
+  await sleep(1300);
+  await settle(10);
+  slowReloads = false;
+  window.dispatchEvent(new window.MouseEvent("mouseup"));
+  await sleep(600);
+  await settle(10);
+  process.off("unhandledRejection", onRejection);
+  assert.deepEqual(failures, [], "paging from an emptied list threw");
+  bundle.chosenStatus.set("");
   bundle.unmount(view);
 
   console.log("NewLogsV2 history tail tests passed");

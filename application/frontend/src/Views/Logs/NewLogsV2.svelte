@@ -779,6 +779,10 @@
   };
   const unfetchedLogs = async () => {
     if (!$isFeatching) {
+      // Scheduled before a reload emptied the list: nothing to page from.
+      if (!allLogs.length) {
+        return;
+      }
       if (scrollDirection === "down" && !scrollFromButton && !stopLogsUnfetch) {
         const query = pageQuery();
         isFeatching.set(true);
@@ -794,6 +798,9 @@
             limit: limit - total_received_logs_count,
             startWith: last_key,
           });
+          if (!Array.isArray(data?.logs)) {
+            break;
+          }
           total_received_logs_count += data.logs.length;
           is_all_logs_processed = data.is_end;
           last_key = data.last_processed_key;
