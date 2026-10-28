@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/docker"
 	"github.com/devforth/OnLogs/app/util"
 	"github.com/docker/docker/client"
@@ -221,5 +222,42 @@ func TestLongLineIsStoredWithoutPartialTimestamps(t *testing.T) {
 				t.Fatalf("cursor not at the last line: %v", cursor)
 			}
 		})
+	}
+}
+
+// A long line stored or sent before the stamps were stripped is still recognised
+// when it is replayed at the cursor.
+func TestReplayAtCursorMatchesALineKeptWithStamps(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("MAX_LOGS_SIZE", "10GB")
+	host := util.GetHost()
+	ts := time.Date(2026, 2, 10, 12, 44, 3, 123456789, time.UTC)
+	prefix := ts.Format(streamTimestampFmt)
+	raw := strings.TrimSuffix(string(ttyFrames(logRecord{ts, strings.Repeat("abcdefghi|", 4000)})), "\n")
+	old := strings.TrimPrefix(raw, prefix+" ")
+	logItem, _, _ := parseDockerLogLine(raw)
+
+	for _, toHost := range []bool{false, true} {
+		name := "stamped-" + strconv.FormatBool(toHost)
+		t.Cleanup(func() {
+			for _, kind := range []string{"logs", "streamstate", "statistics", "statuses"} {
+				util.ResetDB(host, name, kind)
+			}
+		})
+		before := NewDaemonService(nil)
+		if toHost {
+			before.saveCursor(host, name, ts, prefix+" "+old)
+		} else {
+			if _, _, err := containerdb.PutLogEvent(util.GetDB(host, name, "logs"), host, name, []string{prefix, old}, ""); err != nil {
+				t.Fatal(err)
+			}
+			before.saveCursor(host, name, ts, "")
+		}
+
+		after := NewDaemonService(nil)
+		after.seedBoundaryFingerprints(host, name, ts)
+		if !after.isRecentDuplicate(name, logItem[0]+" "+logItem[1]) {
+			t.Errorf("toHost=%v: the replayed long line is not recognised", toHost)
+		}
 	}
 }

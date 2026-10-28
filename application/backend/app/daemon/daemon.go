@@ -153,10 +153,15 @@ func (h *DaemonService) seedBoundaryFingerprints(host, containerName string, cur
 	sent := sentAtCursor(util.GetDB(host, containerName, "streamstate"), prefix)
 	db := util.GetDB(host, containerName, "logs")
 
+	// Older versions kept docker's partial-message stamps inside long lines.
+	remember := func(message string) {
+		h.rememberFingerprint(containerName, prefix+" "+strings.ReplaceAll(message, prefix+" ", ""))
+	}
+
 	h.streamsMu.Lock()
 	defer h.streamsMu.Unlock()
 	for _, fingerprint := range sent {
-		h.rememberFingerprint(containerName, fingerprint)
+		remember(strings.TrimPrefix(fingerprint, prefix+" "))
 	}
 	if db == nil {
 		return
@@ -164,7 +169,7 @@ func (h *DaemonService) seedBoundaryFingerprints(host, containerName string, cur
 	iter := db.NewIterator(leveldbUtil.BytesPrefix([]byte(prefix)), nil)
 	defer iter.Release()
 	for iter.Next() {
-		h.rememberFingerprint(containerName, prefix+" "+string(iter.Value()))
+		remember(string(iter.Value()))
 	}
 }
 
