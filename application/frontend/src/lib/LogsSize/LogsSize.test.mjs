@@ -47,6 +47,11 @@ main(async () => {
   assert.deepEqual(sizes(), ["12 MiB"], "an error response replaced the size");
   assert.deepEqual(failures.map(String), []);
 
+  sizeResponse = () => jsonResponse({ sizeMiB: 0.1 });
+  bundle.logsCleared.update((n) => n + 1);
+  await settle();
+  assert.deepEqual(sizes(), ["0.1 MiB"], "the size stayed stale after Clear logs");
+
   bundle.unmount(shown);
   console.log("LogsSize tests passed");
 });

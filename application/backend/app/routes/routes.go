@@ -1001,7 +1001,7 @@ func (h *RouteController) DeleteContainerLogs(w http.ResponseWriter, req *http.R
 		return
 	}
 
-	go containerdb.DeleteContainer(containerItem.Host, containerItem.Service, false)
+	containerdb.DeleteContainer(containerItem.Host, containerItem.Service, false)
 	ok(w)
 }
 

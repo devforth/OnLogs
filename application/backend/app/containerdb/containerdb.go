@@ -788,7 +788,7 @@ func GetLogs(getPrev bool, include bool, host string, container string, message 
 const StreamCursorKey = "last_cursor_ts"
 
 func DeleteContainer(host string, container string, fullDelete bool) {
-	// Both callers are bare goroutines, so this rejects rather than panics.
+	// Service deletion runs this in a bare goroutine, so it rejects rather than panics.
 	if !util.IsSafeName(host) || !util.IsSafeName(container) {
 		fmt.Println("ERROR: refusing to delete container with unsafe name:", host, container)
 		return

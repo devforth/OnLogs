@@ -1049,8 +1049,8 @@
       highlightSearchText();
     }
   });
-  // Not reloaded: the server clears in the background, and a reload could
-  // still read the old rows. Lines written from now on stream in as usual.
+  // Not reloaded: the store is empty now, and lines written from now on
+  // stream in as usual.
   let seenLogsCleared = get(logsCleared);
   $effect(() => {
     if ($logsCleared !== seenLogsCleared) {

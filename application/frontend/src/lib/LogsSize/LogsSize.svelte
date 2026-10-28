@@ -7,6 +7,7 @@
     lastChosenService,
     theme,
     confirmationObj,
+    logsCleared,
   } from "../../Stores/stores";
   import FetchApi from "../../utils/fetch.js";
   import Button from "../Button/Button.svelte";
@@ -56,11 +57,13 @@
   }
 
   $effect(() => {
+    $logsCleared;
     if (($lastChosenHost || $lastChosenService) && !isAllLogs) {
       updateDataFromInterval(fetchServiceLogs);
     }
   });
   $effect(() => {
+    $logsCleared;
     if (($lastChosenHost || $lastChosenService) && isAllLogs) {
       updateDataFromInterval(fetchAllLogs);
     }
