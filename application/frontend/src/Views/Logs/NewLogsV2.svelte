@@ -1241,12 +1241,20 @@
 </Modal>
 <svelte:window
   onmousedown={(e) => {
-    mouseDownBlockFetch = true;
+    // Only a primary press can drag the scrollbar.
+    mouseDownBlockFetch = e.button === 0;
   }}
   onmouseup={(e) => {
     mouseDownBlockFetch = false;
     clearInterval(extremalScrollId);
     interceptorsWait = false;
+  }}
+  oncontextmenu={() => {
+    // A context menu or another window can take the release.
+    mouseDownBlockFetch = false;
+  }}
+  onblur={() => {
+    mouseDownBlockFetch = false;
   }}
   onkeydowncapture={(e) => {
     // Capture: the modal's own handler clears contextAnchor on the way back up.

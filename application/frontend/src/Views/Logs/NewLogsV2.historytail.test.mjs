@@ -171,5 +171,27 @@ main(async () => {
   assert.ok(reloads() <= 1, `releasing the mouse sent ${reloads()} reloads`);
   bundle.unmount(view);
 
+  // A press whose release never reaches the page: a right click's context
+  // menu takes it, or the window loses focus.
+  view = await open(200);
+  observer("endOfLogs").set(true);
+  await settle(5);
+  window.dispatchEvent(new window.MouseEvent("mousedown", { button: 2 }));
+  await settle(5);
+  store("menu-1");
+  await settle(30);
+  assert.equal(rendered().at(-1), "menu-1", "a right click froze the live tail");
+  for (const release of ["contextmenu", "blur"]) {
+    window.dispatchEvent(new window.MouseEvent("mousedown"));
+    await settle(5);
+    window.dispatchEvent(new window.Event(release));
+    await settle(5);
+    store(`after-${release}`);
+    await settle(30);
+    assert.equal(rendered().at(-1), `after-${release}`, `the live tail stayed frozen after ${release}`);
+  }
+  assertContiguous(rendered(), "after a lost release");
+  bundle.unmount(view);
+
   console.log("NewLogsV2 history tail tests passed");
 });
