@@ -1260,6 +1260,12 @@
   onblur={() => {
     mouseDownBlockFetch = false;
   }}
+  ondragend={() => {
+    mouseDownBlockFetch = false;
+  }}
+  ondrop={() => {
+    mouseDownBlockFetch = false;
+  }}
   onkeydowncapture={(e) => {
     // Capture: the modal's own handler clears contextAnchor on the way back up.
     if (e.key !== "Escape" || contextAnchor) {

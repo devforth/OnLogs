@@ -181,7 +181,8 @@ main(async () => {
   store("menu-1");
   await settle(30);
   assert.equal(rendered().at(-1), "menu-1", "a right click froze the live tail");
-  for (const release of ["contextmenu", "blur"]) {
+  // Dragging selected text ends with dragend or drop, never a mouseup.
+  for (const release of ["contextmenu", "blur", "dragend", "drop"]) {
     window.dispatchEvent(new window.MouseEvent("mousedown"));
     await settle(5);
     window.dispatchEvent(new window.Event(release));
