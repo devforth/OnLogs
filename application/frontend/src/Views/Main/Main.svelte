@@ -139,6 +139,8 @@
       await getHosts();
     }, INTERVAL);
     const data = await getHosts();
+    // Login lands on "/" and is redirected before this resolves.
+    if (destroyed) return;
     const isalreadyChosenHost = data.filter((h) => {
       return h.host === $lastChosenHost;
     });
@@ -166,7 +168,9 @@
     }
   });
 
+  let destroyed = false;
   onDestroy(() => {
+    destroyed = true;
     clearInterval(intervalId);
     unsubscribeUserMenu();
     unsubscribeAddUserModal();
