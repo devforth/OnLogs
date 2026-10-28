@@ -103,8 +103,10 @@ main(async () => {
   app = await mountModal();
   setName(window, "by enter");
   pressEnter(window.document.querySelector(".groupNameInput"));
+  pressEnter(window.document.querySelector(".groupNameInput"));
   await settle();
   assert.deepEqual(lastCall("createGroup")?.body, { name: "by enter", members: [] }, "Enter in the name field did not save");
+  assert.equal(calls.filter((c) => c.url.includes("createGroup")).length, 1, "a double Enter created the group twice");
   bundle.unmount(app);
 
   bundle.groupBeingEdited.set(null);

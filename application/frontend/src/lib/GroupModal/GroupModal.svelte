@@ -86,7 +86,21 @@
     groupBeingEdited.set(null);
   }
 
-  async function save() {
+  // A double click or double Enter must send one request.
+  let busy = false;
+  async function once(action) {
+    if (busy) return;
+    busy = true;
+    try {
+      await action();
+    } finally {
+      busy = false;
+    }
+  }
+
+  const save = () => once(submit);
+
+  async function submit() {
     const trimmed = name.trim();
     if (!trimmed || trimmed.length > MAX_NAME_LENGTH) {
       notify(
@@ -127,6 +141,10 @@
       confirmingDelete = true;
       return;
     }
+    await once(removeGroup);
+  }
+
+  async function removeGroup() {
     let data;
     try {
       data = await api.deleteGroup(editing.name);
