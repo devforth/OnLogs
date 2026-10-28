@@ -5,13 +5,20 @@
   let { createHandler = async () => "", closeModal = () => {} } = $props();
   let userData = $state({ login: "", password: "" });
   let error = $state("");
+  let busy = false;
 
   async function submit() {
-    error = await createHandler(userData);
+    if (busy) return;
+    busy = true;
+    try {
+      error = await createHandler(userData);
+    } finally {
+      busy = false;
+    }
   }
 
   function submitOnEnter(e) {
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !e.repeat) {
       submit();
     }
   }

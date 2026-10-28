@@ -31,12 +31,21 @@
     }
   }
 
+  let saving = false;
+
   async function editUser(login, password) {
+    if (saving) return;
     if (password) {
-      const data = await api.editUser(login, password);
+      let data;
+      saving = true;
+      try {
+        data = await api.editUser(login, password);
+      } finally {
+        saving = false;
+      }
 
       if (!data.error) {
-        editUserOpen.update((v) => !v);
+        editUserOpen.set(false);
         toastIsVisible.set(true);
         toast.set({
           message: "Password was changed",
@@ -211,7 +220,7 @@
         bind:value={userPasswordValue}
         width={300}
         onkeydown={(e) => {
-          if (e.key === "Enter") {
+          if (e.key === "Enter" && !e.repeat) {
             editUser(chosenUserLogin, userPasswordValue);
           }
         }}

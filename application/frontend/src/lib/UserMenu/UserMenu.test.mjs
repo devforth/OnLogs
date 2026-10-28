@@ -69,8 +69,8 @@ main(async () => {
     input.value = value;
     input.dispatchEvent(new window.Event("input", { bubbles: true }));
   };
-  const pressEnter = (input) =>
-    input.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+  const pressEnter = (input, init = {}) =>
+    input.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, ...init }));
 
   async function usersPage(seed, { admin = true } = {}) {
     installDom({ fetchImpl: stubFetch });
@@ -146,6 +146,18 @@ main(async () => {
     buttonIn(form(), "Cancel").click();
     await settle();
     assert.equal(form(), null);
+
+    [login, password] = await openCreateForm();
+    type(login, "carol");
+    type(password, "pw");
+    pressEnter(password, { repeat: true });
+    await settle();
+    assert.equal(bodiesOf("createUser").length, 3, "a held Enter submitted");
+    pressEnter(password);
+    pressEnter(password);
+    await settle();
+    assert.deepEqual(bodiesOf("createUser").slice(3), [{ login: "carol", password: "pw" }], "Enter did not submit once");
+    assert.equal(form(), null);
     await page.done();
   }
 
@@ -175,10 +187,14 @@ main(async () => {
     assert.equal(doc.querySelector(".editInput").value, "", "a cancelled password was kept");
 
     type(doc.querySelector(".editInput"), "bob-new");
+    pressEnter(doc.querySelector(".editInput"), { repeat: true });
+    await settle();
+    assert.equal(bodiesOf("editUser").length, 1, "a held Enter submitted");
+    pressEnter(doc.querySelector(".editInput"));
     pressEnter(doc.querySelector(".editInput"));
     await settle();
-    assert.deepEqual(bodiesOf("editUser").at(-1), { login: "bob", password: "bob-new" }, "Enter did not submit");
-    assert.equal(doc.querySelector(".editInput"), null);
+    assert.deepEqual(bodiesOf("editUser").slice(1), [{ login: "bob", password: "bob-new" }], "Enter did not submit once");
+    assert.equal(doc.querySelector(".editInput"), null, "a second Enter reopened the dialog");
     await page.done();
   }
 
