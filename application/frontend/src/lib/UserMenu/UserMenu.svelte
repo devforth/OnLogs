@@ -47,39 +47,30 @@
       if (!data) return;
       if (!data.error) {
         editUserOpen.set(false);
-        toastIsVisible.set(true);
         toast.set({
           message: "Password was changed",
           tittle: "Success",
           status: "debug",
           position: "",
         });
-        setTimeout(() => {
-          toastIsVisible.set(false);
-        }, 5000);
-      } else {
         toastIsVisible.set(true);
+      } else {
         toast.set({
           message: data.error,
           tittle: "Error",
           status: "error",
           position: "",
         });
-        setTimeout(() => {
-          toastIsVisible.set(false);
-        }, 5000);
+        toastIsVisible.set(true);
       }
     } else {
-      toastIsVisible.set(true);
       toast.set({
         message: "Type a new password.",
         tittle: "Error",
         status: "error",
         position: "",
       });
-      setTimeout(() => {
-        toastIsVisible.set(false);
-      }, 5000);
+      toastIsVisible.set(true);
     }
   }
 
@@ -94,16 +85,13 @@
 
       userDeleteOpen.set(false);
     } else {
-      toastIsVisible.set(true);
       toast.set({
         message: data.error,
         tittle: "Error",
         status: "error",
         position: "",
       });
-      setTimeout(() => {
-        toastIsVisible.set(false);
-      }, 5000);
+      toastIsVisible.set(true);
     }
   }
 

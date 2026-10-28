@@ -93,16 +93,13 @@
       return data?.error ?? "";
     }
     closeModal();
-    toastIsVisible.set(true);
     toast.set({
       message: "User was created",
       tittle: "Success",
       status: "debug",
       position: "",
     });
-    setTimeout(() => {
-      toastIsVisible.set(false);
-    }, 5000);
+    toastIsVisible.set(true);
     userMenu?.getUsers();
     return "";
   }
