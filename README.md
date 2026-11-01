@@ -181,7 +181,8 @@ want sessions to survive the volume being recreated.
 
 Smaller changes: passwords are now hashed (rotate them if the database may have been
 exposed); favourites are per user and need starring again; log levels are matched
-case-insensitively, so charts change shape at the upgrade; live tailing needs your reverse
+case-insensitively, so charts change shape at the upgrade; live tailing and every state-changing request
+(the `Origin` header must match the request host) need your reverse
 proxy to forward the original `Host` header.
 
 ## Docker socket URL

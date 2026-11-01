@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -196,7 +195,7 @@ func TestLogout(t *testing.T) {
 		"Login":    "testuser",
 		"Password": "testuser",
 	})
-	req1, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody))
+	req1 := jsonRequest("POST", "/", postBody)
 
 	rr1 := httptest.NewRecorder()
 	handler1 := http.HandlerFunc(testCtrl.Login)
@@ -217,7 +216,7 @@ func TestGetStats(t *testing.T) {
 		"Login":    "testuser",
 		"Password": "testuser",
 	})
-	req1, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody1))
+	req1 := jsonRequest("POST", "/", postBody1)
 	rr1 := httptest.NewRecorder()
 	handler1 := http.HandlerFunc(testCtrl.Login)
 	handler1.ServeHTTP(rr1, req1)
@@ -236,7 +235,7 @@ func TestGetStats(t *testing.T) {
 		"service": "test",
 		"period":  2,
 	})
-	req2, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody2))
+	req2 := jsonRequest("POST", "/", postBody2)
 	req2.AddCookie(rr1.Result().Cookies()[0])
 	handler2 := http.HandlerFunc(testCtrl.GetStats)
 	handler2.ServeHTTP(rr2, req2)
@@ -256,7 +255,7 @@ func TestGetChartData(t *testing.T) {
 		"Login":    "testuser",
 		"Password": "testuser",
 	})
-	req1, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody1))
+	req1 := jsonRequest("POST", "/", postBody1)
 	rr1 := httptest.NewRecorder()
 	handler1 := http.HandlerFunc(testCtrl.Login)
 	handler1.ServeHTTP(rr1, req1)
@@ -275,7 +274,7 @@ func TestGetChartData(t *testing.T) {
 		"unit":        "hour",
 		"unitsAmount": 2,
 	})
-	req2, _ := http.NewRequest("POST", "/", bytes.NewBuffer(postBody2))
+	req2 := jsonRequest("POST", "/", postBody2)
 	req2.AddCookie(rr1.Result().Cookies()[0])
 	handler2 := http.HandlerFunc(testCtrl.GetChartData)
 	handler2.ServeHTTP(rr2, req2)
