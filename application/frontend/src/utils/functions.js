@@ -9,7 +9,7 @@ export const handleKeydown = (e, keyValue, cb) => {
 
 export const tryToParseLogString = (str) => {
   const beginningOfJson = str.search(/[{[]/);
-  const endingOfJson = str.search(/[\]}](?![\s\S]*[\]}])/);
+  const endingOfJson = Math.max(str.lastIndexOf("}"), str.lastIndexOf("]"));
 
   if (beginningOfJson === -1 || endingOfJson === -1 || endingOfJson <= beginningOfJson) {
     return null;

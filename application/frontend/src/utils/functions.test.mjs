@@ -41,6 +41,13 @@ function run() {
   assert.equal(tryToParseLogString("plain log line"), null);
   assert.equal(tryToParseLogString("not json { at all"), null);
 
+  // Every row is parsed on each render, so a long JSON line must stay cheap.
+  const big = "INFO payload " + JSON.stringify(Array.from({ length: 4000 }, (_, i) => ({ id: i, tags: ["a"], meta: { k: i } })));
+  const started = performance.now();
+  assert.equal(tryToParseLogString(big).json.length, 4000);
+  const took = performance.now() - started;
+  assert.ok(took < 20, `parsing a ${Math.round(big.length / 1024)} KB JSON line took ${took.toFixed(0)} ms`);
+
   const ago = (seconds) => new Date(Date.now() - seconds * 1000).toISOString();
   assert.deepEqual(getTimeDifference(ago(26 * 3600 + 60)), [[1, "d"], [2, "h"], [1, "m"]]);
   assert.deepEqual(getTimeDifference(ago(3 * 3600 + 120)), [[3, "h"], [2, "m"]]);
