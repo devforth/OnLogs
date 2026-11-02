@@ -68,7 +68,7 @@
 
         navigate(
           `${changeKey}/${
-            location.pathname.includes("stats") ? "stats" : "view"
+            section === "stats" ? "stats" : "view"
           }/${chosenHost}/${chosenService}`,
           {
             replace: true,
@@ -174,7 +174,7 @@
 
     navigate(
       `${changeKey}/${
-        location.pathname.includes("stats") ? "stats" : "view"
+        section === "stats" ? "stats" : "view"
       }/${firstEl}/${secondEl}`,
       {
         replace: true,

@@ -42,7 +42,7 @@
   import ConfirmationMenu from "../../lib/ConfirmationMenu/ConfirmationMenu.svelte";
   import ServiceSettings from "../ServiceSettings/ServiceSettings.svelte";
   import { lastLogTimestamp } from "../../Stores/stores.js";
-  import { changeKey } from "../../utils/changeKey.js";
+  import { changeKey, pageOf } from "../../utils/changeKey.js";
   import Stats from "../../lib/Stats/Stats.svelte";
   import MainChartMenu from "../../lib/ChartMenu/MainChartMenu.svelte";
   import SettingsController from "./SettingsController.svelte";
@@ -73,11 +73,8 @@
 
   let { host = "", service = "" } = $props();
 
-  const section = location.pathname.includes("/stats")
-    ? "stats"
-    : location.pathname.includes("/servicesettings")
-      ? "settings"
-      : "logs";
+  const page = pageOf(location.pathname);
+  const section = page === "stats" ? "stats" : page === "servicesettings" ? "settings" : "logs";
 
   function closeModal() {
     addUserModalOpen.set(false);
@@ -243,7 +240,7 @@
             </div>
           </div>
 
-          {#if location.pathname.includes("/view") || location.pathname === `${changeKey}` || location.pathname === `/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION/` || location.pathname === "/" || location.pathname.includes("/stats") || location.pathname.includes("/servicesettings")}
+          {#if page !== "users"}
             <ListWithChoise
               {section}
               listData={hostList}
@@ -251,7 +248,7 @@
               activeElementName={host && service && service !== "undefined"
                 ? `${host}-${service}`
                 : ""}
-            />{:else if location.pathname.includes("/users")}<CommonList
+            />{:else}<CommonList
               listData={[{ name: "Logout", ico: "Logout", callBack: logout }]}
               isRowClickable={true}
             />{/if}
@@ -270,14 +267,14 @@
   >
     <!-- <Container minHeightVh={17.36}>1213414</Container> -->
     <Container minHeightVh={92.6}>
-      {#if location.pathname === `${changeKey}/users`}
+      {#if page === "users"}
         <UserMenu bind:this={userMenu} />
-      {:else if location.pathname.includes("/view") || location.pathname === `${changeKey}/`}
+      {:else if page === "view" || location.pathname === `${changeKey}/`}
         <NewLogsV2 />
       {/if}
-      {#if location.pathname.includes("/servicesettings")}
+      {#if page === "servicesettings"}
         <ServiceSettings />{/if}
-      {#if location.pathname.includes("/stats")}
+      {#if page === "stats"}
         <MainChartMenu {host} {service} />{/if}
     </Container>
   </div>
