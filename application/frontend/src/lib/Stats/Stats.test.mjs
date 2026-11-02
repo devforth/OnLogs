@@ -8,7 +8,11 @@ import {
   main,
 } from "../../../test/harness.mjs";
 
+let statsCalls = 0;
+let down = false;
 async function fetchImpl() {
+  statsCalls += 1;
+  if (down) throw new TypeError("Failed to fetch");
   return jsonResponse({ info: 12, warn: 3, other: 5 });
 }
 
@@ -36,5 +40,29 @@ main(async () => {
   assert.deepEqual(active(), []);
 
   bundle.unmount(stats);
+
+  // Polling is gentle: one request on open, none a second later, none while
+  // the tab is hidden, and a master that is down throws nothing.
+  const failures = [];
+  const onRejection = (e) => failures.push(e);
+  process.on("unhandledRejection", onRejection);
+  statsCalls = 0;
+  const polled = bundle.mount(bundle.Stats, { target: window.document.body });
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  assert.equal(statsCalls, 1, `the panel sent ${statsCalls} getStats requests in 1.5 s`);
+  bundle.unmount(polled);
+
+  Object.defineProperty(window.document, "hidden", { value: true, configurable: true });
+  down = true;
+  statsCalls = 0;
+  const hidden = bundle.mount(bundle.Stats, { target: window.document.body });
+  await new Promise((resolve) => setTimeout(resolve, 5600));
+  assert.equal(statsCalls, 1, "a hidden tab kept polling");
+  bundle.unmount(hidden);
+  delete window.document.hidden;
+  down = false;
+  await settle(5);
+  process.off("unhandledRejection", onRejection);
+  assert.deepEqual(failures.map(String), [], "a failed stats request threw");
   console.log("Stats tests passed");
 });

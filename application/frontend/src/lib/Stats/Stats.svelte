@@ -16,19 +16,43 @@
     lastStatsPeriod.set(p);
   }
 
+  // Each poll re-sums the whole period on the server, so it is gentle: every
+  // 5 s, never while the tab is hidden or a request is still out.
+  const POLL_INTERVAL = 5000;
+  let latest = 0;
+  let inFlight = false;
+
   async function updateData() {
-    if ($lastChosenHost && $lastChosenService) {
-      data = await api.getStats({
+    if (!$lastChosenHost || !$lastChosenService) {
+      return;
+    }
+    const request = ++latest;
+    inFlight = true;
+    try {
+      const result = await api.getStats({
         period: $lastStatsPeriod,
         service: $lastChosenService,
         host: $lastChosenHost,
       });
+      // An answer for a previous service or period must not overwrite this one.
+      if (request === latest) {
+        data = result;
+      }
+    } catch {
+      // The master is unreachable: keep the last numbers.
+    } finally {
+      if (request === latest) {
+        inFlight = false;
+      }
     }
   }
 
   onMount(() => {
-    updateData();
-    intervalId = setInterval(updateData, 1000);
+    intervalId = setInterval(() => {
+      if (!document.hidden && !inFlight) {
+        updateData();
+      }
+    }, POLL_INTERVAL);
   });
 
   onDestroy(() => {
@@ -36,14 +60,7 @@
   });
 
   $effect(() => {
-    if ($lastChosenHost && $lastChosenService) {
-      const period = $lastStatsPeriod;
-      const service = $lastChosenService;
-      const host = $lastChosenHost;
-      api.getStats({ period, service, host }).then((result) => {
-        data = result;
-      });
-    }
+    updateData();
   });
 </script>
 
