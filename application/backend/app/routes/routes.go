@@ -885,25 +885,36 @@ func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 		HttpOnly: true,
 		Secure:   isTLS(req),
 		SameSite: http.SameSiteLaxMode,
-		Path:     "/",
+		Path:     cookiePath(),
 	})
 	ok(w)
+}
+
+// Scoped to the prefix, so instances under other prefixes keep their sessions.
+func cookiePath() string {
+	if prefix := os.Getenv("ONLOGS_PATH_PREFIX"); prefix != "" {
+		return prefix
+	}
+	return "/"
 }
 
 func (h *RouteController) Logout(w http.ResponseWriter, req *http.Request) {
 	if !guard(w, req, authUser, "POST") {
 		return
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name:     "onlogs-cookie",
-		Value:    "toDelete",
-		Expires:  time.Now().AddDate(-5, -5, -5),
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   isTLS(req),
-		SameSite: http.SameSiteLaxMode,
-		Path:     "/",
-	})
+	// "/" also clears a cookie set before the prefix was honoured.
+	for _, path := range slices.Compact([]string{cookiePath(), "/"}) {
+		http.SetCookie(w, &http.Cookie{
+			Name:     "onlogs-cookie",
+			Value:    "toDelete",
+			Expires:  time.Now().AddDate(-5, -5, -5),
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   isTLS(req),
+			SameSite: http.SameSiteLaxMode,
+			Path:     path,
+		})
+	}
 	if _, session, exp, err := util.GetSessionFromJWT(*req); err == nil {
 		if err := userdb.EndSession(session, exp); err != nil {
 			fail(w, http.StatusInternalServerError, err.Error())

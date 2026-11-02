@@ -404,3 +404,34 @@ func TestStreamGetsNoLineBroadcastAfterItsUserWasDeleted(t *testing.T) {
 		}
 	}
 }
+
+// Instances under different prefixes on one domain keep separate sessions.
+func TestSessionCookieIsScopedToThePathPrefix(t *testing.T) {
+	t.Setenv("ONLOGS_PATH_PREFIX", "/logs")
+	freshUser(t, "session-prefixed", "prefixed-password")
+
+	rr := httptest.NewRecorder()
+	testCtrl.Login(rr, authedRequest(t, "", "POST", "/logs/api/v1/login", map[string]string{"login": "session-prefixed", "password": "prefixed-password"}))
+	var session *http.Cookie
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == "onlogs-cookie" {
+			session = c
+		}
+	}
+	if session == nil || session.Path != "/logs" {
+		t.Fatalf("login set %+v, want Path=/logs", session)
+	}
+
+	rr = httptest.NewRecorder()
+	testCtrl.Logout(rr, withCookie(t, session.Value, "POST", "/logs/api/v1/logout", nil))
+	cleared := map[string]bool{}
+	for _, c := range rr.Result().Cookies() {
+		if c.Name == "onlogs-cookie" && c.MaxAge < 0 {
+			cleared[c.Path] = true
+		}
+	}
+	// "/" also clears a cookie from before the prefix was honoured.
+	if !cleared["/logs"] || !cleared["/"] {
+		t.Errorf("logout cleared paths %v, want /logs and /", cleared)
+	}
+}
