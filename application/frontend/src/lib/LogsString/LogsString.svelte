@@ -15,8 +15,18 @@
     statusFilterable = true,
   } = $props();
 
-  let parsedStr = $derived(tryToParseLogString(message));
-  let messageHtml = $derived(toAnsiHtml(message));
+  // A page of 128 KiB lines froze the view; the rest is one click away.
+  const PREVIEW_CHARS = 5000;
+  let expanded = $state(false);
+  let text = $derived(message ?? "");
+  let isLong = $derived(text.length > PREVIEW_CHARS);
+  let collapsed = $derived(isLong && !expanded);
+  // The cut must not leave half an escape sequence behind.
+  let shown = $derived(
+    collapsed ? text.slice(0, PREVIEW_CHARS).replace(/[\u001B\u009B][^A-Za-z]*$/, "") : text
+  );
+  let parsedStr = $derived(collapsed ? null : tryToParseLogString(text));
+  let messageHtml = $derived(toAnsiHtml(shown));
 </script>
 
 <div
@@ -77,5 +87,10 @@
     {:else}<p>
         {@html messageHtml}
       </p>{/if}
+    {#if isLong}<button class="showAll" onclick={() => (expanded = !expanded)}
+        >{expanded
+          ? "Show less"
+          : `Show all (${Math.ceil((text.length - PREVIEW_CHARS) / 1024)} KB more)`}</button
+      >{/if}
   </div>
 </div>

@@ -22,3 +22,4 @@ export { default as ServiceSettingsGeneral } from "../src/Views/ServiceSettings/
 export { default as LogsSize } from "../src/lib/LogsSize/LogsSize.svelte";
 export { default as HostAliasModal } from "../src/lib/HostAliasModal/HostAliasModal.svelte";
 export { default as Stats } from "../src/lib/Stats/Stats.svelte";
+export { default as LogsString } from "../src/lib/LogsString/LogsString.svelte";

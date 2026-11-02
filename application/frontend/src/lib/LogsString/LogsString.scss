@@ -170,3 +170,16 @@
 .key {
   color: #6e1963;
 }
+
+.showAll {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: $active-color;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
