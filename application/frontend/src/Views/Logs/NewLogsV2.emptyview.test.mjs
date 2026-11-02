@@ -14,6 +14,7 @@ const SERVICE = "api";
 let rows = [];
 let seq = 0;
 let sockets = [];
+let slow = 0;
 
 function store(msg) {
   seq += 1;
@@ -30,6 +31,7 @@ async function fetchImpl(url) {
   const u = new URL(String(url), "http://onlogs.test");
   const p = u.searchParams;
   if (u.pathname.endsWith("/getLogs") && !p.get("startWith")) {
+    if (slow) await new Promise((resolve) => setTimeout(resolve, slow));
     const search = (p.get("search") || "").toLowerCase();
     const status = (p.get("status") || "").toUpperCase();
     const logs = rows
@@ -101,6 +103,28 @@ main(async () => {
   bundle.chosenStatus.set("error");
   await settle(40);
   assert.equal(emptyMessage(), "No matching log lines", "an empty status filter says nothing was written");
+  bundle.unmount(view);
+  bundle.chosenStatus.set("");
+
+  // While a filter change loads, the loader shows, not an empty-result message.
+  store("WARN a warning");
+  view = await open();
+  slow = 300;
+  bundle.chosenStatus.set("warn");
+  await settle(20);
+  assert.equal(emptyMessage(), null, "a loading status filter said nothing matched");
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  await settle(20);
+  assert.deepEqual(rendered(), ["WARN a warning"]);
+  slow = 0;
+  await search("warning");
+  slow = 300;
+  await search("");
+  assert.equal(emptyMessage(), null, "clearing the search under a status filter said nothing matched");
+  slow = 0;
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  await settle(20);
+  assert.deepEqual(rendered(), ["WARN a warning"]);
   bundle.unmount(view);
   bundle.chosenStatus.set("");
 

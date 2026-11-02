@@ -1021,6 +1021,8 @@
         await reloadLogs();
       } else {
         resetAllLogs();
+        // A filter still applies: an empty list means "loading", not "no match".
+        if (get(chosenStatus)) isPending.set(true);
         await reloadLogs();
       }
       addScrollLIstenersToLogs();
@@ -1038,7 +1040,8 @@
         isPending.set(true);
         await reloadLogs();
       } else {
-        resetAllLogs()
+        resetAllLogs();
+        if (untrack(() => searchText)) isPending.set(true);
         await reloadLogs();
       }
       addScrollLIstenersToLogs();
