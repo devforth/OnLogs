@@ -38,13 +38,18 @@
           return;
         }
         if (data) {
-          const data = await fetchApi.getHosts();
-          const newServiceName = data.filter((h) => {
-            return h["host"] === $lastChosenHost;
-          })[0]?.services[0]?.serviceName;
+          const hosts = (await fetchApi.getHosts()) || [];
+          const next =
+            hosts.find((h) => h.host === $lastChosenHost && h.services.length) ||
+            hosts.find((h) => h.services.length);
+          const nextService = next?.services[0].serviceName;
 
-          lastChosenService.set(newServiceName || "");
-          navigate(`${changeKey}/`, { replace: true });
+          lastChosenHost.set(next?.host || "");
+          lastChosenService.set(nextService || "");
+          navigate(
+            next ? `${changeKey}/view/${next.host}/${nextService}` : `${changeKey}/`,
+            { replace: true }
+          );
           confirmationObj.update((pv) => {
             return { ...pv, isVisible: false };
           });

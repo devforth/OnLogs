@@ -179,5 +179,23 @@ main(async () => {
   assert.equal(isOpen("hostA"), false, "a newly added host opened by itself");
   bundle.unmount(sorted);
 
+  // The first pick pairs a host with its own service and waits for a list.
+  const firstPick = async (host, service, listData) => {
+    window.history.replaceState(null, "", `${bundle.changeKey}/`);
+    bundle.lastChosenHost.set(host);
+    bundle.lastChosenService.set(service);
+    const list = bundle.mount(bundle.ListWithChoise, { target, props: { listData } });
+    await settle();
+    const path = window.location.pathname;
+    bundle.unmount(list);
+    return path;
+  };
+  assert.equal(await firstPick("emptied", "", [{ host: "hostB", services: [svc("b1")] }]), `${bundle.changeKey}/view/hostB/b1`);
+  assert.equal(await firstPick("gone", "x", [{ host: "hostB", services: [svc("b1")] }]), `${bundle.changeKey}/view/hostB/b1`);
+  assert.equal(await firstPick("hostB", "", [{ host: "hostA", services: [svc("a1")] }, { host: "hostB", services: [svc("b1")] }]), `${bundle.changeKey}/view/hostB/b1`);
+  assert.equal(await firstPick("hostB", "deleted", [{ host: "hostB", services: [svc("b1")] }]), `${bundle.changeKey}/view/hostB/b1`);
+  assert.equal(await firstPick("hostB", "b2", [{ host: "hostB", services: [svc("b1"), svc("b2")] }]), `${bundle.changeKey}/view/hostB/b2`);
+  assert.equal(await firstPick("", "", []), `${bundle.changeKey}/`, "an empty list navigated");
+
   console.log("ListWithChoise rendering tests passed");
 });

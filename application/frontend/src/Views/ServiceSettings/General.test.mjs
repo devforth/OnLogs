@@ -9,12 +9,13 @@ import {
 } from "../../../test/harness.mjs";
 
 let deleteResponse = () => jsonResponse({ error: null });
+let hostsAfter = [{ host: "h", services: [{ serviceName: "other" }] }];
 
 async function stubFetch(url) {
   const target = String(url);
   if (target.includes("deleteContainer")) return deleteResponse();
   if (target.includes("getHosts")) {
-    return jsonResponse([{ host: "h", services: [{ serviceName: "other" }] }]);
+    return jsonResponse(hostsAfter);
   }
   return jsonResponse({ error: null });
 }
@@ -80,6 +81,19 @@ main(async () => {
   assert.equal(read(lastChosenService), "other");
   assert.equal(read(confirmationObj).isVisible, false, "the dialog stayed open");
   assert.notEqual(window.location.pathname, start, "stayed on the deleted service");
+
+  // Deleting a host's last service moves on to another host's service.
+  hostsAfter = [
+    { host: "h", services: [] },
+    { host: "g", services: [{ serviceName: "g1" }] },
+  ];
+  window.history.replaceState(null, "", start);
+  bundle.lastChosenHost.set("h");
+  lastChosenService.set("s");
+  await confirmDelete();
+  assert.equal(read(bundle.lastChosenHost), "g", "stayed on the emptied host");
+  assert.equal(read(lastChosenService), "g1");
+  assert.equal(window.location.pathname, `${bundle.changeKey}/view/g/g1`);
 
   bundle.unmount(view);
   console.log("ServiceSettings General tests passed");

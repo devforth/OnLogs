@@ -55,13 +55,17 @@
 
   $effect(() => {
     {
-      if (!initialVisitcounter && !activeElementName) {
-        const chosenHost =
-          $lastChosenHost || (sortedData[0] && sortedData[0].host);
-        const chosenService =
-          $lastChosenService ||
-          sortedData[0]?.services?.[0]?.serviceName;
-        activeElementName = sortedData[0] && `${chosenHost}-${chosenService}`;
+      const entry =
+        sortedData.find((h) => h.host === $lastChosenHost && h.services.length) ||
+        sortedData.find((h) => h.services.length);
+      if (!initialVisitcounter && !activeElementName && entry) {
+        const chosenHost = entry.host;
+        const chosenService = entry.services.some(
+          (s) => chosenHost === $lastChosenHost && s.serviceName === $lastChosenService
+        )
+          ? $lastChosenService
+          : entry.services[0].serviceName;
+        activeElementName = `${chosenHost}-${chosenService}`;
 
         lastChosenHost.set(chosenHost);
         lastChosenService.set(chosenService);
