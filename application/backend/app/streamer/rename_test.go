@@ -461,3 +461,34 @@ func TestRestartAfterATickSawTheRenameFirstStoresEachLineOnce(t *testing.T) {
 		})
 	}
 }
+
+func TestRenameMovesTheDockerIDToTheNewName(t *testing.T) {
+	fd, ctrl, ctx := newRenameFixture(t)
+	c := fd.add("bg-new")
+	// The cached handle may belong to an earlier test's directory.
+	closeMeta := func() {
+		vars.DBMutex.Lock()
+		defer vars.DBMutex.Unlock()
+		if d := vars.ContainersMeta_DBs[util.GetHost()]; d != nil {
+			d.Close()
+			delete(vars.ContainersMeta_DBs, util.GetHost())
+		}
+	}
+	closeMeta()
+	t.Cleanup(closeMeta)
+	if err := util.GetContainersMetaDB(util.GetHost()).Put([]byte("bg-gone"), []byte(c.id), nil); err != nil {
+		t.Fatal(err)
+	}
+	if id := util.GetDockerContainerID(util.GetHost(), "bg-gone"); id != c.id {
+		t.Fatalf("the seeded name resolves to %q", id)
+	}
+
+	ctrl.handleContainerEvent(ctx, containerEvent("rename", c, "oldName", "/bg-gone"))
+
+	if id := util.GetDockerContainerID(util.GetHost(), "bg-gone"); id != "" {
+		t.Errorf("the old name still resolves to the renamed container %s", id)
+	}
+	if id := util.GetDockerContainerID(util.GetHost(), "bg-new"); id != c.id {
+		t.Errorf("the new name resolves to %q, want %q", id, c.id)
+	}
+}

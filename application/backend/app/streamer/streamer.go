@@ -60,6 +60,11 @@ func (ctrl *StreamController) handleContainerEvent(ctx context.Context, msg even
 	switch msg.Action {
 	case "rename":
 		oldName := strings.TrimPrefix(msg.Actor.Attributes["oldName"], "/")
+		// Delete Docker logs looks the id up by name.
+		if meta := util.GetContainersMetaDB(util.GetHost()); meta != nil {
+			_ = meta.Delete([]byte(oldName), nil)
+			_ = meta.Put([]byte(containerName), []byte(msg.Actor.ID), nil)
+		}
 		if !ctrl.DaemonService.StopRenamedStream(oldName, containerName) {
 			return
 		}
