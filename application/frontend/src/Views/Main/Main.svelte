@@ -314,7 +314,7 @@
   </div>
 </div>
 {#if $confirmationObj.isVisible}
-  <ConfirmationMenu />
+  <ConfirmationMenu hosts={hostList} />
 {/if}
 
 <Modal modalIsOpen={addUserModOpen} storeProp={addUserModalOpen}

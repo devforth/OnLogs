@@ -15,6 +15,7 @@ let rows = [];
 let seq = 0;
 let sockets = [];
 let deleteStatus = 200;
+const requested = [];
 const REFUSAL = "Stop the container first: Docker sends no new lines once a running container's log is cleared";
 
 function store(msg) {
@@ -31,6 +32,7 @@ function store(msg) {
 async function fetchImpl(url) {
   const u = new URL(String(url), "http://onlogs.test");
   const name = u.pathname.split("/").pop();
+  requested.push(name);
   if (name === "deleteContainerLogs") {
     if (deleteStatus === 403) return jsonResponse({ error: "Only admin can perform this request" }, 403);
     if (deleteStatus === 401) return jsonResponse({ error: "401 - Unauthorized!" }, 401);
@@ -117,6 +119,33 @@ main(async () => {
   assert.deepEqual(rendered(), ["after-clear"]);
 
   bundle.unmount(menu);
+
+  // A running container's Docker log cannot be cleared, and the dialog says why.
+  const hostsWith = (running) => [{ host: HOST, services: [{ serviceName: SERVICE, isDisabled: !running }] }];
+  const toggle = () => document.querySelector(".deleteModalContainer .checkboxContainer");
+  bundle.store.update((s) => ({ ...s, deleteFromDocker: true }));
+  bundle.confirmationObj.set({ action: null, message: "", isVisible: true });
+  const runningMenu = bundle.mount(bundle.ConfirmationMenu, { target: document.body, props: { hosts: hostsWith(true) } });
+  await settle(5);
+  assert.ok(toggle().classList.contains("disabled"), "the Docker switch is usable for a running container");
+  assert.ok(toggle().classList.contains("inactive"), "the disabled Docker switch shows as on");
+  assert.match(document.querySelector(".deleteModalContainer").textContent, /running/, "no reason for the disabled switch");
+  toggle().click();
+  await settle(2);
+  assert.ok(toggle().classList.contains("inactive"), "a click turned the disabled switch on");
+  requested.length = 0;
+  deleteButton().click();
+  await settle(20);
+  assert.deepEqual(requested.filter((n) => n.startsWith("delete")), ["deleteContainerLogs"], "a running container's Docker log was requested");
+  bundle.unmount(runningMenu);
+
+  bundle.confirmationObj.set({ action: null, message: "", isVisible: true });
+  const stoppedMenu = bundle.mount(bundle.ConfirmationMenu, { target: document.body, props: { hosts: hostsWith(false) } });
+  await settle(5);
+  assert.ok(!toggle().classList.contains("disabled"), "the Docker switch is disabled for a stopped container");
+  assert.ok(toggle().classList.contains("active"));
+  bundle.unmount(stoppedMenu);
+  bundle.store.update((s) => ({ ...s, deleteFromDocker: false }));
   bundle.unmount(view);
   console.log("ConfirmationMenu tests passed");
 });

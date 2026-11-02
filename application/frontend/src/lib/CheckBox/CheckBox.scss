@@ -10,6 +10,11 @@
   justify-content: start;
   cursor: pointer;
   position: relative;
+
+  &.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 }
 
 .active {

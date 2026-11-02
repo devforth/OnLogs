@@ -15,6 +15,14 @@
   import Checkbox from "../CheckBox/Checkbox.svelte";
   import fetchApi from "../../utils/fetch.js";
 
+  let { hosts = [] } = $props();
+  // Docker stops sending a running container's new lines once its log is cleared.
+  let running = $derived(
+    !!hosts
+      .find((h) => h.host === $lastChosenHost)
+      ?.services?.some((s) => s.serviceName === $lastChosenService && !s.isDisabled)
+  );
+
   let confirmationWord = "I understand that logs will be lost";
   let tipsIsVisible = $state(false);
   let inputValue = "";
@@ -34,7 +42,7 @@
 
   async function deletelogs() {
     let data;
-    const fromDocker = $store.deleteFromDocker;
+    const fromDocker = $store.deleteFromDocker && !running;
     try {
       if (fromDocker) {
         data = await apiFetch.cleanDockerLogs(
@@ -83,7 +91,7 @@
   // brings its own. changeMessage writes confirmationObj, so the read of it
   // stays untracked or the effect would retrigger itself forever.
   $effect(() => {
-    const deleteFromDocker = $store.deleteFromDocker;
+    const deleteFromDocker = $store.deleteFromDocker && !running;
     untrack(() => {
       if (!$confirmationObj.action) {
         changeMessage(deleteFromDocker);
@@ -129,9 +137,13 @@
     <div class="optionBox">
       <p>Delete Docker logs</p>
       <div class="checkboxContainerThumb">
-        <Checkbox storeValue={"deleteFromDocker"} />
+        <Checkbox storeValue={"deleteFromDocker"} disabled={running} />
       </div>
     </div>
+    {#if running}<p class="optionNote">
+        Not available while the container is running: Docker would stop sending
+        its new lines. Stop the container first.
+      </p>{/if}
   </div>
   <div class="attentionZone">
     <p>

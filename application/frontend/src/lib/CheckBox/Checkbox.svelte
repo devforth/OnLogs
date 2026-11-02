@@ -2,7 +2,7 @@
   import { onMount, onDestroy } from "svelte";
   let initialValue = true;
   import { store } from "../../Stores/stores.js";
-  let { active = $bindable(true), storeValue = "" } = $props();
+  let { active = $bindable(true), storeValue = "", disabled = false } = $props();
   let unsubscribe = () => {};
 
   onMount(() => {
@@ -12,6 +12,9 @@
   onDestroy(() => unsubscribe());
 
   function handleClick() {
+    if (disabled) {
+      return;
+    }
     active = !active;
     store.update((pv) => {
       return { ...pv, [storeValue]: active };
@@ -20,7 +23,7 @@
 </script>
 
 <div
-  class="checkboxContainer {active ? 'active' : 'inactive'}"
+  class="checkboxContainer {active && !disabled ? 'active' : 'inactive'} {disabled ? 'disabled' : ''}"
   onclick={handleClick}
 >
   <div class="checkboxRoll"></div>
