@@ -59,15 +59,22 @@ export const findSearchTextInLogs = (sel, searchText, caseSens) => {
     return { textNodes, fullText };
   };
 
+  // Binary search for the first entry whose end reaches the offset; entries
+  // are in document order, so this matches the former linear scan.
   const findNodeAtOffset = (entries, offset) => {
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i];
-      if (offset >= entry.start && offset <= entry.end) {
-        return {
-          node: entry.node,
-          offset: offset - entry.start,
-        };
-      }
+    let low = 0;
+    let high = entries.length - 1;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if (entries[mid].end < offset) low = mid + 1;
+      else high = mid;
+    }
+    const entry = entries[low];
+    if (entry && offset >= entry.start && offset <= entry.end) {
+      return {
+        node: entry.node,
+        offset: offset - entry.start,
+      };
     }
     if (entries.length && offset === entries[entries.length - 1].end) {
       const last = entries[entries.length - 1];
@@ -75,6 +82,10 @@ export const findSearchTextInLogs = (sel, searchText, caseSens) => {
     }
     return null;
   };
+
+  // One Range for every match: each live Range is updated on every DOM change,
+  // so a new one per match made highlighting quadratic.
+  const range = document.createRange();
 
   const highlightByRanges = (root) => {
     const { textNodes, fullText } = collectTextNodes(root);
@@ -108,7 +119,6 @@ export const findSearchTextInLogs = (sel, searchText, caseSens) => {
         continue;
       }
 
-      const range = document.createRange();
       range.setStart(startPos.node, startPos.offset);
       range.setEnd(endPos.node, endPos.offset);
 

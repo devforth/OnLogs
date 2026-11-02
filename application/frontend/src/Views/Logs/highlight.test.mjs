@@ -145,6 +145,22 @@ async function run() {
     );
   });
 
+  runCase("many matches per row are all highlighted", () => {
+    const body = Array.from({ length: 70 }, (_, k) => `field_${k}=value-${k}-session-${k * 7919}`).join(",");
+    setupDom(new Array(180).fill(0).map((_, i) => `<p class="message">INFO req=${i} ${body}</p>`).join(""));
+    // Chrome updates every live Range on each DOM change, so one per match was quadratic.
+    let ranges = 0;
+    const createRange = document.createRange.bind(document);
+    document.createRange = () => (ranges++, createRange());
+    const t0 = Date.now();
+    findSearchTextInLogs(".message", "session", true);
+    const took = Date.now() - t0;
+    assert.ok(ranges <= 1, `one highlight pass created ${ranges} ranges`);
+    assert.equal(document.querySelectorAll(".searchedText").length, 180 * 70);
+    assert.ok(took < 1500, `highlighting 12600 matches took ${took}ms`);
+    assert.equal(document.querySelector(".message").textContent, `INFO req=0 ${body}`, "highlighting changed the text");
+  });
+
   console.log("highlight tests passed");
 }
 
