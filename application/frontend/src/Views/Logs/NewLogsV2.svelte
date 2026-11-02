@@ -63,7 +63,15 @@
   let wsCatchUp = $state(false);
   // Set when a paused tail dropped a line, so resuming reloads the gap.
   let mutedDrops = false;
-  let logsFromWS = $state([]);
+  // Live rows not on screen yet: the badge count and the flush trigger. Raw and
+  // capped: a tab left scrolled up on a busy service would grow without bound.
+  let logsFromWS = $state.raw([]);
+  let droppedWS = $state(0);
+  const MAX_BUFFERED = 10000;
+  function clearBufferedLogs() {
+    logsFromWS = [];
+    droppedWS = 0;
+  }
 
   let elements = $state([]);
   // Dense: binding a hole into IntersectionObserver's `intersecting` throws.
@@ -155,6 +163,22 @@
   const rowId = (logItem) => logItem?.at(2) ?? (logItem ? `${logItem[0]}\u0000${logItem[1]}` : "");
   const sameRow = (a, b) =>
     a?.[2] && b?.[2] ? a[2] === b[2] : a?.[0] === b?.[0] && a?.[1] === b?.[1];
+  // sameRow against every row of `shown`, with sets instead of a nested scan.
+  function isShownIn(shown) {
+    const keys = new Set();
+    const keyless = new Set();
+    const all = new Set();
+    for (const row of shown) {
+      const plain = `${row?.[0]}\u0000${row?.[1]}`;
+      all.add(plain);
+      if (row?.[2]) keys.add(row[2]);
+      else keyless.add(plain);
+    }
+    return (row) => {
+      const plain = `${row?.[0]}\u0000${row?.[1]}`;
+      return row?.[2] ? keys.has(row[2]) || keyless.has(plain) : all.has(plain);
+    };
+  }
 
   // Dropping repeats by key makes a recurrence visible as a missing row rather
   // than a doubled one, and lets the {#each} be keyed.
@@ -180,7 +204,7 @@
     newLogs = [];
     visibleLogs = [];
     previousLogs = [];
-    logsFromWS = [];
+    clearBufferedLogs();
     heldWS = [];
   }
 
@@ -250,7 +274,7 @@
 
     windowAtHead = true;
     autoscroll = true;
-    logsFromWS = [];
+    clearBufferedLogs();
     pauseWS = 0;
     heldWS.splice(0).forEach((row) => addLogFromWS(row, true));
     } catch (e) {
@@ -429,7 +453,12 @@
         previousLogs = allLogs.slice(2 * limit);
       }
     } else {
-      logsFromWS = [...logsFromWS, logfromWS];
+      const buffered = [...logsFromWS, logfromWS];
+      if (buffered.length > MAX_BUFFERED) {
+        droppedWS += buffered.length - MAX_BUFFERED;
+        buffered.splice(0, buffered.length - MAX_BUFFERED);
+      }
+      logsFromWS = buffered;
       autoscroll = false;
     }
   }
@@ -538,7 +567,7 @@
   async function flushBufferedLogs() {
     if (logsFromWS.length || !windowAtHead) {
       await getFullLogsSet();
-      logsFromWS = [];
+      clearBufferedLogs();
     }
   }
 
@@ -800,9 +829,8 @@
         isSearching.set(false);
         isFeatching.set(false);
         if (isCurrentQuery(query)) {
-            total_logs = total_logs.filter(
-              (row) => !allLogs.some((shown) => sameRow(shown, row))
-            );
+            const alreadyShown = isShownIn(allLogs);
+            total_logs = total_logs.filter((row) => !alreadyShown(row));
             if (total_logs.length) {
               let numberOfPrev = total_logs.length;
               const logsToVisible = previousLogs.splice(0, numberOfPrev);
@@ -828,11 +856,12 @@
             // The socket may have buffered the rows this page just added.
             // A new array reruns the flush effect: needed on reaching the head,
             // which shows what is still buffered, and not otherwise.
-            const unseen = logsFromWS.filter(
-              (row) => !allLogs.some((shown) => sameRow(shown, row))
-            );
+            const nowShown = isShownIn(allLogs);
+            const unseen = logsFromWS.filter((row) => !nowShown(row));
             if (reachedHead || unseen.length !== logsFromWS.length) {
               logsFromWS = unseen;
+              // Dropped rows are older than any kept one, so they were paged in too.
+              droppedWS = 0;
             }
           return total_logs;
         }
@@ -1086,7 +1115,7 @@
       }
       wsCatchUp = false;
       await getFullLogsSet();
-      logsFromWS = [];
+      clearBufferedLogs();
     });
   });
 </script>
@@ -1214,7 +1243,7 @@
       {#if !endOffLogsIntersect && allLogs.length}
         <div>
           <ButtonToBottom
-            number={logsFromWS.length}
+            number={logsFromWS.length + droppedWS}
             callBack={async () => {
               await flushBufferedLogs();
               scrollFromButton = true;
