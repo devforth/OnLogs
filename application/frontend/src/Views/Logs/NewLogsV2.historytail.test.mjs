@@ -17,6 +17,7 @@ let seq = 0;
 let sockets = [];
 let requests = [];
 let slowReloads = false;
+let onPrev = null;
 
 function store(msg) {
   seq += 1;
@@ -65,7 +66,15 @@ async function fetchImpl(url) {
   requests.push(name === "getLogs" && !from ? "reload" : name);
   if (name === "getPrevLogs" && !from) return jsonResponse({ error: 'Need to specify "startWith"!' });
   if (name === "getLogs" && !from && slowReloads) await sleep(1500);
-  if (name === "getPrevLogs") return jsonResponse(page(u.searchParams, true));
+  if (name === "getPrevLogs") {
+    const response = page(u.searchParams, true);
+    if (onPrev) {
+      const written = onPrev;
+      onPrev = null;
+      written();
+    }
+    return jsonResponse(response);
+  }
   if (name === "getLogs") return jsonResponse(page(u.searchParams, false));
   return jsonResponse(null);
 }
@@ -153,6 +162,46 @@ main(async () => {
   await settle(10);
   assert.equal(rendered().at(-1), "live-3", "the live tail did not resume at the head");
   assert.equal(reloads(), 0);
+  bundle.unmount(view);
+
+  // A line written while the last history page is in flight is shown once the
+  // window reaches the head.
+  view = await open(600);
+  await scroll("up");
+  for (const handle of sentinels()) {
+    handle.set(true);
+    await settle(8);
+    handle.set(false);
+    await settle(2);
+  }
+  await sleep(100);
+  await settle(10);
+  assert.equal(rendered()[0], "row-360", "control: one older page");
+  await scroll("down");
+  const nextPageSentinel = () => {
+    const rowEls = [...document.querySelectorAll("#logs .chosenString")];
+    const row = rowEls[rowEls.length - 30];
+    return sentinels().find((h) => h.element?.isConnected && row.contains(h.element));
+  };
+  let next = nextPageSentinel();
+  next.set(true);
+  await settle(20);
+  next.set(false);
+  await settle(5);
+  assert.equal(rendered().at(-1), "row-599", "control: paged down to the newest stored row");
+  observer("endOfLogs").set(true);
+  await settle(5);
+  onPrev = () => store("race-1");
+  await scroll("down");
+  next = nextPageSentinel();
+  next.set(true);
+  await settle(30);
+  next.set(false);
+  await settle(10);
+  store("race-2");
+  await settle(30);
+  assertContiguous(rendered(), "live tail after the last history page");
+  assert.deepEqual(rendered().slice(-2), ["race-1", "race-2"]);
   bundle.unmount(view);
 
   // Holding the mouse button at the live tail.
