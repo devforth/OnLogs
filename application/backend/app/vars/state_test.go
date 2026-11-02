@@ -85,3 +85,19 @@ func TestDockerContainersKeepEventsNewerThanTheList(t *testing.T) {
 		t.Fatalf("a list requested after the events did not replace them: %v", got)
 	}
 }
+
+// Agents report every 60 s; one that stopped must not look running forever.
+func TestASilentAgentsContainersAreNotRunning(t *testing.T) {
+	SetAgentContainers("silent", []string{"a"})
+	t.Cleanup(func() { SetAgentContainers("silent", nil) })
+	if got := AgentContainers("silent"); !slices.Equal(got, []string{"a"}) {
+		t.Fatalf("a fresh report gave %v", got)
+	}
+
+	stateMutex.Lock()
+	agentReportedAt["silent"] = time.Now().Add(-agentReportTimeout - time.Second)
+	stateMutex.Unlock()
+	if got := AgentContainers("silent"); len(got) != 0 {
+		t.Errorf("a silent agent's containers still count as running: %v", got)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 var stateMutex sync.RWMutex
@@ -103,15 +104,24 @@ func RemoveDockerContainer(container string) {
 	DockerContainers = slices.DeleteFunc(DockerContainers, func(existing string) bool { return existing == container })
 }
 
+// Agents report every 60 s; a silent one is down or cut off from the master.
+const agentReportTimeout = 3 * time.Minute
+
+var agentReportedAt = map[string]time.Time{}
+
 func SetAgentContainers(host string, containers []string) {
 	stateMutex.Lock()
 	defer stateMutex.Unlock()
 	AgentsActiveContainers[host] = append([]string{}, containers...)
+	agentReportedAt[host] = time.Now()
 }
 
 func AgentContainers(host string) []string {
 	stateMutex.RLock()
 	defer stateMutex.RUnlock()
+	if time.Since(agentReportedAt[host]) > agentReportTimeout {
+		return nil
+	}
 	return append([]string{}, AgentsActiveContainers[host]...)
 }
 
