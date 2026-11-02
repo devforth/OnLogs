@@ -197,6 +197,28 @@ main(async () => {
   assertContiguous(rendered(), "after a lost release");
   bundle.unmount(view);
 
+  // Lines buffered while the scrollbar is held and then paged in are not new.
+  view = await open(200);
+  observer("endOfLogs").set(true);
+  await scroll("down");
+  window.dispatchEvent(new window.MouseEvent("mousedown"));
+  await settle(5);
+  store("thumb-1");
+  store("thumb-2");
+  await settle(10);
+  const bottomRow = [...document.querySelectorAll("#logs .chosenString")].at(-1);
+  sentinels().find((h) => h.element?.isConnected && bottomRow.contains(h.element)).set(true);
+  await sleep(1300);
+  await settle(10);
+  assert.deepEqual(rendered().slice(-2), ["thumb-1", "thumb-2"], "control: the held thumb paged the new lines in");
+  observer("endOfLogs").set(false);
+  await settle(5);
+  const badge = document.querySelector(".buttonToBottomNumber")?.textContent.trim() ?? "";
+  assert.equal(badge, "", `the badge counts ${badge} lines that are already shown`);
+  window.dispatchEvent(new window.MouseEvent("mouseup"));
+  await settle(10);
+  bundle.unmount(view);
+
   // A next-page request armed while the mouse is held fires after a filter
   // change has emptied the list.
   view = await open(600);

@@ -833,11 +833,16 @@
               lastFetchActionIsFetch = false;
               stopLogsUnfetch = false;
             }
-            if (is_all_logs_processed && !windowAtHead) {
+            if (is_all_logs_processed) {
               windowAtHead = true;
-              logsFromWS = logsFromWS.filter(
-                (row) => !allLogs.some((shown) => sameRow(shown, row))
-              );
+            }
+            // The socket may have buffered the rows this page just added.
+            // Reassigned only on a change: a new array reruns the flush effect.
+            const unseen = logsFromWS.filter(
+              (row) => !allLogs.some((shown) => sameRow(shown, row))
+            );
+            if (unseen.length !== logsFromWS.length) {
+              logsFromWS = unseen;
             }
           return total_logs;
         }
