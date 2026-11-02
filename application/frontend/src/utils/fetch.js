@@ -67,7 +67,7 @@ class fetchApi {
   }
 
   async logout() {
-    return await this.doFetch("GET", `${this.url}logout`);
+    return await this.doFetch("POST", `${this.url}logout`);
   }
 
   async getHosts() {

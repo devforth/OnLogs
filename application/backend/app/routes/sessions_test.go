@@ -86,7 +86,7 @@ func TestPasswordChangeEndsExistingSessions(t *testing.T) {
 func TestLogoutEndsTheSessionServerSide(t *testing.T) {
 	cookie := freshUser(t, "session-logout", "logout-password")
 
-	if code, body := call(t, testCtrl.Logout, withCookie(t, cookie, "GET", "/api/v1/logout", nil)); code != http.StatusOK {
+	if code, body := call(t, testCtrl.Logout, withCookie(t, cookie, "POST", "/api/v1/logout", nil)); code != http.StatusOK {
 		t.Fatalf("logout: %d %s", code, body)
 	}
 
@@ -95,6 +95,18 @@ func TestLogoutEndsTheSessionServerSide(t *testing.T) {
 	}
 	if code := cookieStatus(t, loginCookie(t, "session-logout", "logout-password")); code != http.StatusOK {
 		t.Errorf("a new login after logout got %d", code)
+	}
+}
+
+// A link or an image on another site must not log the user out.
+func TestLogoutByGETKeepsTheSession(t *testing.T) {
+	cookie := freshUser(t, "session-get-logout", "logout-password")
+
+	if code, _ := call(t, testCtrl.Logout, withCookie(t, cookie, "GET", "/api/v1/logout", nil)); code == http.StatusOK {
+		t.Error("a GET logout succeeded")
+	}
+	if code := cookieStatus(t, cookie); code != http.StatusOK {
+		t.Errorf("the session ended after a GET logout: %d", code)
 	}
 }
 
@@ -113,7 +125,7 @@ func TestLogoutEndsOnlyThatSession(t *testing.T) {
 		}
 	}
 
-	if code, body := call(t, testCtrl.Logout, withCookie(t, leaving, "GET", "/api/v1/logout", nil)); code != http.StatusOK {
+	if code, body := call(t, testCtrl.Logout, withCookie(t, leaving, "POST", "/api/v1/logout", nil)); code != http.StatusOK {
 		t.Fatalf("logout: %d %s", code, body)
 	}
 	if code := cookieStatus(t, leaving); code != http.StatusUnauthorized {
@@ -154,7 +166,7 @@ func TestLogoutEndsASessionIssuedBeforeTheUpgrade(t *testing.T) {
 		t.Fatalf("the pre-upgrade cookie got %d before logout", code)
 	}
 
-	if code, body := call(t, testCtrl.Logout, withCookie(t, legacy, "GET", "/api/v1/logout", nil)); code != http.StatusOK {
+	if code, body := call(t, testCtrl.Logout, withCookie(t, legacy, "POST", "/api/v1/logout", nil)); code != http.StatusOK {
 		t.Fatalf("logout: %d %s", code, body)
 	}
 	if code := cookieStatus(t, legacy); code != http.StatusUnauthorized {
@@ -167,7 +179,7 @@ func TestLogoutEndsASessionIssuedBeforeTheUpgrade(t *testing.T) {
 
 func TestLoggedOutCookieStaysEndedWhenRespelled(t *testing.T) {
 	cookie := freshUser(t, "session-respelled", "respelled-password")
-	call(t, testCtrl.Logout, withCookie(t, cookie, "GET", "/api/v1/logout", nil))
+	call(t, testCtrl.Logout, withCookie(t, cookie, "POST", "/api/v1/logout", nil))
 
 	// The last character of an HMAC-SHA256 signature carries two unused bits.
 	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
@@ -180,7 +192,7 @@ func TestLoggedOutCookieStaysEndedWhenRespelled(t *testing.T) {
 
 func TestLoggedOutAdminCookieLosesAdminRoutes(t *testing.T) {
 	adm := loginCookie(t, "admin", "admin-password-for-tests")
-	if code, body := call(t, testCtrl.Logout, withCookie(t, adm, "GET", "/api/v1/logout", nil)); code != http.StatusOK {
+	if code, body := call(t, testCtrl.Logout, withCookie(t, adm, "POST", "/api/v1/logout", nil)); code != http.StatusOK {
 		t.Fatalf("logout: %d %s", code, body)
 	}
 
@@ -197,7 +209,7 @@ func TestLoggedOutAdminCookieLosesAdminRoutes(t *testing.T) {
 
 func TestAdminRoutesAnswer401ForAnInvalidSession(t *testing.T) {
 	adm := loginCookie(t, "admin", "admin-password-for-tests")
-	call(t, testCtrl.Logout, withCookie(t, adm, "GET", "/api/v1/logout", nil))
+	call(t, testCtrl.Logout, withCookie(t, adm, "POST", "/api/v1/logout", nil))
 
 	for name, cookie := range map[string]string{"logged-out": adm, "garbage": "not-a-token"} {
 		if code, body := call(t, testCtrl.GetUsers, withCookie(t, cookie, "GET", "/api/v1/getUsers", nil)); code != http.StatusUnauthorized {
@@ -249,7 +261,7 @@ func TestRevokingSessionsClosesOpenLogStreams(t *testing.T) {
 			adminCall(t, testCtrl.EditUser, "/api/v1/editUser", map[string]string{"login": "stream-revoked", "password": "changed"})
 		},
 		"logout": func(t *testing.T, cookie string) {
-			call(t, testCtrl.Logout, withCookie(t, cookie, "GET", "/api/v1/logout", nil))
+			call(t, testCtrl.Logout, withCookie(t, cookie, "POST", "/api/v1/logout", nil))
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -293,7 +305,7 @@ func TestStreamRevokedDuringTheUpgradeIsClosed(t *testing.T) {
 		"delete": func(string) { userdb.DeleteUser("stream-upgrading") },
 		"revoke": func(string) { userdb.RevokeSessions("stream-upgrading") },
 		"logout": func(cookie string) {
-			logout, _ := http.NewRequest("GET", "/api/v1/logout", nil)
+			logout, _ := http.NewRequest("POST", "/api/v1/logout", nil)
 			logout.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: cookie})
 			testCtrl.Logout(httptest.NewRecorder(), logout)
 		},

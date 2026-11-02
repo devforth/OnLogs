@@ -891,7 +891,7 @@ func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *RouteController) Logout(w http.ResponseWriter, req *http.Request) {
-	if !guard(w, req, authUser, "") {
+	if !guard(w, req, authUser, "POST") {
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
