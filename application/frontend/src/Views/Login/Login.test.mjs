@@ -10,9 +10,10 @@ import {
 
 main(async () => {
   const bodies = [];
+  let reply = () => jsonResponse({ error: "Wrong password or login!" });
   const stubFetch = async (url, opts = {}) => {
     if (String(url).includes("/login")) bodies.push(JSON.parse(opts.body));
-    return jsonResponse({ error: "Wrong password or login!" });
+    return reply();
   };
   const outfile = await bundleComponent("test/usersEntry.js");
   const { window } = installDom({ fetchImpl: stubFetch });
@@ -28,6 +29,18 @@ main(async () => {
 
   // The login is trimmed, the password is sent exactly as typed.
   assert.deepEqual(bodies, [{ login: "admin", password: " pass word " }]);
+
+  // A refusal that is not about the credentials says so.
+  const shown = () => doc.querySelector(".loginForm")?.textContent ?? "";
+  for (const [status, error] of [
+    [429, "Too many failed login attempts. Try again later."],
+    [403, "Cross-origin request rejected"],
+  ]) {
+    reply = () => jsonResponse({ error }, status);
+    doc.querySelector(".confirmButton button").click();
+    await settle();
+    assert.ok(shown().includes(error), `a ${status} was shown as "${shown().match(/Wrong[^!]*!/)?.[0]}"`);
+  }
   bundle.unmount(app);
   console.log("Login form tests passed");
 });

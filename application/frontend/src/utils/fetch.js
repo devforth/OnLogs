@@ -57,12 +57,13 @@ class fetchApi {
       login: login,
       password: password,
     });
-    if (result["error"] === null) {
+    if (result?.error === null) {
       this.authorized = true;
       navigate(`${changeKey}`, { replace: true });
       return true;
     }
-    return false;
+    // The reason to show: wrong credentials, the rate limit, a refused origin.
+    return typeof result?.error === "string" && result.error ? result.error : false;
   }
 
   async logout() {

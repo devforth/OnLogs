@@ -115,6 +115,9 @@ can call itself any client.
 Make sure the proxy actually sends the headers — traefik does by default, nginx needs
 `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`.
 
+The proxy must also pass the original `Host` header, or logins and every change are refused
+as cross-origin (403). traefik does by default, nginx needs `proxy_set_header Host $http_host;`.
+
 ## Metrics
 
 Prometheus metrics at `${ONLOGS_PATH_PREFIX}/api/v1/metrics`. Set `METRICS_TOKEN` to enable

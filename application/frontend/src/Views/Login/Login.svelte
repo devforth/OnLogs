@@ -28,9 +28,9 @@
     const password = document.getElementById("password").value;
     result = await api.login(login.trim(), password);
 
-    if (!result) {
+    if (result !== true) {
       wrong = "wrong";
-      message = "Wrong password or login!";
+      message = result || "Wrong password or login!";
     } else {
       navigate(`${changeKey}/`, { replace: true });
     }
