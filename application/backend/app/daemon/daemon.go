@@ -39,7 +39,7 @@ const (
 	maxLogLine = 1024 * 1024
 	// Keeps an agent's JSON request under the master's 1 MiB body limit.
 	keptLongLine      = 128 * 1024
-	truncatedLineMark = " [ONLOGS: truncated, the line was over 1 MiB]"
+	truncatedLineMark = " [truncated: the line was over 1 MiB]"
 )
 
 var drainTimeout = time.Minute

@@ -63,8 +63,12 @@ func TestStreamDockerLogsTruncatesAnOversizedLineAndKeepsReading(t *testing.T) {
 	if !strings.HasSuffix(lines[1], truncatedLineMark) || len(lines[1]) > keptLongLine+len(truncatedLineMark) {
 		t.Fatalf("long line not truncated with a mark: %d bytes", len(lines[1]))
 	}
-	if _, _, ok := parseDockerLogLine(lines[1]); !ok {
+	item, _, ok := parseDockerLogLine(lines[1])
+	if !ok {
 		t.Fatal("truncated line lost its timestamp")
+	}
+	if level := containerdb.GetLogStatusKey(item[1]); level != "other" {
+		t.Fatalf("the truncation mark made a line with no level %q", level)
 	}
 }
 
