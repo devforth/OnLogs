@@ -29,9 +29,16 @@ func authedRequest(t *testing.T, user, method, target string, body any) *http.Re
 	if err != nil {
 		t.Fatalf("building the request: %v", err)
 	}
+	req.Header.Set("Content-Type", "application/json")
 	if user != "" {
 		req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT(user)})
 	}
+	return req
+}
+
+func jsonRequest(method, target string, body []byte) *http.Request {
+	req, _ := http.NewRequest(method, target, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 	return req
 }
 

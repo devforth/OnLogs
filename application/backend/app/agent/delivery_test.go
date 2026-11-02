@@ -76,6 +76,7 @@ func (f *deliveryFixture) persist(w http.ResponseWriter, item sentLog) {
 		panic(err)
 	}
 	r := httptest.NewRequest(http.MethodPost, "/api/v1/addLogLine", bytes.NewReader(data))
+	r.Header.Set("Content-Type", "application/json")
 	(&routes.RouteController{}).AddLogLine(w, r)
 }
 

@@ -92,7 +92,7 @@ func TestAddHostRejectsNamesThatLeaveTheTree(t *testing.T) {
 		{"Hostname": "realhost", "Token": token, "Services": []string{"../../../../PWNED_SERVICE"}},
 	} {
 		body, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/api/v1/addHost", bytes.NewBuffer(body))
+		req := jsonRequest("POST", "/api/v1/addHost", body)
 		rr := httptest.NewRecorder()
 		http.HandlerFunc(testCtrl.AddHost).ServeHTTP(rr, req)
 
@@ -129,7 +129,7 @@ func TestAddLogLineRejectsNamesThatLeaveTheTree(t *testing.T) {
 		"Container": "c",
 		"LogLine":   []string{"2026-02-10T12:56:09.230421754Z", "hello"},
 	})
-	req, _ := http.NewRequest("POST", "/api/v1/addLogLine", bytes.NewBuffer(body))
+	req := jsonRequest("POST", "/api/v1/addLogLine", body)
 	rr := httptest.NewRecorder()
 	http.HandlerFunc(testCtrl.AddLogLine).ServeHTTP(rr, req)
 
@@ -165,7 +165,7 @@ func TestAddLogLineAnswers500InsteadOfPanickingWhenTheLineCannotBeStored(t *test
 		"Container": container,
 		"LogLine":   []string{"2026-02-10T12:56:09.230421754Z", "hello"},
 	})
-	req, _ := http.NewRequest("POST", "/api/v1/addLogLine", bytes.NewBuffer(body))
+	req := jsonRequest("POST", "/api/v1/addLogLine", body)
 	rr := httptest.NewRecorder()
 	func() {
 		defer func() {
@@ -201,7 +201,7 @@ func TestHandlersRejectOversizedRequestBodies(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		req, _ := http.NewRequest("POST", "/", bytes.NewBuffer(oversizedJSONBody()))
+		req := jsonRequest("POST", "/", oversizedJSONBody())
 		req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT("admin")})
 		rr := httptest.NewRecorder()
 		c.handler.ServeHTTP(rr, req)
@@ -216,7 +216,7 @@ func TestLoginCookieIsHttpOnlyAndUsesARelativeMaxAge(t *testing.T) {
 	userdb.CreateUser("cookieuser", "cookiepass")
 
 	body, _ := json.Marshal(map[string]string{"Login": "cookieuser", "Password": "cookiepass"})
-	req, _ := http.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(body))
+	req := jsonRequest("POST", "/api/v1/login", body)
 	rr := httptest.NewRecorder()
 	http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
 
@@ -242,7 +242,7 @@ func TestLoginCookieIsSecureOverTLS(t *testing.T) {
 	userdb.CreateUser("cookieuser", "cookiepass")
 
 	body, _ := json.Marshal(map[string]string{"Login": "cookieuser", "Password": "cookiepass"})
-	req, _ := http.NewRequest("POST", "https://onlogs.example/api/v1/login", bytes.NewBuffer(body))
+	req := jsonRequest("POST", "https://onlogs.example/api/v1/login", body)
 	req.TLS = &tls.ConnectionState{}
 	rr := httptest.NewRecorder()
 	http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
@@ -283,7 +283,7 @@ func TestLoginRateLimitsRepeatedFailures(t *testing.T) {
 
 	post := func(password string) int {
 		body, _ := json.Marshal(map[string]string{"Login": "ratelimited", "Password": password})
-		req, _ := http.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(body))
+		req := jsonRequest("POST", "/api/v1/login", body)
 		req.RemoteAddr = "203.0.113.9:34567"
 		rr := httptest.NewRecorder()
 		http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
@@ -312,7 +312,7 @@ func TestAddLogLineDoesNotSpawnAWorkerPerLogLine(t *testing.T) {
 				"Container": "statsprobecontainer",
 				"LogLine":   []string{"2026-02-10T12:56:09.230421754Z", "line " + strconv.Itoa(i)},
 			})
-			req, _ := http.NewRequest("POST", "/api/v1/addLogLine", bytes.NewBuffer(body))
+			req := jsonRequest("POST", "/api/v1/addLogLine", body)
 			rr := httptest.NewRecorder()
 			http.HandlerFunc(testCtrl.AddLogLine).ServeHTTP(rr, req)
 			if code := rr.Result().StatusCode; code != http.StatusOK {
@@ -406,5 +406,42 @@ func TestRejectedRequestsStillSetContentType(t *testing.T) {
 	}
 	if got := rr.Header().Get("Content-Type"); !strings.HasPrefix(got, "application/json") {
 		t.Errorf("a 401 replied with Content-Type %q, want application/json", got)
+	}
+}
+
+func createUserProbe(t *testing.T) *http.Request {
+	t.Helper()
+	os.Setenv("ADMIN_USERNAME", "admin")
+	return authedRequest(t, "admin", "POST", "/onlogs/api/v1/createUser", map[string]string{"Login": "origin-probe", "Password": "origin-probe-pass"})
+}
+
+func TestCreateUserRejectsASiblingSubdomainOrigin(t *testing.T) {
+	req := createUserProbe(t)
+	req.Host = "onlogs.devforth.io"
+	req.Header.Set("Origin", "https://evil.devforth.io")
+
+	code, body := call(t, testCtrl.CreateUser, req)
+	if code != http.StatusForbidden || !strings.Contains(string(body), "Cross-origin") {
+		t.Fatalf("a POST from a sibling subdomain with the admin cookie went through: status %d %s", code, body)
+	}
+}
+
+func TestCreateUserRejectsANonJSONContentType(t *testing.T) {
+	req := createUserProbe(t)
+	req.Header.Set("Content-Type", "text/plain")
+
+	if code, _ := call(t, testCtrl.CreateUser, req); code != http.StatusUnsupportedMediaType {
+		t.Fatalf("a text/plain form post was decoded as JSON: status %d", code)
+	}
+}
+
+func TestCreateUserAcceptsTheOwnOriginUnderAPathPrefix(t *testing.T) {
+	req := createUserProbe(t)
+	req.Host = "onlogs.devforth.io"
+	req.Header.Set("Origin", "https://onlogs.devforth.io")
+	t.Cleanup(func() { userdb.DeleteUser("origin-probe") })
+
+	if code, body := call(t, testCtrl.CreateUser, req); code == http.StatusForbidden || code == http.StatusUnsupportedMediaType {
+		t.Fatalf("a same-origin JSON post was rejected: status %d %s", code, body)
 	}
 }

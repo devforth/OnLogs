@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -22,7 +21,7 @@ func TestEditUserActuallyChangesThePassword(t *testing.T) {
 	t.Cleanup(func() { userdb.DeleteUser("rotateme") })
 
 	body, _ := json.Marshal(map[string]string{"login": "rotateme", "password": "the-new-password"})
-	req, _ := http.NewRequest("POST", "/api/v1/editUser", bytes.NewBuffer(body))
+	req := jsonRequest("POST", "/api/v1/editUser", body)
 	req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT("admin")})
 	rr := httptest.NewRecorder()
 	http.HandlerFunc(testCtrl.EditUser).ServeHTTP(rr, req)
@@ -52,7 +51,7 @@ func TestEditUserRejectsAnEmptyPassword(t *testing.T) {
 	t.Cleanup(func() { userdb.DeleteUser("emptyrotate") })
 
 	body, _ := json.Marshal(map[string]string{"login": "emptyrotate", "password": ""})
-	req, _ := http.NewRequest("POST", "/api/v1/editUser", bytes.NewBuffer(body))
+	req := jsonRequest("POST", "/api/v1/editUser", body)
 	req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT("admin")})
 	rr := httptest.NewRecorder()
 	http.HandlerFunc(testCtrl.EditUser).ServeHTTP(rr, req)
@@ -166,7 +165,7 @@ func TestFavouritesAreScopedToTheUserWhoSetThem(t *testing.T) {
 	existingService(t, "h", "svc")
 
 	body, _ := json.Marshal(map[string]string{"host": "h", "service": "svc"})
-	req, _ := http.NewRequest("POST", "/api/v1/changeFavorite", bytes.NewBuffer(body))
+	req := jsonRequest("POST", "/api/v1/changeFavorite", body)
 	req.AddCookie(&http.Cookie{Name: "onlogs-cookie", Value: util.CreateJWT("favuser")})
 	rr := httptest.NewRecorder()
 	http.HandlerFunc(testCtrl.ChangeFavourite).ServeHTTP(rr, req)

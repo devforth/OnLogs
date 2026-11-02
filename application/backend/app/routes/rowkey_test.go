@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -101,7 +100,7 @@ func postLogLine(t *testing.T, token, host, container, msg, eventID string) {
 	t.Helper()
 	body, _ := json.Marshal(map[string]any{"Token": token, "Host": host, "Container": container, "LogLine": []string{sharedTimestamp, msg}, "EventID": eventID})
 	rr := httptest.NewRecorder()
-	testCtrl.AddLogLine(rr, httptest.NewRequest("POST", "/api/v1/addLogLine", bytes.NewReader(body)))
+	testCtrl.AddLogLine(rr, jsonRequest("POST", "/api/v1/addLogLine", body))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("addLogLine: status %d", rr.Code)
 	}

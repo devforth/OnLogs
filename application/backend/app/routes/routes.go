@@ -108,6 +108,9 @@ func guard(w http.ResponseWriter, req *http.Request, level authLevel, method str
 		w.WriteHeader(http.StatusOK)
 		return false
 	}
+	if rejectForeignOrigin(w, req) {
+		return false
+	}
 
 	switch level {
 	case authUser:
@@ -152,7 +155,21 @@ func isTLS(req *http.Request) bool {
 	return req.TLS != nil || strings.EqualFold(req.Header.Get("X-Forwarded-Proto"), "https")
 }
 
+// A browser sends Origin on every non-GET request; absent means a non-browser
+// client, which the cookie cannot be leaked to anyway.
+func rejectForeignOrigin(w http.ResponseWriter, req *http.Request) bool {
+	if req.Method == http.MethodGet || req.Method == http.MethodHead || isAllowedOrigin(req) {
+		return false
+	}
+	fail(w, http.StatusForbidden, "Cross-origin request rejected")
+	return true
+}
+
 func decodeBody(w http.ResponseWriter, req *http.Request, target interface{}) bool {
+	if mediaType, _, _ := mime.ParseMediaType(req.Header.Get("Content-Type")); mediaType != "application/json" {
+		fail(w, http.StatusUnsupportedMediaType, "Content-Type must be application/json")
+		return false
+	}
 	req.Body = http.MaxBytesReader(w, req.Body, maxRequestBody)
 	if err := json.NewDecoder(req.Body).Decode(target); err != nil {
 		fail(w, http.StatusBadRequest, "Invalid request body")
@@ -826,6 +843,9 @@ func (h *RouteController) Login(w http.ResponseWriter, req *http.Request) {
 	}
 	if req.Method != "POST" {
 		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	if rejectForeignOrigin(w, req) {
 		return
 	}
 

@@ -72,7 +72,9 @@ func errorsFrom(t *testing.T, api, host, svc string) uint64 {
 	}
 	raw, _ := json.Marshal(body)
 	rr := httptest.NewRecorder()
-	handler(rr, httptest.NewRequest(http.MethodPost, "/api/v1/"+api, bytes.NewReader(raw)))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/"+api, bytes.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+	handler(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Errorf("%s returned %d: %s", api, rr.Code, rr.Body)
 		return 0

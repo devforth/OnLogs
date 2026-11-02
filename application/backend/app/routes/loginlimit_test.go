@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -176,7 +175,7 @@ func TestLoginLockoutCannotBeInflictedOnAnotherUser(t *testing.T) {
 
 	attempt := func(addr, password string) int {
 		body, _ := json.Marshal(map[string]string{"Login": "victimaccount", "Password": password})
-		req, _ := http.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(body))
+		req := jsonRequest("POST", "/api/v1/login", body)
 		req.RemoteAddr = addr + ":40000"
 		rr := httptest.NewRecorder()
 		http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
@@ -207,7 +206,7 @@ func TestOneAttackerBehindAProxyDoesNotThrottleEveryoneElse(t *testing.T) {
 
 	attempt := func(client, password string) int {
 		body, _ := json.Marshal(map[string]string{"Login": "proxieduser", "Password": password})
-		req, _ := http.NewRequest("POST", "/api/v1/login", bytes.NewBuffer(body))
+		req := jsonRequest("POST", "/api/v1/login", body)
 		req.RemoteAddr = "172.18.0.2:40000"
 		req.Header.Set("X-Forwarded-For", client)
 		rr := httptest.NewRecorder()
@@ -280,7 +279,7 @@ func TestConcurrentWrongLoginsGetNoMoreChecksThanSerialOnes(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			body, _ := json.Marshal(map[string]string{"Login": "burstvictim", "Password": "wrong"})
-			req := httptest.NewRequest("POST", "/api/v1/login", bytes.NewReader(body))
+			req := jsonRequest("POST", "/api/v1/login", body)
 			req.RemoteAddr = "198.51.100.7:40000"
 			rr := httptest.NewRecorder()
 			<-start
