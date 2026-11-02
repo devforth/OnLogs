@@ -139,6 +139,8 @@ scrape_configs:
 | `onlogs_log_lines_total` | host, container, level | Log lines stored, by severity |
 | `onlogs_stream_up` | host, container | 1 while a container's stream is attached |
 | `onlogs_stream_cursor_timestamp_seconds` | host, container | Newest line ingested |
+| `onlogs_docker_log_bytes` | host, container | Size of the container's docker log file |
+| `onlogs_agent_last_report_timestamp_seconds` | host | When an agent last reported |
 | `onlogs_dropped_replay_lines_total` | host, container | Lines dropped as replays |
 | `onlogs_logs_size_bytes` / `_limit_bytes` | | Stored size on disk, and `MAX_LOGS_SIZE`. The size can exceed the limit by stream cursors and agent buffers, which the quota does not count |
 | `onlogs_container_db_size_bytes` | host, container | Stored size per container |
@@ -149,7 +151,7 @@ scrape_configs:
 | `onlogs_login_failures_total`, `onlogs_login_blocked_total` | | Rejected and blocked logins |
 | `onlogs_build_info` | version | Always 1 |
 
-Alert on error rate, and on ingestion stalling while lines are still arriving:
+Alert on error rate, on ingestion stalling while docker still writes, and on a silent agent:
 
 ```yaml
 - alert: OnLogsContainerErrors
@@ -159,11 +161,17 @@ Alert on error rate, and on ingestion stalling while lines are still arriving:
 - alert: OnLogsIngestStalled
   expr: |
     (time() - onlogs_stream_cursor_timestamp_seconds > 300)
-      and on (host, container) (rate(onlogs_log_lines_total[10m]) > 0)
+      and on (host, container) (changes(onlogs_docker_log_bytes[10m]) > 0)
   for: 5m
+
+- alert: OnLogsAgentSilent
+  expr: time() - onlogs_agent_last_report_timestamp_seconds > 180
+  for: 2m
 ```
 
-Worth knowing: `onlogs_stream_up` covers local containers only, not agent-forwarded ones;
+Worth knowing: `onlogs_stream_up`, the cursor and `onlogs_docker_log_bytes` cover the
+master's own containers only, and the docker log size needs the
+`/var/lib/docker/containers` mount; agents are covered by `OnLogsAgentSilent`;
 size gauges refresh every 5 minutes and the limit is read once at startup; counters reset
 on restart, as usual; and at most 1000 host/container pairs are counted.
 

@@ -65,6 +65,8 @@ func write(w io.Writer, ds daemonState) {
 	writeLogLines(w)
 	writeStreamUp(w)
 	writeCursors(w, ds)
+	writeDockerLogBytes(w)
+	writeAgentReports(w)
 	writeDroppedReplays(w, ds)
 	writeSizes(w)
 	writeProcess(w)

@@ -125,6 +125,16 @@ func AgentContainers(host string) []string {
 	return append([]string{}, AgentsActiveContainers[host]...)
 }
 
+func AgentReportTimes() map[string]time.Time {
+	stateMutex.RLock()
+	defer stateMutex.RUnlock()
+	times := make(map[string]time.Time, len(agentReportedAt))
+	for host, at := range agentReportedAt {
+		times[host] = at
+	}
+	return times
+}
+
 const maxDeleteAttempts = 3
 
 type DeleteCommand struct {

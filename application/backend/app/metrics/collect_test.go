@@ -202,3 +202,46 @@ func benchScrape() {
 	req.Header.Set("Authorization", "Bearer "+testToken)
 	Handler(nil).ServeHTTP(httptest.NewRecorder(), req)
 }
+
+// The stall alert needs signals that do not come from ingestion itself.
+func TestDockerLogBytesAndAgentReportsAreExported(t *testing.T) {
+	t.Chdir(t.TempDir())
+	host := util.GetHost()
+	closeMeta := func() {
+		vars.DBMutex.Lock()
+		defer vars.DBMutex.Unlock()
+		if d := vars.ContainersMeta_DBs[host]; d != nil {
+			d.Close()
+			delete(vars.ContainersMeta_DBs, host)
+		}
+	}
+	closeMeta()
+	t.Cleanup(closeMeta)
+	dir := t.TempDir() + "/"
+	dockerDir := util.DockerContainersDir
+	util.DockerContainersDir = dir
+	t.Cleanup(func() { util.DockerContainersDir = dockerDir })
+
+	if err := util.GetContainersMetaDB(host).Put([]byte("metrics-docker"), []byte("abc"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir+"abc", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dir+"abc/abc-json.log", make([]byte, 123), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	vars.AddActiveStream("metrics-docker")
+	t.Cleanup(func() { vars.RemoveActiveStream("metrics-docker") })
+	vars.SetAgentContainers("metrics-edge", []string{"x"})
+	t.Cleanup(func() { vars.SetAgentContainers("metrics-edge", nil) })
+
+	out := body(t, nil)
+	if value, ok := sample(t, out, `onlogs_docker_log_bytes{host="`+host+`",container="metrics-docker"}`); !ok || value != 123 {
+		t.Errorf("docker log bytes: %v, %v", value, ok)
+	}
+	value, ok := sample(t, out, `onlogs_agent_last_report_timestamp_seconds{host="metrics-edge"}`)
+	if now := float64(time.Now().Unix()); !ok || value < now-5 || value > now+5 {
+		t.Errorf("agent last report: %v, %v", value, ok)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"os"
 	"runtime"
 	runtimemetrics "runtime/metrics"
 	"sync/atomic"
@@ -70,6 +71,36 @@ func writeCursors(w io.Writer, ds daemonState) {
 	writePerContainer(w, "onlogs_stream_cursor_timestamp_seconds", "gauge",
 		"Timestamp of the newest log line ingested for a container.",
 		ds.CursorTimestamps(), func(ts time.Time) int64 { return ts.Unix() })
+}
+
+// Grows while docker writes, whatever OnLogs ingests: the stall alert's other
+// half. Needs the /var/lib/docker/containers mount.
+func writeDockerLogBytes(w io.Writer) {
+	host := util.GetHost()
+	sizes := map[string]int64{}
+	for _, container := range vars.ActiveStreams() {
+		id := util.GetDockerContainerID(host, container)
+		if id == "" {
+			continue
+		}
+		if info, err := os.Stat(util.DockerContainersDir + id + "/" + id + "-json.log"); err == nil {
+			sizes[host+"/"+container] = info.Size()
+		}
+	}
+	writePerContainer(w, "onlogs_docker_log_bytes", "gauge",
+		"Size of a local container's docker json log.",
+		sizes, func(n int64) int64 { return n })
+}
+
+func writeAgentReports(w io.Writer) {
+	times := vars.AgentReportTimes()
+	if len(times) == 0 {
+		return
+	}
+	writeHeader(w, "onlogs_agent_last_report_timestamp_seconds", "gauge", "When each agent last reported to this master.")
+	for _, host := range sortedKeys(times) {
+		fmt.Fprintf(w, "onlogs_agent_last_report_timestamp_seconds{host=\"%s\"} %d\n", escapeLabelValue(host), times[host].Unix())
+	}
 }
 
 func writeDroppedReplays(w io.Writer, ds daemonState) {
