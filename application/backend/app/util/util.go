@@ -110,6 +110,17 @@ func IsSafeName(s string) bool {
 // Level 1 at 10 MiB, as in LevelDB, not 100: each retention round rewrites it.
 var DBOptions = &opt.Options{CompactionTotalSizeMultiplierPerLevel: []float64{1, 1}}
 
+// The stream cursor is rewritten on every line; the default 4 MiB buffer let
+// its journal reach that size per container, outside MAX_LOGS_SIZE.
+var cursorDBOptions = &opt.Options{WriteBuffer: 64 << 10}
+
+func optionsFor(dbType string) *opt.Options {
+	if dbType == "streamstate" {
+		return cursorDBOptions
+	}
+	return DBOptions
+}
+
 func GetDB(host string, container string, dbType string) *leveldb.DB {
 	if !IsSafeName(host) || !IsSafeName(container) || !IsSafeName(dbType) {
 		return nil
@@ -131,15 +142,15 @@ func GetDB(host string, container string, dbType string) *leveldb.DB {
 	}
 
 	path := fmt.Sprintf("leveldb/hosts/%s/containers/%s/%s", host, container, dbType)
-	db, err := leveldb.OpenFile(path, DBOptions)
+	db, err := leveldb.OpenFile(path, optionsFor(dbType))
 
 	// Recovery rewrites the whole DB: only for corruption, not for a full disk.
 	for tries := 0; err != nil && tries < 10; tries++ {
 		time.Sleep(10 * time.Millisecond)
 		if leveldbErrors.IsCorrupted(err) {
-			db, err = leveldb.RecoverFile(path, DBOptions)
+			db, err = leveldb.RecoverFile(path, optionsFor(dbType))
 		} else {
-			db, err = leveldb.OpenFile(path, DBOptions)
+			db, err = leveldb.OpenFile(path, optionsFor(dbType))
 		}
 	}
 
