@@ -235,12 +235,12 @@ main(async () => {
     type(doc.querySelector(".editInput"), "alice-new");
     buttonIn(doc.querySelector(".modalContainer"), "Confirm").click();
     await settle();
-    buttonIn(doc.querySelector(".modalContainer"), "Cancel").click();
-    await settle();
+    assert.equal(storeValue(bundle.editUserOpen), false, "the edit dialog waits behind the login page");
     buttonIn(rowOf("bob"), "Delete").click();
     await settle();
     buttonIn(doc.querySelector(".modalContainer"), "Delete").click();
     await settle();
+    assert.equal(storeValue(bundle.userDeleteOpen), false, "the delete dialog waits behind the login page");
     await new Promise((resolve) => setTimeout(resolve, 20));
     expired = false;
     process.off("unhandledRejection", onRejection);

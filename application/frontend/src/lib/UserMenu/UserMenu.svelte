@@ -44,7 +44,11 @@
         saving = false;
       }
 
-      if (!data) return;
+      // null: the session ended and the app is already on the login page.
+      if (!data) {
+        editUserOpen.set(false);
+        return;
+      }
       if (!data.error) {
         editUserOpen.set(false);
         toast.set({
@@ -77,7 +81,10 @@
   async function removeUser(login) {
     const data = await api.removeUser(login);
 
-    if (!data) return;
+    if (!data) {
+      userDeleteOpen.set(false);
+      return;
+    }
     if (!data.error) {
       usersList = usersList.filter((u) => {
         return u.username !== login;
