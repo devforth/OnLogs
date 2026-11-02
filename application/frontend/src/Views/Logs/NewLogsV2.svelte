@@ -420,25 +420,11 @@
     ) {
       if (!pauseWS) {
         autoscroll = true;
-        if (newLogs.length === limit) {
-          newLogs.splice(0, 1);
-        }
-        if (visibleLogs.length === limit) {
-          visibleLogs.at(0) && newLogs.push(visibleLogs.at(0));
-          visibleLogs.splice(0, 1);
-          previousLogs.at(0) && visibleLogs.push(previousLogs.at(0));
-        }
-
-        if (previousLogs.length === limit) {
-          previousLogs.splice(0, 1);
-        }
-        previousLogs.push(logfromWS);
-
-        if (allLogs.length === 3 * limit) {
-          allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
-        } else allLogs = dedupeLogs([...allLogs, logfromWS]);
-        if (allLogs.length < 3 * limit) {
-        }
+        // Same split as getFullLogsSet: the segments always add up to allLogs.
+        allLogs = dedupeLogs([...allLogs, logfromWS]).slice(-3 * limit);
+        newLogs = allLogs.slice(0, limit);
+        visibleLogs = allLogs.slice(limit, 2 * limit);
+        previousLogs = allLogs.slice(2 * limit);
       }
     } else {
       logsFromWS = [...logsFromWS, logfromWS];
