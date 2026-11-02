@@ -655,6 +655,11 @@ func searchInit(iter iterator.Iterator, startWith string, getPrev bool) bool {
 	}
 
 	if iter.Seek([]byte(startWith)) {
+		// Seek lands on the next newer row when the cursor row is gone.
+		key := string(iter.Key())
+		if !getPrev && key != startWith && !strings.HasPrefix(key, startWith+" +") {
+			return iter.Prev()
+		}
 		return true
 	}
 	if getPrev {

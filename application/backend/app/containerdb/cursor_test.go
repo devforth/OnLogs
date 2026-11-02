@@ -133,3 +133,31 @@ func TestGetLogsWithAStaleFutureCursorReturnsNothing(t *testing.T) {
 		t.Errorf("expected is_end=true for an exhausted forward scan, got %v", result["is_end"])
 	}
 }
+
+// Retention or Clear logs can delete the row a client pages from.
+func TestOlderPageFromADeletedCursorHasOnlyOlderRows(t *testing.T) {
+	host, container := "DeletedCursorHost", "DeletedCursorContainer"
+	_ = os.RemoveAll("leveldb/hosts/" + host)
+	t.Cleanup(func() { _ = os.RemoveAll("leveldb/hosts/" + host) })
+	db, err := leveldb.OpenFile("leveldb/hosts/"+host+"/containers/"+container+"/logs", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range [][]string{{"2026-11-02T10:00:01.000000000Z", "older"}, {"2026-11-02T10:00:03.000000000Z", "newer"}} {
+		if err := PutLogMessage(db, host, container, row); err != nil {
+			t.Fatal(err)
+		}
+	}
+	db.Close()
+
+	for _, cursor := range []string{"2026-11-02T10:00:02.000000000Z +1793613602000000000-7", "2026-11-02T10:00:02.000000000Z"} {
+		rows := GetLogs(false, false, host, container, "", 30, cursor, false, nil)["logs"].([][]string)
+		if len(rows) != 1 || rows[0][1] != "older" {
+			t.Errorf("an older page from %q returned %v", cursor, rows)
+		}
+	}
+	result := GetLogs(false, false, host, container, "", 30, "2026-11-02T10:00:00.000000000Z", false, nil)
+	if rows := result["logs"].([][]string); len(rows) != 0 || result["is_end"] != true {
+		t.Errorf("an older page from before every row returned %v, is_end %v", rows, result["is_end"])
+	}
+}
