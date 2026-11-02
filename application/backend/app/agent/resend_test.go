@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -258,5 +259,47 @@ func TestUnansweredHostUpdateDoesNotStopTheDeletePollOrResend(t *testing.T) {
 	}
 	if n := queuedCount(t, "pending"); n != 0 {
 		t.Errorf("pending still holds %d records after the resend", n)
+	}
+}
+
+// Live viewers get lines in arrival order, so the queue has to go first.
+func TestSendLogMessageDeliversQueuedLinesFirst(t *testing.T) {
+	t.Chdir(t.TempDir())
+	container := "orderedcontainer"
+	t.Cleanup(func() { util.ResetDB(util.GetHost(), container, "brokenlogs") })
+	t.Setenv("HOST", "http://127.0.0.1:1")
+	SendLogMessage("token", container, []string{"2026-02-10T12:56:09.000000001Z", "queued"})
+
+	var mu sync.Mutex
+	var got []string
+	reject := true
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var item struct{ LogLine []string }
+		_ = json.NewDecoder(r.Body).Decode(&item)
+		mu.Lock()
+		defer mu.Unlock()
+		if reject {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		got = append(got, item.LogLine[1])
+	}))
+	defer server.Close()
+	t.Setenv("HOST", server.URL)
+
+	SendLogMessage("token", container, []string{"2026-02-10T12:56:10.000000001Z", "behind"})
+	if n := queuedCount(t, container); n != 2 {
+		t.Fatalf("with the queue stuck, %d lines are queued, want 2", n)
+	}
+
+	mu.Lock()
+	reject = false
+	mu.Unlock()
+	SendLogMessage("token", container, []string{"2026-02-10T12:56:11.000000001Z", "live"})
+	if want := []string{"queued", "behind", "live"}; !slices.Equal(got, want) {
+		t.Errorf("the master got %v, want %v", got, want)
+	}
+	if n := queuedCount(t, container); n != 0 {
+		t.Errorf("%d lines are still queued", n)
 	}
 }

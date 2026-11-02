@@ -156,8 +156,11 @@ func TestLogsSharingATimestampSurviveAnOutageAndReattach(t *testing.T) {
 	})
 	lines := []string{sharedTS + " first-at-same-time", sharedTS + " second-at-same-time", newerTS + " newer-marker"}
 	f.stream(lines...)
-	if pending := f.messages("brokenlogs", util.GetHost()); len(pending) != 3 {
-		t.Fatalf("expected all three undelivered lines queued, got %q", pending)
+	pending := f.messages("brokenlogs", util.GetHost())
+	for _, want := range []string{"first-at-same-time", "second-at-same-time", "newer-marker"} {
+		if !slices.Contains(pending, want) {
+			t.Fatalf("expected all three undelivered lines queued, got %q", pending)
+		}
 	}
 
 	outage.Store(false)

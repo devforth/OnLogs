@@ -65,9 +65,26 @@ func sendLog(token, container, timestamp, message, eventID string) error {
 	return nil
 }
 
+func hasQueued(container string) bool {
+	if _, err := os.Stat("leveldb/hosts/" + util.GetHost() + "/containers/" + container + "/brokenlogs"); err != nil {
+		return false
+	}
+	buffer := util.GetDB(util.GetHost(), container, "brokenlogs")
+	if buffer == nil {
+		return false
+	}
+	iter := buffer.NewIterator(nil, nil)
+	defer iter.Release()
+	return iter.First()
+}
+
 func SendLogMessage(token string, container string, message_item []string) (bool, error) {
 	eventID := containerdb.NewEventID()
-	if sendLog(token, container, message_item[0], message_item[1], eventID) == nil {
+	// Live viewers see lines in arrival order, so queued ones go first.
+	if hasQueued(container) {
+		resendContainerBuffer(token, container)
+	}
+	if !hasQueued(container) && sendLog(token, container, message_item[0], message_item[1], eventID) == nil {
 		return true, nil
 	}
 	buffer := util.GetDB(util.GetHost(), container, "brokenlogs")
