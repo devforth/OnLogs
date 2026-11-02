@@ -229,3 +229,28 @@ func TestDeletesStillReachAgentsAndMastersThatDoNotAcknowledge(t *testing.T) {
 		}
 	})
 }
+
+func TestDockerLogsOfARunningContainerAreKept(t *testing.T) {
+	f := newDeleteFixture(t)
+	log := f.container("target", "old output\n")
+	vars.SetDockerContainers([]string{"target"}, vars.ContainerEventSeq())
+	vars.SetAgentContainers("edge", []string{"remote"})
+	t.Cleanup(func() {
+		vars.SetDockerContainers(nil, vars.ContainerEventSeq())
+		vars.SetAgentContainers("edge", nil)
+		vars.TakeQueuedDeletes("edge")
+	})
+
+	if err := util.DeleteDockerLogs(f.host, "target"); err == nil {
+		t.Error("a running container's docker log was cleared without an error")
+	}
+	if got := f.read(log); got != "old output\n" {
+		t.Errorf("a running container's docker log was cleared: %q", got)
+	}
+	if err := util.DeleteDockerLogs("edge", "remote"); err == nil {
+		t.Error("a running agent container's docker log was queued without an error")
+	}
+	if queued := vars.TakeQueuedDeletes("edge"); len(queued) != 0 {
+		t.Errorf("a running agent container's docker log was queued: %v", queued)
+	}
+}

@@ -61,7 +61,6 @@
     } else {
       toast.set({
         tittle: "Error",
-        // The Docker route sends a Go error, which encodes as an object.
         message:
           typeof data?.error === "string" && data.error
             ? data.error
@@ -120,7 +119,8 @@
         When
         <span class="boldText"> enabled </span>, only the
         <span class="boldText">Docker container</span>'s own log file is
-        cleared; logs already stored in onLogs are kept.
+        cleared; logs already stored in onLogs are kept. It works only on a
+        stopped container.
       </div>{/if}
   </div>
 

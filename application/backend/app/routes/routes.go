@@ -1038,7 +1038,11 @@ func (h *RouteController) DeleteDockerLogs(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]interface{}{"error": util.DeleteDockerLogs(logItem.Host, logItem.Service)})
+	if err := util.DeleteDockerLogs(logItem.Host, logItem.Service); err != nil {
+		fail(w, http.StatusOK, err.Error())
+		return
+	}
+	ok(w)
 }
 
 func (h *RouteController) AskForDelete(w http.ResponseWriter, req *http.Request) {

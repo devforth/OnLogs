@@ -24,7 +24,7 @@
 
 - 💻 One host can be used to view logs from all other hosts in case you are running Cluster
 - 🔗 Share log messages to colleagues via link <img src="./.assets/2.gif"/>
-- 💽 Clear original docker logs to keep your storage size.
+- 💽 Clear original docker logs of stopped containers to keep your storage size.
 - 📊 Error/Info/Debug Statistics
 - 🔎 Search through logs (configurable case sensitivity)
 - 👁 View parameters (parsing JSON, showing local/UTC time for every logline)

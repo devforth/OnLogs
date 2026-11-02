@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -510,10 +511,19 @@ func GetDockerContainerID(host string, container string) string {
 
 var DockerContainersDir = "/var/lib/docker/containers/"
 
+// Docker stops following a log file cleared under a running container.
+var errContainerRunning = errors.New("Stop the container first: Docker sends no new lines once a running container's log is cleared")
+
 func DeleteDockerLogs(host string, container string) error {
 	if host != GetHost() {
+		if slices.Contains(vars.AgentContainers(host), container) {
+			return errContainerRunning
+		}
 		vars.QueueDelete(host, container)
 		return nil
+	}
+	if slices.Contains(vars.DockerContainerList(), container) {
+		return errContainerRunning
 	}
 
 	containerID := GetDockerContainerID(host, container)

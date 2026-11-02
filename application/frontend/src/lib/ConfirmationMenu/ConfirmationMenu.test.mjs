@@ -15,6 +15,7 @@ let rows = [];
 let seq = 0;
 let sockets = [];
 let deleteStatus = 200;
+const REFUSAL = "Stop the container first: Docker sends no new lines once a running container's log is cleared";
 
 function store(msg) {
   seq += 1;
@@ -37,8 +38,7 @@ async function fetchImpl(url) {
     return jsonResponse({ error: null });
   }
   if (name === "deleteDockerLogs") {
-    // A Go error value encodes as an object, not a string.
-    return jsonResponse({ error: {} });
+    return jsonResponse({ error: REFUSAL });
   }
   if (name === "getLogs" && !u.searchParams.get("startWith")) {
     const logs = rows
@@ -102,7 +102,8 @@ main(async () => {
   await settle(5);
   deleteButton().click();
   await settle(20);
-  assert.equal(read(bundle.toast).message, "Something went wrong. Please try again later");
+  assert.equal(read(bundle.toast).message, REFUSAL);
+  assert.equal(read(bundle.confirmationObj).isVisible, true);
   bundle.store.update((s) => ({ ...s, deleteFromDocker: false }));
   await settle(5);
 

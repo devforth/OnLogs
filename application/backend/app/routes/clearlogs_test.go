@@ -1,12 +1,15 @@
 package routes
 
 import (
+	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/devforth/OnLogs/app/containerdb"
 	"github.com/devforth/OnLogs/app/util"
+	"github.com/devforth/OnLogs/app/vars"
 )
 
 // The UI reads the size and the rows right after this answers.
@@ -35,5 +38,21 @@ func TestClearLogsAnswersAfterTheRowsAreGone(t *testing.T) {
 	}
 	if left != 0 {
 		t.Fatalf("%d rows were still stored when Clear logs answered", left)
+	}
+}
+
+// The dialog shows the refusal only when it is a string.
+func TestDeleteDockerLogsExplainsARefusal(t *testing.T) {
+	vars.SetDockerContainers([]string{"busy"}, vars.ContainerEventSeq())
+	t.Cleanup(func() { vars.SetDockerContainers(nil, vars.ContainerEventSeq()) })
+
+	req := authedRequest(t, "admin", "POST", "/api/v1/deleteDockerLogs", map[string]string{"host": util.GetHost(), "service": "busy"})
+	_, body := call(t, testCtrl.DeleteDockerLogs, req)
+	var reply struct{ Error any }
+	if err := json.Unmarshal(body, &reply); err != nil {
+		t.Fatal(err)
+	}
+	if msg, _ := reply.Error.(string); !strings.Contains(msg, "Stop the container") {
+		t.Errorf("deleteDockerLogs of a running container answered %s", body)
 	}
 }
