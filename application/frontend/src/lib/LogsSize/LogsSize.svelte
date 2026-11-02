@@ -1,7 +1,6 @@
 <script>
   // @ts-nocheck
 
-  import { onMount, onDestroy, } from "svelte";
   import {
     lastChosenHost,
     lastChosenService,
@@ -15,7 +14,6 @@
   let { discribeText = "", isAllLogs = false } = $props();
   let logsSize = $state(0);
   let fetchCount = 0;
-  let updateIntervalID = null;
   let UPDATE_INTERVAL = 30000;
 
   async function clearLogs() {
@@ -23,10 +21,6 @@
     // action was set last, e.g. "delete this service".
     confirmationObj.set({ ...$confirmationObj, action: null, isVisible: true });
   }
-
-  onDestroy(() => {
-    clearInterval(updateIntervalID);
-  });
 
   async function fetchAllLogs() {
     const data = await fetchApi.getAllLogsSize();
@@ -42,31 +36,17 @@
     }
   }
 
-  async function updateDataFromInterval(cb) {
-    let alreadyStarted = false;
-    if (updateIntervalID) {
-      clearInterval(updateIntervalID);
-    }
-    if (!alreadyStarted) {
-      await cb();
-      alreadyStarted = true;
-    }
-    updateIntervalID = setInterval(async () => {
-      await cb();
-    }, UPDATE_INTERVAL);
-  }
-
+  // The poller starts synchronously and the teardown stops it: started after
+  // an awaited fetch, a switch or logout meanwhile left one running for good.
   $effect(() => {
     $logsCleared;
-    if (($lastChosenHost || $lastChosenService) && !isAllLogs) {
-      updateDataFromInterval(fetchServiceLogs);
+    if (!($lastChosenHost || $lastChosenService)) {
+      return;
     }
-  });
-  $effect(() => {
-    $logsCleared;
-    if (($lastChosenHost || $lastChosenService) && isAllLogs) {
-      updateDataFromInterval(fetchAllLogs);
-    }
+    const cb = isAllLogs ? fetchAllLogs : fetchServiceLogs;
+    cb();
+    const id = setInterval(cb, UPDATE_INTERVAL);
+    return () => clearInterval(id);
   });
 </script>
 

@@ -53,5 +53,38 @@ main(async () => {
   assert.deepEqual(sizes(), ["0.1 MiB"], "the size stayed stale after Clear logs");
 
   bundle.unmount(shown);
+
+  // Switching service or leaving the page while a size request is out must not
+  // leave a 30 s poller behind.
+  const live = new Set();
+  const realSet = globalThis.setInterval;
+  const realClear = globalThis.clearInterval;
+  globalThis.setInterval = (fn, ms, ...rest) => {
+    const id = realSet(fn, ms, ...rest);
+    if (ms === 30000) live.add(id);
+    return id;
+  };
+  globalThis.clearInterval = (id) => {
+    live.delete(id);
+    return realClear(id);
+  };
+  try {
+    sizeResponse = () => new Promise((resolve) => setTimeout(() => resolve(jsonResponse({ sizeMiB: 1 })), 30));
+    const slow = bundle.mount(bundle.LogsSize, { target });
+    for (const name of ["a", "b", "c", "d"]) {
+      bundle.lastChosenService.set(name);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(live.size, 1, `${live.size} size pollers run for one panel`);
+    bundle.lastChosenService.set("e");
+    bundle.unmount(slow);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    assert.equal(live.size, 0, `${live.size} size pollers outlived the panel`);
+  } finally {
+    live.forEach((id) => realClear(id));
+    globalThis.setInterval = realSet;
+    globalThis.clearInterval = realClear;
+  }
   console.log("LogsSize tests passed");
 });
