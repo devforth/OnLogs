@@ -21,3 +21,4 @@ export { default as SecretModal } from "../src/lib/SecretModal/SecretModal.svelt
 export { default as ServiceSettingsGeneral } from "../src/Views/ServiceSettings/General.svelte";
 export { default as LogsSize } from "../src/lib/LogsSize/LogsSize.svelte";
 export { default as HostAliasModal } from "../src/lib/HostAliasModal/HostAliasModal.svelte";
+export { default as Stats } from "../src/lib/Stats/Stats.svelte";

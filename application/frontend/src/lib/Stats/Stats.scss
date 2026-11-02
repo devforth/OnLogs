@@ -6,6 +6,10 @@
   & :hover {
     transform: scale(1.02);
   }
+  &.active {
+    font-weight: bold;
+    text-decoration: underline;
+  }
 }
 
 .statsTittle {

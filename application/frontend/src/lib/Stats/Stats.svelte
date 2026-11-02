@@ -109,6 +109,7 @@
       }
     }) as [key, name]}
       <li class="flex spaceBetween statsItem"
+        class:active={$chosenStatus === key}
         onclick={async () => {
             if ($chosenStatus !== key) {
             chosenStatus.set(key);
