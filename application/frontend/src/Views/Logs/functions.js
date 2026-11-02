@@ -59,20 +59,26 @@ const parseLogTime = (t) => {
 
 const zoneOf = (utc) => (utc ? "UTC" : undefined);
 
+// toLocaleString builds a formatter on every call (~30 us); rows are formatted
+// on every live line, so each formatter is built once.
+const formatters = new Map();
+const formatterFor = (locale, utc, options) => {
+  const key = `${locale}|${Boolean(utc)}`;
+  if (!formatters.has(key)) {
+    formatters.set(key, new Intl.DateTimeFormat(locale, { ...options, timeZone: zoneOf(utc) }));
+  }
+  return formatters.get(key);
+};
+
+const TIME = { hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 };
+const DAY = { month: "short", day: "2-digit", year: "numeric" };
+
 export const transformLogString = (t, utc) => {
   const date = parseLogTime(t);
   if (!date) {
     return "";
   }
-  return date
-    .toLocaleString("sv-SE", {
-      timeZone: zoneOf(utc),
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      fractionalSecondDigits: 3,
-    })
-    .replace(",", ".");
+  return formatterFor("sv-SE", utc, TIME).format(date).replace(",", ".");
 };
 
 export const transformLogStringForTimeBudget = (t, utc) => {
@@ -80,14 +86,7 @@ export const transformLogStringForTimeBudget = (t, utc) => {
   if (!date) {
     return "";
   }
-  return date
-    .toLocaleString("en-US", {
-      timeZone: zoneOf(utc),
-      month: "short",
-      day: "2-digit",
-      year: "numeric",
-    })
-    .replace(",", "");
+  return formatterFor("en-US", utc, DAY).format(date).replace(",", "");
 };
 
 export const getLogs = async function ({

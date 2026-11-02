@@ -54,6 +54,8 @@
   let newLogs = [];
   let previousLogs = [];
   let allLogs = $state([]);
+  // Computed once per change; read per row it reformatted every row on every live line.
+  let dayLabels = $derived(allLogs.map((row) => transformLogStringForTimeBudget(row, $store.UTCtime)));
   let webSocket = null;
   let wsRetryTimer = null;
   let wsRetryDelay = 0;
@@ -1122,11 +1124,11 @@
           <div id="startOfLogs" bind:this={startOfLogs}></div>
         </IntersectionObserver>
         {#each allLogs as logItem, i (rowId(logItem) || i)}
-          {#if transformLogStringForTimeBudget(logItem, $store.UTCtime) !== transformLogStringForTimeBudget(allLogs[i - 1], $store.UTCtime) && i - 1 >= 0}
+          {#if i > 0 && dayLabels[i] !== dayLabels[i - 1]}
             <div class="timeBudgeContainer">
               <div class="timeBadgeWrapper">
                 <div class="timeBudge">
-                  {transformLogStringForTimeBudget(logItem, $store.UTCtime)}
+                  {dayLabels[i]}
                 </div>
               </div>
             </div>
@@ -1195,7 +1197,7 @@
               bind:intersecting={dateIntersects[i]}
             >
               <div
-                class={transformLogStringForTimeBudget(logItem, $store.UTCtime)}
+                class={dayLabels[i]}
                 bind:this={dateEls[i]}
 ></div>
             </IntersectionObserver>

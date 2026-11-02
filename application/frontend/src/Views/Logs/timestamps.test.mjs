@@ -50,6 +50,22 @@ function run() {
   assert.equal(transformLogStringForTimeBudget(row(lateEvening), true), "Jul 15 2026");
   assert.equal(transformLogStringForTimeBudget(row(lateEvening), false), "Jul 16 2026");
 
+  // Formatting must match Date.toLocaleString exactly, across zones and DST.
+  for (let ms = Date.UTC(2026, 0, 1); ms < Date.UTC(2027, 0, 1); ms += 3600 * 1000 * 37 + 1234) {
+    const ts = new Date(ms).toISOString();
+    for (const utc of [true, false]) {
+      const zone = utc ? "UTC" : undefined;
+      const time = new Date(ms)
+        .toLocaleString("sv-SE", { timeZone: zone, hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 })
+        .replace(",", ".");
+      const day = new Date(ms)
+        .toLocaleString("en-US", { timeZone: zone, month: "short", day: "2-digit", year: "numeric" })
+        .replace(",", "");
+      assert.equal(transformLogString(row(ts), utc), time, ts);
+      assert.equal(transformLogStringForTimeBudget(row(ts), utc), day, ts);
+    }
+  }
+
   assert.equal(transformLogString(undefined, true), "");
   assert.equal(transformLogString(["not a date", "m"], true), "");
   assert.equal(transformLogStringForTimeBudget(undefined, true), "");
