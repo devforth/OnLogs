@@ -428,6 +428,10 @@
     }, 5000);
   }
 
+  // The bottom observer reports a frame late; at a few hundred lines a second
+  // every line would scroll a reader who just wheeled up back to the bottom.
+  const nearBottom = () => !div || div.scrollHeight - div.scrollTop - div.clientHeight < 50;
+
   function addLogFromWS(logfromWS, atBottom = false) {
     if (pauseWS) {
       heldWS.push(logfromWS);
@@ -441,8 +445,8 @@
       (atBottom ||
         // An empty pane is 0 px tall, so its bottom sentinel never shows.
         !allLogs.length ||
-        (!mouseDownBlockFetch && endOffLogsIntersect) ||
-        (allLogs.length < 3 * limit && endOffLogsIntersect))
+        (!mouseDownBlockFetch && endOffLogsIntersect && nearBottom()) ||
+        (allLogs.length < 3 * limit && endOffLogsIntersect && nearBottom()))
     ) {
       if (!pauseWS) {
         autoscroll = true;
@@ -1101,7 +1105,7 @@
     }
   });
   $effect(() => {
-    if (!((logsFromWS.length || wsCatchUp) && endOffLogsIntersect) || mouseDownBlockFetch) {
+    if (!((logsFromWS.length || wsCatchUp) && endOffLogsIntersect && nearBottom()) || mouseDownBlockFetch) {
       return;
     }
     // Untracked: the loaders read and write state this effect must not follow.
