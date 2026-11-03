@@ -80,16 +80,21 @@ main(async () => {
   assert.equal(saves.length, 0);
   bundle.toastIsVisible.dismiss();
 
-  // A refusal that a newer change already replaced changes nothing.
+  // One save at a time: a refusal with a newer change waiting sends that
+  // change instead of undoing it.
+  const newest = { ...SAVED, UTCtime: true, breakLines: false, transformJson: false };
   bundle.store.update((s) => ({ ...s, breakLines: false }));
   await settle();
   bundle.store.update((s) => ({ ...s, transformJson: false }));
   await settle();
-  assert.equal(saves.length, 2);
+  assert.equal(saves.length, 1, "a save went out before the previous one was answered");
   await answer(jsonResponse({ error: "stale refusal" }, 500));
-  assert.deepEqual(read(bundle.store), { ...SAVED, UTCtime: true, breakLines: false, transformJson: false }, "a stale refusal undid a newer change");
+  assert.deepEqual(read(bundle.store), newest, "a stale refusal undid a newer change");
   assert.equal(read(bundle.toastIsVisible), false, "a stale refusal showed a toast");
+  assert.equal(saves.length, 1);
+  assert.deepEqual(saves[0].body, newest, "the waiting change was not sent");
   await answer(jsonResponse({ error: null }));
+  assert.equal(saves.length, 0);
 
   // Network failure: undone with a generic message.
   await toggle();
