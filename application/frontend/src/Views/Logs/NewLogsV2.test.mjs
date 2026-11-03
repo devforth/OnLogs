@@ -164,11 +164,24 @@ main(async () => {
   bundle.unmount(empty.component);
 
   // --- a failed request must not wedge the view ---
+  // The view reports the failed load on the console: capture it instead of printing it.
   const failingCounter = { getLogs: 0 };
-  const failing = await mountView(
-    bundle,
-    stubFailingFetch(failingCounter),
-    failingCounter
+  const loggedErrors = [];
+  const consoleError = console.error;
+  console.error = (e) => loggedErrors.push(String(e?.message ?? e));
+  let failing;
+  try {
+    failing = await mountView(
+      bundle,
+      stubFailingFetch(failingCounter),
+      failingCounter
+    );
+  } finally {
+    console.error = consoleError;
+  }
+  assert.ok(
+    loggedErrors.some((m) => m.includes("failed with 502")),
+    "the failed load was not reported on the console"
   );
 
   const pending = bundle.isPending;
