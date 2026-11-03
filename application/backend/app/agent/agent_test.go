@@ -165,3 +165,19 @@ func TestRegistrationSendsTheServicesRunningAtThatAttempt(t *testing.T) {
 		t.Fatalf("registered with %q, want the services running then, [w1]", got)
 	}
 }
+
+func TestCheckHostRejectsAHostNoRetryCanReach(t *testing.T) {
+	for _, host := range []string{"http://onlogs:2874", "https://agent:pw@onlogs.example.com/logs"} {
+		t.Setenv("HOST", host)
+		if err := CheckHost(); err != nil {
+			t.Errorf("%q: %v", host, err)
+		}
+	}
+	for _, host := range []string{"", "1.2.3.4:3201", "onlogs:2874", "onlogs", "htp://onlogs:2874", "http://", "http://:2874",
+		"agent:s3cret@1.2.3.4:3201", "htp://agent:s3cret@onlogs", "http://agent:s3cret@onlogs:port"} {
+		t.Setenv("HOST", host)
+		if err := CheckHost(); err == nil || strings.Contains(err.Error(), "s3cret") {
+			t.Errorf("%q: got %v, want an error without the password", host, err)
+		}
+	}
+}

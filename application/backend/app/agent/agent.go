@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -38,6 +39,19 @@ func identity() map[string]any {
 }
 
 var ErrTokenRejected = errors.New("the master rejected ONLOGS_TOKEN, check the token in the agent's environment")
+
+// CheckHost reports a HOST that no retry can reach.
+func CheckHost() error {
+	u, err := url.Parse(os.Getenv("HOST"))
+	if err != nil {
+		// The parse error quotes HOST, password included.
+		return fmt.Errorf("HOST is not a valid URL (%v), want the master's address like http://onlogs:2874", errors.Unwrap(err))
+	}
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+		return fmt.Errorf("HOST must be an http:// or https:// URL with a host, like http://onlogs:2874, got scheme %q and host %q", u.Scheme, u.Host)
+	}
+	return nil
+}
 
 func SendInitRequest(ctx context.Context, services func() []string) error {
 	body := identity()

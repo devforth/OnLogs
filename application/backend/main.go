@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/devforth/OnLogs/app/agent"
 	"github.com/devforth/OnLogs/app/daemon"
 	"github.com/devforth/OnLogs/app/db"
 	"github.com/devforth/OnLogs/app/docker"
@@ -125,6 +126,13 @@ func init_config() {
 		fmt.Printf("FATAL: TRUSTED_PROXIES=%q is invalid (%v); refusing to start with a rate limiter that cannot tell clients apart.\n",
 			os.Getenv("TRUSTED_PROXIES"), err)
 		os.Exit(1)
+	}
+
+	if util.IsAgentMode() {
+		if err := agent.CheckHost(); err != nil {
+			fmt.Println("FATAL:", err)
+			os.Exit(1)
+		}
 	}
 
 	fmt.Println("INFO: OnLogs configs done!")
