@@ -7,6 +7,6 @@
     ["@semantic-release/exec", {
       "prepareCmd": "docker buildx build --platform=linux/amd64,linux/arm64 --build-arg VERSION=${nextRelease.version} --tag devforth/onlogs:${nextRelease.version} --tag devforth/onlogs:latest --push ./application"
     }],
-    ["@semantic-release/github", { "successComment": false, "failComment": false }]
+    ["@semantic-release/github", { "successCommentCondition": false, "failCommentCondition": false }]
   ]
 }
