@@ -5,11 +5,23 @@
   .searchButtonContainer {
     @include hide;
   }
+  // Shown exactly where the right panel (Main.scss) and its broom are hidden.
+  .clearLogsButtonContainer {
+    display: none;
+  }
 
   i {
     display: flex;
   }
+  @include for-tablet {
+    .clearLogsButtonContainer {
+      display: block;
+    }
+  }
   @include for-mobile {
+    .clearLogsButtonContainer {
+      display: block;
+    }
     p {
       @include hide;
     }

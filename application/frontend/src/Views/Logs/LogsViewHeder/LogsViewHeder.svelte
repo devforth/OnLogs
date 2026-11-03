@@ -5,6 +5,7 @@
   import DropDown from "../../../lib/DropDown/DropDown.svelte";
   import { clickOutside } from "../../../lib/OutsideClicker/OutsideClicker.js";
   import { hasSearchResetRequest } from "../shareLinkViewState.js";
+  import { confirmationObj } from "../../../Stores/stores.js";
   import { onDestroy, untrack } from "svelte";
   let { searchText = $bindable(""), searchResetVersion = 0 } = $props();
   let dropDownIsVisible = $state(false);
@@ -70,6 +71,16 @@
         minHeight={40}
         iconHeight={20}
         CB={() => {}}
+      />
+    </div>
+    <div class="clearLogsButtonContainer">
+      <Button
+        icon={"log log-Clean"}
+        minWidth={55}
+        minHeight={40}
+        iconHeight={20}
+        CB={() =>
+          confirmationObj.set({ ...$confirmationObj, action: null, isVisible: true })}
       />
     </div>
   {/if}
