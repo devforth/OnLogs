@@ -5,7 +5,7 @@
   import DropDown from "../../../lib/DropDown/DropDown.svelte";
   import { clickOutside } from "../../../lib/OutsideClicker/OutsideClicker.js";
   import { hasSearchResetRequest } from "../shareLinkViewState.js";
-  import { confirmationObj } from "../../../Stores/stores.js";
+  import { confirmationObj, toastIsVisible } from "../../../Stores/stores.js";
   import { onDestroy, untrack } from "svelte";
   let { searchText = $bindable(""), searchResetVersion = 0 } = $props();
   let dropDownIsVisible = $state(false);
@@ -27,6 +27,13 @@
       dropDownIsVisible = false;
     }
   }
+
+  // A toast (a refused setting's, say) would cover this menu and swallow the click that closes it.
+  $effect(() => {
+    if ($toastIsVisible) {
+      dropDownIsVisible = false;
+    }
+  });
 
   $effect(() => {
     if (hasSearchResetRequest(lastSearchResetVersion, searchResetVersion)) {
