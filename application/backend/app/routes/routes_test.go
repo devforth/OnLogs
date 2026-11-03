@@ -44,9 +44,6 @@ func TestMain(m *testing.M) {
 		DaemonService: daemon.NewDaemonService(dockerService),
 	}
 
-	// Set before any stream opens: keepAlive reads it without a lock.
-	pingInterval = 10 * time.Millisecond
-
 	code := m.Run()
 	cli.Close()
 	os.Exit(code)

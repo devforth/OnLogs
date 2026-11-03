@@ -111,7 +111,34 @@ func waitForKeepAlives(t *testing.T, want int) {
 	}
 }
 
+// Call before the test's server starts: closing it then orders every read before the restore.
+func shortPings(t *testing.T, interval time.Duration) {
+	old := pingInterval
+	pingInterval = interval
+	t.Cleanup(func() { pingInterval = old })
+}
+
+func TestAViewerThatStopsAnsweringPingsIsDropped(t *testing.T) {
+	const interval = 100 * time.Millisecond
+	shortPings(t, interval)
+	server := httptest.NewServer(http.HandlerFunc(testCtrl.GetLogsStream))
+	defer server.Close()
+
+	container := "silent-viewer"
+	waitForKeepAlives(t, 0)
+	// Never read, so no ping is answered, as with a peer whose network vanished.
+	openStream(t, server, container, util.CreateJWT("admin"))
+	waitForViewers(t, container, 1)
+	for start := time.Now(); vars.ConnectionCount(container) != 0; time.Sleep(time.Millisecond) {
+		if time.Since(start) > 3*interval {
+			t.Fatalf("a viewer that never answers pings is still registered after %v", time.Since(start))
+		}
+	}
+	waitForKeepAlives(t, 0)
+}
+
 func TestAQuietStreamIsPingedUntilTheViewerLeaves(t *testing.T) {
+	shortPings(t, 100*time.Millisecond)
 	server := httptest.NewServer(http.HandlerFunc(testCtrl.GetLogsStream))
 	defer server.Close()
 
@@ -137,11 +164,12 @@ func TestAQuietStreamIsPingedUntilTheViewerLeaves(t *testing.T) {
 
 	pinged := errors.New("pinged")
 	pings := 0
-	client.SetPingHandler(func(string) error {
-		if pings++; pings == 3 {
+	answer := client.PingHandler()
+	client.SetPingHandler(func(data string) error {
+		if pings++; pings == 5 {
 			return pinged
 		}
-		return nil
+		return answer(data)
 	})
 	client.SetReadDeadline(time.Now().Add(2 * time.Second))
 	var err error
@@ -152,6 +180,9 @@ func TestAQuietStreamIsPingedUntilTheViewerLeaves(t *testing.T) {
 	<-broadcasting
 	if !errors.Is(err, pinged) {
 		t.Fatalf("got %d pings in 2s: %v", pings, err)
+	}
+	if n := vars.ConnectionCount(container); n != 1 {
+		t.Fatalf("a viewer answering pings was dropped (%d registered)", n)
 	}
 
 	client.Close()

@@ -783,11 +783,12 @@ func (h *RouteController) GetLogWithPrev(w http.ResponseWriter, req *http.Reques
 var addConnection = vars.AddConnection
 
 // Below nginx's default 60 s proxy_read_timeout, which drops a quiet stream.
+// Read once per stream, before the upgrade, so tests may change it between servers.
 var pingInterval = 30 * time.Second
 
-// A failed ping means the peer is gone; closing wakes the reader, which unregisters.
-func keepAlive(ws *websocket.Conn, done <-chan struct{}) {
-	ticker := time.NewTicker(pingInterval)
+// A failed ping means the peer closed; closing wakes the reader, which unregisters.
+func keepAlive(ws *websocket.Conn, done <-chan struct{}, interval time.Duration) {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -827,6 +828,7 @@ func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request
 		WriteBufferSize: 1024,
 		CheckOrigin:     isAllowedOrigin,
 	}
+	interval := pingInterval
 
 	ws, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
@@ -850,11 +852,15 @@ func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request
 		return
 	}
 	done := make(chan struct{})
-	go keepAlive(ws, done)
-	// Viewers send nothing; reading is how a peer close is noticed.
+	go keepAlive(ws, done, interval)
+	// Pings to a vanished peer still succeed; only the missing pong gives it away.
+	wait := 2 * interval
+	ws.SetPongHandler(func(string) error { return ws.SetReadDeadline(time.Now().Add(wait)) })
+	// Viewers send nothing; reading is how a peer close or a missed pong is noticed.
 	go func() {
 		defer close(done)
 		for {
+			ws.SetReadDeadline(time.Now().Add(wait))
 			if _, _, err := ws.NextReader(); err != nil {
 				vars.RemoveConnection(container, ws)
 				return
