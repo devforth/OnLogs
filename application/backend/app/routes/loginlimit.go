@@ -24,8 +24,8 @@ type loginAttempts struct {
 	entries map[string]*loginAttempt
 }
 
-// seen moves on creation and on failure only, so successful logins cannot keep
-// old failures alive.
+// seen moves on creation, failure and decay only, so successful logins cannot
+// keep old failures alive.
 type loginAttempt struct {
 	failures int
 	pending  int
@@ -33,8 +33,14 @@ type loginAttempt struct {
 	seen     time.Time
 }
 
-func (a *loginAttempt) expired(now time.Time) bool {
-	return now.Sub(a.seen) > loginAttemptTTL && now.After(a.blocked)
+// An idle hour halves the failures rather than forgetting them, so waiting out
+// the TTL does not hand back the whole allowance. Reports whether none are left.
+func (a *loginAttempt) decay(now time.Time) bool {
+	if a.pending == 0 && now.Sub(a.seen) > loginAttemptTTL && now.After(a.blocked) {
+		a.failures /= 2
+		a.seen = now
+	}
+	return a.failures == 0 && a.pending == 0
 }
 
 var loginLimiter = &loginAttempts{entries: map[string]*loginAttempt{}}
@@ -66,7 +72,7 @@ func (l *loginAttempts) allow(keys ...string) bool {
 
 	for _, key := range keys {
 		entry, ok := l.entries[key]
-		if ok && entry.pending == 0 && entry.expired(now) {
+		if ok && entry.decay(now) {
 			delete(l.entries, key)
 			continue
 		}
@@ -109,15 +115,23 @@ func (l *loginAttempts) fail(keys ...string) {
 	}
 }
 
-// The address keeps its failures, or one valid account would let it guess at
-// every other account for free.
+// The address forgets only this account's own typos, or one valid account
+// would let it guess at every other account for free.
 func (l *loginAttempts) succeed(addrKey, pairKey string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	delete(l.entries, pairKey)
+	own := 0
+	if pair, ok := l.entries[pairKey]; ok {
+		own = pair.failures
+		delete(l.entries, pairKey)
+	}
 	if entry, ok := l.entries[addrKey]; ok {
 		if entry.pending > 0 {
 			entry.pending--
+		}
+		entry.failures = max(entry.failures-own, 0)
+		if backoffFor(entry.failures) == 0 {
+			entry.blocked = time.Time{}
 		}
 		if entry.failures == 0 && entry.pending == 0 {
 			delete(l.entries, addrKey)
@@ -129,7 +143,7 @@ func (l *loginAttempts) succeed(addrKey, pairKey string) {
 // rather than paid on every login.
 func (l *loginAttempts) prune(now time.Time) {
 	for key, entry := range l.entries {
-		if entry.expired(now) {
+		if entry.decay(now) {
 			delete(l.entries, key)
 		}
 	}

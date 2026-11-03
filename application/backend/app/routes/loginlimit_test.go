@@ -298,10 +298,10 @@ func TestConcurrentWrongLoginsGetNoMoreChecksThanSerialOnes(t *testing.T) {
 }
 
 // Simulates d passing for every entry.
-func ageLoginAttempts(d time.Duration) {
-	loginLimiter.mu.Lock()
-	defer loginLimiter.mu.Unlock()
-	for _, entry := range loginLimiter.entries {
+func ageLoginAttempts(l *loginAttempts, d time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for _, entry := range l.entries {
 		entry.seen = entry.seen.Add(-d)
 		entry.blocked = entry.blocked.Add(-d)
 	}
@@ -371,8 +371,192 @@ func TestTyposBeforeALoginDoNotPileUpAcrossVisits(t *testing.T) {
 		}
 		loggedIn("after the typos")
 		loggedIn("logging in again straight away")
-		ageLoginAttempts(40 * time.Minute)
+		ageLoginAttempts(loginLimiter, 40*time.Minute)
 		loggedIn("a later login from the same address")
-		ageLoginAttempts(40 * time.Minute)
+		ageLoginAttempts(loginLimiter, 40*time.Minute)
+	}
+}
+
+func TestAnOfficeBehindOneAddressIsNotLockedOutByItsTypos(t *testing.T) {
+	users := []string{"officealice", "officebob", "officecarol", "officeboss"}
+	for _, user := range users {
+		userdb.CreateUser(user, user+"-password")
+	}
+	t.Cleanup(func() {
+		for _, user := range users {
+			userdb.DeleteUser(user)
+		}
+	})
+
+	loginLimiter.mu.Lock()
+	loginLimiter.entries = map[string]*loginAttempt{}
+	loginLimiter.mu.Unlock()
+
+	attempt := func(login, password string) (int, bool) {
+		body, _ := json.Marshal(map[string]string{"Login": login, "Password": password})
+		req := jsonRequest("POST", "/api/v1/login", body)
+		req.RemoteAddr = "198.51.100.50:40000"
+		rr := httptest.NewRecorder()
+		http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
+		return rr.Code, len(rr.Result().Cookies()) > 0
+	}
+
+	// Every ten minutes someone mistypes once and then gets it right; the boss
+	// never mistypes.
+	for event := 1; event <= 18; event++ {
+		user := users[event%3]
+		if code, _ := attempt(user, "typo"); code == http.StatusTooManyRequests {
+			t.Fatalf("event %d: %s's typo was refused outright", event, user)
+		}
+		if code, ok := attempt(user, user+"-password"); !ok {
+			t.Fatalf("event %d: %s was refused after one typo: status %d", event, user, code)
+		}
+		if code, ok := attempt("officeboss", "officeboss-password"); !ok {
+			t.Fatalf("event %d: a user who never mistyped was refused: status %d", event, code)
+		}
+		ageLoginAttempts(loginLimiter, 10*time.Minute)
+	}
+}
+
+func TestSharedAddressTyposDoNotPileUp(t *testing.T) {
+	limiter := &loginAttempts{entries: map[string]*loginAttempt{}}
+	addr := "192.0.2.50"
+	ip := "ip:" + addr
+
+	// Each user mistypes and logs in 20 minutes later; the next typo lands 50
+	// minutes after the last, so the address is never quiet for an hour.
+	for i := 0; i < 17; i++ {
+		pair := "pair:" + loginKey(addr, "user"+strconv.Itoa(i))
+		if !limiter.allow(ip, pair) {
+			t.Fatalf("round %d: the typo was refused", i)
+		}
+		limiter.fail(ip, pair)
+		ageLoginAttempts(limiter, 20*time.Minute)
+		if !limiter.allow(ip, pair) {
+			t.Fatalf("round %d: the correct retry was refused", i)
+		}
+		limiter.succeed(ip, pair)
+		ageLoginAttempts(limiter, 30*time.Minute)
+	}
+
+	typo := "pair:" + loginKey(addr, "late")
+	limiter.allow(ip, typo)
+	limiter.fail(ip, typo)
+	if !limiter.allow(ip, "pair:"+loginKey(addr, "boss")) {
+		t.Fatalf("a user with the right password was refused: the address holds %d failures", limiter.entries[ip].failures)
+	}
+}
+
+func TestOverlappingLoginsAfterForgivenTyposGetTheCleanAllowance(t *testing.T) {
+	addr := "198.51.100.60"
+	ip := "ip:" + addr
+	carol := "pair:" + loginKey(addr, "carol")
+	users := []string{"alice", "bob", "carol"}
+
+	for _, typos := range []int{0, 3, freeLoginAttempts} {
+		limiter := &loginAttempts{entries: map[string]*loginAttempt{}}
+		for i := 0; i < typos; i++ {
+			limiter.allow(ip, carol)
+			limiter.fail(ip, carol)
+		}
+		if !limiter.allow(ip, carol) {
+			t.Fatalf("%d typos: carol's correct password was refused", typos)
+		}
+		limiter.succeed(ip, carol)
+
+		admitted := 0
+		for i := 0; i < 10; i++ {
+			if limiter.allow(ip, "pair:"+loginKey(addr, users[i%3])) {
+				admitted++
+			}
+		}
+		if admitted != freeLoginAttempts+1 {
+			t.Errorf("after %d typos and a login, %d of 10 overlapping logins got through; from a clean address %d do",
+				typos, admitted, freeLoginAttempts+1)
+		}
+	}
+}
+
+func TestALoginForgivesNoMoreThanTheAddressHolds(t *testing.T) {
+	limiter := &loginAttempts{entries: map[string]*loginAttempt{}}
+	addr := "203.0.113.30"
+	ip, own := "ip:"+addr, "pair:"+loginKey(addr, "own")
+	// The address entry has faded further than the account's.
+	limiter.entries[ip] = &loginAttempt{failures: 2, seen: time.Now()}
+	limiter.entries[own] = &loginAttempt{failures: freeLoginAttempts, seen: time.Now()}
+	limiter.allow(ip, own)
+	limiter.succeed(ip, own)
+
+	guessed := 0
+	for i := 0; i < 20; i++ {
+		target := "pair:" + loginKey(addr, "target-"+strconv.Itoa(i))
+		if limiter.allow(ip, target) {
+			limiter.fail(ip, target)
+			guessed++
+		}
+	}
+	if guessed > freeLoginAttempts+1 {
+		t.Fatalf("%d guesses got through after the login; from a clean address only %d would", guessed, freeLoginAttempts+1)
+	}
+}
+
+func TestForgivenTyposLiftTheAddressBlock(t *testing.T) {
+	limiter := &loginAttempts{entries: map[string]*loginAttempt{}}
+	addr := "198.51.100.80"
+	ip := "ip:" + addr
+	alice, bob := "pair:"+loginKey(addr, "alice"), "pair:"+loginKey(addr, "bob")
+	limiter.fail(ip, alice)
+	limiter.fail(ip, alice)
+	for i := 0; i < freeLoginAttempts-1; i++ {
+		limiter.fail(ip, bob)
+	}
+	limiter.succeed(ip, alice)
+
+	if !limiter.allow(ip, "pair:"+loginKey(addr, "carol")) {
+		t.Fatal("the address stayed blocked though alice's typos were forgiven")
+	}
+}
+
+func TestPausingAnHourDoesNotHandBackTheWholeAllowance(t *testing.T) {
+	limiter := &loginAttempts{entries: map[string]*loginAttempt{}}
+	keys := []string{"ip:203.0.113.40", "pair:" + loginKey("203.0.113.40", "admin")}
+	for i := 0; i < 15; i++ {
+		limiter.fail(keys...)
+	}
+	ageLoginAttempts(limiter, loginAttemptTTL+time.Minute)
+
+	guessed := 0
+	for limiter.allow(keys...) {
+		limiter.fail(keys...)
+		guessed++
+	}
+	if guessed > 1 {
+		t.Fatalf("after 15 failures and an hour's pause, %d guesses got through back to back", guessed)
+	}
+}
+
+func TestAnAbandonedTypoFadesWithinHours(t *testing.T) {
+	limiter := &loginAttempts{entries: map[string]*loginAttempt{}}
+	keys := []string{"ip:198.51.100.70", "pair:" + loginKey("198.51.100.70", "someone")}
+	for i := 0; i < 3; i++ {
+		limiter.fail(keys...)
+	}
+
+	// Someone else's failures prune; twice, to show one quiet hour halves once.
+	ageLoginAttempts(limiter, loginAttemptTTL+time.Minute)
+	limiter.fail("ip:192.0.2.99")
+	limiter.fail("ip:192.0.2.99")
+	for _, key := range keys {
+		if entry := limiter.entries[key]; entry == nil || entry.failures != 1 {
+			t.Fatalf("%s: an hour on, three failures should have halved to one, got %+v", key, entry)
+		}
+	}
+
+	ageLoginAttempts(limiter, loginAttemptTTL+time.Minute)
+	limiter.fail("ip:192.0.2.99")
+	for _, key := range keys {
+		if entry, ok := limiter.entries[key]; ok {
+			t.Errorf("%s still holds %d failures two quiet hours on", key, entry.failures)
+		}
 	}
 }
