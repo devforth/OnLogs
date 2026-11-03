@@ -47,7 +47,7 @@ func CheckHost() error {
 		// The parse error quotes HOST, password included.
 		return fmt.Errorf("HOST is not a valid URL (%v), want the master's address like http://onlogs:2874", errors.Unwrap(err))
 	}
-	if (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" {
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return fmt.Errorf("HOST must be an http:// or https:// URL with a host, like http://onlogs:2874, got scheme %q and host %q", u.Scheme, u.Host)
 	}
 	return nil
