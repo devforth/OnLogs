@@ -234,7 +234,18 @@ func TestDockerLogBytesAndAgentReportsAreExported(t *testing.T) {
 	vars.AddActiveStream("metrics-docker")
 	t.Cleanup(func() { vars.RemoveActiveStream("metrics-docker") })
 	vars.SetAgentContainers("metrics-edge", []string{"x"})
-	t.Cleanup(func() { vars.SetAgentContainers("metrics-edge", nil) })
+	vars.SetAgentContainers("metrics-gone", []string{"y"})
+	t.Cleanup(func() {
+		vars.SetAgentContainers("metrics-edge", nil)
+		vars.SetAgentContainers("metrics-gone", nil)
+	})
+	// metrics-gone had all its services deleted, so the silent-agent alert can clear.
+	if err := os.MkdirAll("leveldb/hosts/metrics-edge/containers/x", 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll("leveldb/hosts/metrics-gone/containers", 0o700); err != nil {
+		t.Fatal(err)
+	}
 
 	out := body(t, nil)
 	if value, ok := sample(t, out, `onlogs_docker_log_bytes{host="`+host+`",container="metrics-docker"}`); !ok || value != 123 {
@@ -243,5 +254,8 @@ func TestDockerLogBytesAndAgentReportsAreExported(t *testing.T) {
 	value, ok := sample(t, out, `onlogs_agent_last_report_timestamp_seconds{host="metrics-edge"}`)
 	if now := float64(time.Now().Unix()); !ok || value < now-5 || value > now+5 {
 		t.Errorf("agent last report: %v, %v", value, ok)
+	}
+	if _, ok := sample(t, out, `onlogs_agent_last_report_timestamp_seconds{host="metrics-gone"}`); ok {
+		t.Error("an agent whose services were all deleted is still exported")
 	}
 }

@@ -97,8 +97,16 @@ func writeAgentReports(w io.Writer) {
 	if len(times) == 0 {
 		return
 	}
-	writeHeader(w, "onlogs_agent_last_report_timestamp_seconds", "gauge", "When each agent last reported to this master.")
+	header := false
 	for _, host := range sortedKeys(times) {
+		// A host whose services were all deleted is gone, so its alert must clear.
+		if services, _ := os.ReadDir("leveldb/hosts/" + host + "/containers"); len(services) == 0 {
+			continue
+		}
+		if !header {
+			writeHeader(w, "onlogs_agent_last_report_timestamp_seconds", "gauge", "When each agent last reported to this master.")
+			header = true
+		}
 		fmt.Fprintf(w, "onlogs_agent_last_report_timestamp_seconds{host=\"%s\"} %d\n", escapeLabelValue(host), times[host].Unix())
 	}
 }
