@@ -414,11 +414,16 @@
       isPending.set(false);
 
       urlHash.set("");
+      // A deleted line has no row to mark: open where it was. Left at the top,
+      // the view would also page further back on its own.
+      const found = allLogs.some((row) => row?.[0] === startWith || row?.[2] === startWith);
+      const nearest = Math.min(upperLogs.length + viewLogs.length, allLogs.length) - 1;
       let counter = 0;
       const intervalId = setInterval(() => {
         counter = counter + 1;
-        scrollToSpecificLog(".chosen");
-        if (counter > 10 || document.querySelector(".chosen")) {
+        const target = found ? document.querySelector(".chosen") : elements[nearest];
+        target?.scrollIntoView({ behavior: "auto", block: "center", inline: "center" });
+        if (counter > 10 || target) {
           clearInterval(intervalId);
         }
       }, 500);
