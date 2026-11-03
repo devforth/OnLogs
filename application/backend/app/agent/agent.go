@@ -122,8 +122,9 @@ func SendLogMessage(token string, container string, message_item []string) (bool
 			return true, nil
 		}
 		if errors.Is(err, errRejected) {
+			// Handled: the stream must move past it, not stop and retry it.
 			fmt.Println("ERROR: the master rejected a line of "+container+", dropping it:", err)
-			return false, err
+			return false, nil
 		}
 	}
 	buffer := util.GetDB(util.GetHost(), container, "brokenlogs")

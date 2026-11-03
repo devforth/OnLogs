@@ -333,7 +333,10 @@ func TestALineTheMasterRejectsDoesNotBlockLaterOnes(t *testing.T) {
 	for i, line := range []string{"after-1", "after-2"} {
 		SendLogMessage("token", container, []string{fmt.Sprintf("2026-02-10T12:56:1%d.000000001Z", i), line})
 	}
-	SendLogMessage("token", container, []string{"2026-02-10T12:56:20.000000001Z", "too big"})
+	// The stream treats an error as "retry this line", so a dropped one is not.
+	if _, err := SendLogMessage("token", container, []string{"2026-02-10T12:56:20.000000001Z", "too big"}); err != nil {
+		t.Errorf("a line dropped on purpose was reported as failed: %v", err)
+	}
 	SendLogMessage("token", container, []string{"2026-02-10T12:56:21.000000001Z", "after-3"})
 
 	if want := []string{"after-1", "after-2", "after-3"}; !slices.Equal(got, want) {
