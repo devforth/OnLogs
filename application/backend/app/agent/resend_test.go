@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -130,7 +131,8 @@ func TestResendFailureInOneQueueDoesNotStarveLaterQueues(t *testing.T) {
 			}
 			_ = conn.Close()
 		case "b-rejected":
-			w.WriteHeader(http.StatusBadRequest)
+			// A failure worth retrying; a 400 is dropped instead.
+			w.WriteHeader(http.StatusServiceUnavailable)
 		}
 	}))
 	t.Cleanup(server.Close)
@@ -301,5 +303,121 @@ func TestSendLogMessageDeliversQueuedLinesFirst(t *testing.T) {
 	}
 	if n := queuedCount(t, container); n != 0 {
 		t.Errorf("%d lines are still queued", n)
+	}
+}
+
+// A line the master refuses for good must not hold back the lines after it.
+func TestALineTheMasterRejectsDoesNotBlockLaterOnes(t *testing.T) {
+	t.Chdir(t.TempDir())
+	container := "poisoncontainer"
+	t.Cleanup(func() { util.ResetDB(util.GetHost(), container, "brokenlogs") })
+	var mu sync.Mutex
+	var got []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var item struct{ LogLine []string }
+		_ = json.NewDecoder(r.Body).Decode(&item)
+		if item.LogLine[1] == "too big" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		mu.Lock()
+		got = append(got, item.LogLine[1])
+		mu.Unlock()
+	}))
+	defer server.Close()
+
+	// Queued while the master was away, then rejected once it is back.
+	t.Setenv("HOST", "http://127.0.0.1:1")
+	SendLogMessage("token", container, []string{"2026-02-10T12:56:09.000000001Z", "too big"})
+	t.Setenv("HOST", server.URL)
+	for i, line := range []string{"after-1", "after-2"} {
+		SendLogMessage("token", container, []string{fmt.Sprintf("2026-02-10T12:56:1%d.000000001Z", i), line})
+	}
+	SendLogMessage("token", container, []string{"2026-02-10T12:56:20.000000001Z", "too big"})
+	SendLogMessage("token", container, []string{"2026-02-10T12:56:21.000000001Z", "after-3"})
+
+	if want := []string{"after-1", "after-2", "after-3"}; !slices.Equal(got, want) {
+		t.Errorf("the master got %v, want %v", got, want)
+	}
+	if n := queuedCount(t, container); n != 0 {
+		t.Errorf("%d rejected lines are still queued", n)
+	}
+}
+
+// A drained queue must not make every later line slower.
+func TestADrainedQueueCostsNothingPerLine(t *testing.T) {
+	t.Chdir(t.TempDir())
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer server.Close()
+	t.Setenv("HOST", server.URL)
+	drained, fresh := "drainedcontainer", "freshcontainer"
+	t.Cleanup(func() {
+		util.ResetDB(util.GetHost(), drained, "brokenlogs")
+		util.ResetDB(util.GetHost(), fresh, "brokenlogs")
+	})
+	buffer := util.GetDB(util.GetHost(), drained, "brokenlogs")
+	for i := range 20000 {
+		if err := buffer.Put([]byte(fmt.Sprintf("2026-02-10T12:56:09.%09dZ +ID%d", i, i)), []byte("old"), nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	SendLogMessage("token", drained, []string{"2026-02-10T13:00:00.000000001Z", "drains"})
+
+	timeLines := func(container string) time.Duration {
+		started := time.Now()
+		for i := range 300 {
+			SendLogMessage("token", container, []string{fmt.Sprintf("2026-02-10T14:00:%02d.%09dZ", i/60, i), "line"})
+		}
+		return time.Since(started)
+	}
+	base := timeLines(fresh)
+	after := timeLines(drained)
+	if after > 3*base+50*time.Millisecond {
+		t.Errorf("300 lines took %v after a drained queue, %v without one", after, base)
+	}
+}
+
+// Old agents queued lines without an event id, so a double send is stored twice.
+func TestAQueueIsDrainedOnceWhenTwoSendersRace(t *testing.T) {
+	t.Chdir(t.TempDir())
+	container := "racedcontainer"
+	t.Cleanup(func() { util.ResetDB(util.GetHost(), container, "brokenlogs") })
+	if err := os.MkdirAll("leveldb/hosts/"+util.GetHost()+"/containers/"+container, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	buffer := util.GetDB(util.GetHost(), container, "brokenlogs")
+	for i := range 100 {
+		if err := buffer.Put([]byte(fmt.Sprintf("2026-02-10T12:56:09.%09dZ", i)), []byte(fmt.Sprintf("old-%d", i)), nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var mu sync.Mutex
+	seen := map[string]int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var item struct{ LogLine []string }
+		_ = json.NewDecoder(r.Body).Decode(&item)
+		time.Sleep(time.Millisecond)
+		mu.Lock()
+		seen[item.LogLine[1]]++
+		mu.Unlock()
+	}))
+	defer server.Close()
+	t.Setenv("HOST", server.URL)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); TryResend() }()
+	go func() {
+		defer wg.Done()
+		SendLogMessage("token", container, []string{"2026-02-10T13:00:00.000000001Z", "new"})
+	}()
+	wg.Wait()
+	for line, n := range seen {
+		if n != 1 {
+			t.Errorf("%q was sent %d times", line, n)
+		}
+	}
+	if len(seen) != 101 {
+		t.Errorf("the master got %d distinct lines, want 101", len(seen))
 	}
 }

@@ -205,15 +205,26 @@ func TestResendKeepsALogQueuedWhileItsTimestampTwinWasInFlight(t *testing.T) {
 		close(release)
 		t.Fatal("retry never reached receiver")
 	}
-	if sent, _ := agent.SendLogMessage(f.token, f.container, []string{sharedTS, "new-pending"}); sent {
+	// A live line waits for the drain in flight, so it cannot lose its twin.
+	sentNew := make(chan bool, 1)
+	go func() {
+		sent, _ := agent.SendLogMessage(f.token, f.container, []string{sharedTS, "new-pending"})
+		sentNew <- sent
+	}()
+	select {
+	case <-sentNew:
 		close(release)
-		t.Fatal("expected new send failure")
+		t.Fatal("a live line was sent while the queue was being drained")
+	case <-time.After(200 * time.Millisecond):
 	}
 	close(release)
 	select {
 	case <-done:
 	case <-time.After(3 * time.Second):
 		t.Fatal("retry did not finish")
+	}
+	if <-sentNew {
+		t.Fatal("expected new send failure")
 	}
 
 	pending := f.messages("brokenlogs", util.GetHost())

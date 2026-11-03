@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/devforth/OnLogs/app/containerdb"
@@ -20,8 +21,13 @@ import (
 var client = &http.Client{Timeout: time.Minute}
 
 func post(path string, body map[string]any) (*http.Response, error) {
-	payload, _ := json.Marshal(body)
-	return client.Post(os.Getenv("HOST")+path, "application/json", bytes.NewBuffer(payload))
+	// HTML escaping turns each < > & into six bytes and can push a line past
+	// the master's 1 MiB body limit.
+	var payload bytes.Buffer
+	encoder := json.NewEncoder(&payload)
+	encoder.SetEscapeHTML(false)
+	_ = encoder.Encode(body)
+	return client.Post(os.Getenv("HOST")+path, "application/json", &payload)
 }
 
 func identity() map[string]any {
@@ -59,46 +65,86 @@ func sendLog(token, container, timestamp, message, eventID string) error {
 		return err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusRequestEntityTooLarge {
+		return fmt.Errorf("%w: %s", errRejected, resp.Status)
+	}
 	if resp.StatusCode != 200 {
 		return errors.New(resp.Status)
 	}
 	return nil
 }
 
+// The master answers this line the same way on every retry.
+var errRejected = errors.New("rejected by the master")
+
+var (
+	// Known queue state per container. The disk is read once, for a queue left
+	// by an earlier run: iterating a drained queue walks all its tombstones.
+	queued sync.Map
+	// One drain per queue at a time: lines queued by older agents carry no
+	// event id, so the master stores a double send twice.
+	queueLocks sync.Map
+)
+
+func lockQueue(container string) func() {
+	lock, _ := queueLocks.LoadOrStore(container, &sync.Mutex{})
+	mu := lock.(*sync.Mutex)
+	mu.Lock()
+	return mu.Unlock
+}
+
 func hasQueued(container string) bool {
-	if _, err := os.Stat("leveldb/hosts/" + util.GetHost() + "/containers/" + container + "/brokenlogs"); err != nil {
-		return false
+	if known, ok := queued.Load(container); ok {
+		return known.(bool)
 	}
-	buffer := util.GetDB(util.GetHost(), container, "brokenlogs")
-	if buffer == nil {
-		return false
+	has := false
+	if _, err := os.Stat("leveldb/hosts/" + util.GetHost() + "/containers/" + container + "/brokenlogs"); err == nil {
+		if buffer := util.GetDB(util.GetHost(), container, "brokenlogs"); buffer != nil {
+			iter := buffer.NewIterator(nil, nil)
+			has = iter.First()
+			iter.Release()
+		}
 	}
-	iter := buffer.NewIterator(nil, nil)
-	defer iter.Release()
-	return iter.First()
+	queued.Store(container, has)
+	return has
 }
 
 func SendLogMessage(token string, container string, message_item []string) (bool, error) {
+	defer lockQueue(container)()
 	eventID := containerdb.NewEventID()
 	// Live viewers see lines in arrival order, so queued ones go first.
 	if hasQueued(container) {
 		resendContainerBuffer(token, container)
 	}
-	if !hasQueued(container) && sendLog(token, container, message_item[0], message_item[1], eventID) == nil {
-		return true, nil
+	if !hasQueued(container) {
+		err := sendLog(token, container, message_item[0], message_item[1], eventID)
+		if err == nil {
+			return true, nil
+		}
+		if errors.Is(err, errRejected) {
+			fmt.Println("ERROR: the master rejected a line of "+container+", dropping it:", err)
+			return false, err
+		}
 	}
 	buffer := util.GetDB(util.GetHost(), container, "brokenlogs")
 	if buffer == nil {
 		return false, fmt.Errorf("no pending queue for %s", container)
 	}
-	return false, buffer.Put([]byte(message_item[0]+" +"+eventID), []byte(message_item[1]), nil)
+	if err := buffer.Put([]byte(message_item[0]+" +"+eventID), []byte(message_item[1]), nil); err != nil {
+		return false, err
+	}
+	queued.Store(container, true)
+	return false, nil
 }
 
 func TryResend() {
 	token := os.Getenv("ONLOGS_TOKEN")
 	containers, _ := os.ReadDir("leveldb/hosts/" + util.GetHost() + "/containers/")
 	for _, container := range containers {
-		if !resendContainerBuffer(token, container.Name()) {
+		unlock := lockQueue(container.Name())
+		ok := resendContainerBuffer(token, container.Name())
+		unlock()
+		if !ok {
 			return
 		}
 	}
@@ -118,10 +164,16 @@ func resendContainerBuffer(token string, container string) bool {
 		// Entries queued by older agents are keyed by the bare timestamp.
 		timestamp, eventID, _ := strings.Cut(string(key), " +")
 		if err := sendLog(token, container, timestamp, string(iter.Value()), eventID); err != nil {
-			var opErr *net.OpError
-			return !errors.As(err, &opErr) || opErr.Op != "dial"
+			if !errors.Is(err, errRejected) {
+				var opErr *net.OpError
+				return !errors.As(err, &opErr) || opErr.Op != "dial"
+			}
+			fmt.Println("ERROR: the master rejected a queued line of "+container+", dropping it:", err)
 		}
 		buffer.Delete(key, nil)
+	}
+	if iter.Error() == nil {
+		queued.Store(container, false)
 	}
 	return true
 }
