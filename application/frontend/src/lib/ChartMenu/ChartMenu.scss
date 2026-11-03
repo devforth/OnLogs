@@ -1,3 +1,5 @@
+@use "../../utils/variables" as *;
+
 .chartContainer {
   display: flex;
   flex-direction: column;

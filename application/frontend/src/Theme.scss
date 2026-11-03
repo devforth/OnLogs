@@ -1,3 +1,5 @@
+@use "./utils/variables" as *;
+
 @mixin dark-mode {
   background-color: $background-color-dark;
   .log {
@@ -251,10 +253,4 @@
 
 .dark-mode {
   @include dark-mode;
-}
-
-@mixin center {
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }

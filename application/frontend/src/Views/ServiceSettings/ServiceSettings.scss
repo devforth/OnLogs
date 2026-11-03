@@ -1,3 +1,5 @@
+@use "../../utils/variables" as *;
+
 .serviceSettings {
   margin: $container-padding;
   @include for-mobile {

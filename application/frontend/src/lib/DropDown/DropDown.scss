@@ -1,3 +1,5 @@
+@use "../../utils/variables" as *;
+
 .dropDownContainer {
   box-shadow: $main-shadow;
   border-radius: $main-border-radius;

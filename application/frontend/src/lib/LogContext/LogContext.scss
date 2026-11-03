@@ -1,3 +1,5 @@
+@use "../../utils/variables" as *;
+
 .modalContainer:has(.logContext) {
   background-color: $block-bg-color;
 }

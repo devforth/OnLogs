@@ -1,3 +1,5 @@
+@use "../../utils/variables" as *;
+
 .deleteModalContainer {
   background-color: $block-bg-color;
   font-size: $main-font-m;
