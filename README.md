@@ -112,14 +112,14 @@ TRUSTED_PROXIES=127.0.0.1        # a proxy on the host
 Keep the range as tight as your proxy allows — anything reaching OnLogs from a listed address
 can call itself any client.
 
-The proxy must send `X-Forwarded-For` for the limit above, and pass the original `Host`
-header, or logins and every change are refused as cross-origin (403). When TLS ends at the proxy it must send `X-Forwarded-Proto: https`, or
+Without `X-Forwarded-For` all your users share the proxy's login limit. Without the original
+`Host` header, logins and every change are refused as cross-origin (403). When TLS ends at the proxy it must send `X-Forwarded-Proto: https`, or
 the session cookie is not marked `Secure`. The live tail is a WebSocket, so the proxy must
 forward the upgrade too. traefik does all of this by default. For nginx:
 
 ```nginx
 location / {    # with ONLOGS_PATH_PREFIX=/onlogs use location /onlogs/
-    proxy_pass http://onlogs:2874;
+    proxy_pass http://onlogs:2874;    # OnLogs' PORT: 2874 by default, 8798 in the examples above
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
@@ -142,7 +142,7 @@ scrape_configs:
     authorization:
       credentials: <your METRICS_TOKEN>
     static_configs:
-      - targets: ["onlogs:2874"]
+      - targets: ["onlogs:2874"]  # OnLogs' PORT, as in the nginx example
 ```
 
 | metric | labels | meaning |
