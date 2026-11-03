@@ -782,6 +782,26 @@ func (h *RouteController) GetLogWithPrev(w http.ResponseWriter, req *http.Reques
 
 var addConnection = vars.AddConnection
 
+// Below nginx's default 60 s proxy_read_timeout, which drops a quiet stream.
+var pingInterval = 30 * time.Second
+
+// A failed ping means the peer is gone; closing wakes the reader, which unregisters.
+func keepAlive(ws *websocket.Conn, done <-chan struct{}) {
+	ticker := time.NewTicker(pingInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			if err := ws.WriteControl(websocket.PingMessage, nil, time.Now().Add(10*time.Second)); err != nil {
+				ws.Close()
+				return
+			}
+		}
+	}
+}
+
 // TODO return {"error": "Invalid host!"} when host is not exists
 func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request) {
 	if !guard(w, req, authUser, "") {
@@ -829,8 +849,11 @@ func (h *RouteController) GetLogsStream(w http.ResponseWriter, req *http.Request
 		ws.Close()
 		return
 	}
+	done := make(chan struct{})
+	go keepAlive(ws, done)
 	// Viewers send nothing; reading is how a peer close is noticed.
 	go func() {
+		defer close(done)
 		for {
 			if _, _, err := ws.NextReader(); err != nil {
 				vars.RemoveConnection(container, ws)

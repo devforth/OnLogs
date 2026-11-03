@@ -1,9 +1,11 @@
 package routes
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -94,4 +96,65 @@ func TestViewerClosingWithACloseFrameIsUnregisteredAndClosed(t *testing.T) {
 	if _, msg, err := kept.ReadMessage(); err != nil || string(msg) != "still live" {
 		t.Fatalf("the other viewer got %q, %v", msg, err)
 	}
+}
+
+func waitForKeepAlives(t *testing.T, want int) {
+	t.Helper()
+	count := func() int {
+		buf := make([]byte, 1<<22)
+		return strings.Count(string(buf[:runtime.Stack(buf, true)]), "routes.keepAlive(")
+	}
+	for deadline := time.Now().Add(2 * time.Second); count() != want; time.Sleep(time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("%d keepalive goroutines, want %d", count(), want)
+		}
+	}
+}
+
+func TestAQuietStreamIsPingedUntilTheViewerLeaves(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(testCtrl.GetLogsStream))
+	defer server.Close()
+
+	container := "quiet-pinged-viewer"
+	waitForKeepAlives(t, 0)
+	client := openStream(t, server, container, util.CreateJWT("admin"))
+	waitForViewers(t, container, 1)
+
+	// Lines keep arriving meanwhile so the race detector sees pings beside writes.
+	stop := make(chan struct{})
+	broadcasting := make(chan struct{})
+	go func() {
+		defer close(broadcasting)
+		for {
+			select {
+			case <-stop:
+				return
+			case <-time.After(time.Millisecond):
+				vars.Broadcast(container, websocket.TextMessage, []byte("line"))
+			}
+		}
+	}()
+
+	pinged := errors.New("pinged")
+	pings := 0
+	client.SetPingHandler(func(string) error {
+		if pings++; pings == 3 {
+			return pinged
+		}
+		return nil
+	})
+	client.SetReadDeadline(time.Now().Add(2 * time.Second))
+	var err error
+	for err == nil {
+		_, _, err = client.ReadMessage()
+	}
+	close(stop)
+	<-broadcasting
+	if !errors.Is(err, pinged) {
+		t.Fatalf("got %d pings in 2s: %v", pings, err)
+	}
+
+	client.Close()
+	waitForViewers(t, container, 0)
+	waitForKeepAlives(t, 0)
 }
