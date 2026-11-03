@@ -1143,12 +1143,17 @@ func (h *RouteController) DeleteContainer(w http.ResponseWriter, req *http.Reque
 	}
 
 	go func() {
+		// A line waits for both steps, so its EnsureWorker finds the old worker gone and starts its own.
+		defer containerdb.PauseIngest(logItem.Host + "/" + logItem.Service)()
 		containerdb.DeleteContainer(logItem.Host, logItem.Service, true)
 		// After the files are gone, so the worker's last flush finds nothing to recreate.
-		statistics.StopWorker(logItem.Host, logItem.Service)
+		stopServiceWorker(logItem.Host, logItem.Service)
 	}()
 	ok(w)
 }
+
+// A var so tests can land a line between the delete and the stop.
+var stopServiceWorker = statistics.StopWorker
 
 func (h *RouteController) DeleteUser(w http.ResponseWriter, req *http.Request) {
 	if !guard(w, req, authAdmin, "POST") {
