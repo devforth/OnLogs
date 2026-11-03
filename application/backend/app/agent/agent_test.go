@@ -2,20 +2,24 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
+func noServices() []string { return nil }
+
 func initInBackground(t *testing.T) (<-chan error, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	done := make(chan error, 1)
-	go func() { done <- SendInitRequest(ctx, nil) }()
+	go func() { done <- SendInitRequest(ctx, noServices) }()
 	return done, cancel
 }
 
@@ -104,5 +108,31 @@ func TestSendInitRequestStopsWithItsContext(t *testing.T) {
 
 	if err := waitInit(t, done, 500*time.Millisecond); !errors.Is(err, context.Canceled) {
 		t.Fatalf("got %v, want context.Canceled", err)
+	}
+}
+
+func TestRegistrationSendsTheServicesRunningAtThatAttempt(t *testing.T) {
+	var running atomic.Value
+	running.Store([]string{"w0"})
+	sent := make(chan []string, 2)
+	var calls atomic.Int32
+	master := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct{ Services []string }
+		json.NewDecoder(r.Body).Decode(&body)
+		sent <- body.Services
+		if calls.Add(1) == 1 {
+			running.Store([]string{"w1"})
+			w.WriteHeader(http.StatusBadGateway)
+		}
+	}))
+	t.Cleanup(master.Close)
+	t.Setenv("HOST", master.URL)
+
+	if err := SendInitRequest(context.Background(), func() []string { return running.Load().([]string) }); err != nil {
+		t.Fatal(err)
+	}
+	<-sent
+	if got := <-sent; !slices.Equal(got, []string{"w1"}) {
+		t.Fatalf("registered with %q, want the services running then, [w1]", got)
 	}
 }

@@ -135,7 +135,7 @@ func (ctrl *StreamController) StreamLogs(ctx context.Context) {
 	// Started first so containers keep streaming while the agent waits for the master.
 	go ctrl.startEventsLoop(ctx)
 	if util.IsAgentMode() {
-		if err := agent.SendInitRequest(ctx, vars.DockerContainerList()); err != nil {
+		if err := agent.SendInitRequest(ctx, vars.DockerContainerList); err != nil {
 			if ctx.Err() != nil {
 				return
 			}

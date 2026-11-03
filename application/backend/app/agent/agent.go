@@ -39,11 +39,10 @@ func identity() map[string]any {
 
 var ErrTokenRejected = errors.New("the master rejected ONLOGS_TOKEN, check the token in the agent's environment")
 
-func SendInitRequest(ctx context.Context, containers []string) error {
+func SendInitRequest(ctx context.Context, services func() []string) error {
 	body := identity()
-	body["Services"] = containers
-
 	for delay := time.Second; ; delay = min(2*delay, 5*time.Second) {
+		body["Services"] = services()
 		resp, err := post("/api/v1/addHost", body)
 		if err == nil {
 			resp.Body.Close()

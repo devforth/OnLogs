@@ -25,7 +25,7 @@ func TestAgentNamesItselfWithTheHostIdSetAtStartup(t *testing.T) {
 	t.Cleanup(master.Close)
 	t.Setenv("HOST", master.URL)
 
-	if err := SendInitRequest(context.Background(), nil); err != nil {
+	if err := SendInitRequest(context.Background(), noServices); err != nil {
 		t.Fatal(err)
 	}
 	SendLogMessage("token", "app", []string{"2026-10-20T11:13:32.000000000Z", "line"})
