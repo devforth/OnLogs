@@ -2,10 +2,10 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -37,19 +37,30 @@ func identity() map[string]any {
 	}
 }
 
-func SendInitRequest(containers []string) {
+var ErrTokenRejected = errors.New("the master rejected ONLOGS_TOKEN, check the token in the agent's environment")
+
+func SendInitRequest(ctx context.Context, containers []string) error {
 	body := identity()
 	body["Services"] = containers
 
-	resp, err := post("/api/v1/addHost", body)
-	if err != nil {
-		panic("ERROR: Can't send request to host: " + err.Error())
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(resp.Body)
-		panic("ERROR: Response status from host is " + resp.Status + "\nResponse body: " + string(b))
+	for delay := time.Second; ; delay = min(2*delay, 5*time.Second) {
+		resp, err := post("/api/v1/addHost", body)
+		if err == nil {
+			resp.Body.Close()
+			switch resp.StatusCode {
+			case http.StatusOK:
+				return nil
+			case http.StatusUnauthorized, http.StatusForbidden:
+				return fmt.Errorf("%w (%s)", ErrTokenRejected, resp.Status)
+			}
+			err = fmt.Errorf("Post %q: %s", resp.Request.URL, resp.Status)
+		}
+		fmt.Printf("WARN: can't register with the master, retrying in %s: %v\n", delay, err)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
 	}
 }
 

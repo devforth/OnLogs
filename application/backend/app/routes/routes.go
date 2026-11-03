@@ -239,7 +239,7 @@ func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if !db.IsTokenExists(logItem.Token) {
-		w.WriteHeader(http.StatusUnauthorized)
+		fail(w, http.StatusUnauthorized, "invalid agent token")
 		return
 	}
 
@@ -285,7 +285,7 @@ func (h *RouteController) AddHost(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if !db.IsTokenExists(addReq.Token) {
-		w.WriteHeader(http.StatusUnauthorized)
+		fail(w, http.StatusUnauthorized, "invalid agent token")
 		return
 	}
 
@@ -1068,7 +1068,7 @@ func (h *RouteController) AskForDelete(w http.ResponseWriter, req *http.Request)
 	}
 
 	if !db.IsTokenExists(logItem.Token) {
-		w.WriteHeader(http.StatusUnauthorized)
+		fail(w, http.StatusUnauthorized, "invalid agent token")
 		return
 	}
 

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -24,7 +25,9 @@ func TestAgentNamesItselfWithTheHostIdSetAtStartup(t *testing.T) {
 	t.Cleanup(master.Close)
 	t.Setenv("HOST", master.URL)
 
-	SendInitRequest(nil)
+	if err := SendInitRequest(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
 	SendLogMessage("token", "app", []string{"2026-10-20T11:13:32.000000000Z", "line"})
 	for _, want := range []string{"/api/v1/addHost stable-agent", "/api/v1/addLogLine stable-agent"} {
 		if got := <-hosts; got != want {

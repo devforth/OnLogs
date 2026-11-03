@@ -144,6 +144,21 @@ func TestAddLogLineRejectsNamesThatLeaveTheTree(t *testing.T) {
 	}
 }
 
+func TestAgentEndpointsExplainARejectedToken(t *testing.T) {
+	for name, handler := range map[string]http.HandlerFunc{
+		"addHost":      testCtrl.AddHost,
+		"addLogLine":   testCtrl.AddLogLine,
+		"askForDelete": testCtrl.AskForDelete,
+	} {
+		body := map[string]any{"Token": "not-a-token", "Hostname": "h", "Host": "h", "Container": "c", "LogLine": []string{"t", "m"}}
+		code, raw := call(t, handler, authedRequest(t, "", "POST", "/api/v1/"+name, body))
+		var reply struct{ Error string }
+		if code != http.StatusUnauthorized || json.Unmarshal(raw, &reply) != nil || reply.Error == "" {
+			t.Errorf("%s answered a bad token with %d %q, want 401 and a JSON error", name, code, raw)
+		}
+	}
+}
+
 func TestAddLogLineAnswers500InsteadOfPanickingWhenTheLineCannotBeStored(t *testing.T) {
 	token := db.CreateOnLogsToken()
 	host, container := "unwritablehost", "c"

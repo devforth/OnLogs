@@ -3,6 +3,7 @@ package streamer
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -131,11 +132,17 @@ func (ctrl *StreamController) StreamLogs(ctx context.Context) {
 	since := vars.ContainerEventSeq()
 	vars.SetDockerContainers(ctrl.DaemonService.GetContainersList(ctx), since)
 	ctrl.reconcileStreams(ctx)
-	if util.IsAgentMode() {
-		agent.SendInitRequest(vars.DockerContainerList())
-	}
-
+	// Started first so containers keep streaming while the agent waits for the master.
 	go ctrl.startEventsLoop(ctx)
+	if util.IsAgentMode() {
+		if err := agent.SendInitRequest(ctx, vars.DockerContainerList()); err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			fmt.Println("FATAL:", err)
+			os.Exit(1)
+		}
+	}
 
 	reconcileTicker := time.NewTicker(60 * time.Second)
 	defer reconcileTicker.Stop()
