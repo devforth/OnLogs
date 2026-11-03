@@ -121,7 +121,7 @@ func writeDroppedReplays(w io.Writer, ds daemonState) {
 }
 
 func writeProcess(w io.Writer) {
-	writeHeader(w, "onlogs_stats_workers", "gauge", "Statistics workers running, one per streamed container.")
+	writeHeader(w, "onlogs_stats_workers", "gauge", "Statistics workers running.")
 	fmt.Fprintf(w, "onlogs_stats_workers %d\n", statistics.WorkerCount())
 
 	writeHeader(w, "onlogs_websocket_connections", "gauge", "Live log viewers connected.")

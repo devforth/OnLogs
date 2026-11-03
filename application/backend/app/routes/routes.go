@@ -256,7 +256,12 @@ func (h *RouteController) AddLogLine(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// Started after the line is stored: the worker never creates a service on its own.
-	statistics.EnsureWorker(context.Background(), logItem.Host, logItem.Container)
+	if statistics.EnsureWorker(context.Background(), logItem.Host, logItem.Container) {
+		// Delete service can land after the store and stop nothing; this start must not outlive it.
+		if _, err := os.Stat("leveldb/hosts/" + logItem.Host + "/containers/" + logItem.Container); err != nil {
+			statistics.StopWorker(logItem.Host, logItem.Container)
+		}
+	}
 	if duplicate {
 		return
 	}
@@ -1108,7 +1113,11 @@ func (h *RouteController) DeleteContainer(w http.ResponseWriter, req *http.Reque
 		}
 	}
 
-	go containerdb.DeleteContainer(logItem.Host, logItem.Service, true)
+	go func() {
+		containerdb.DeleteContainer(logItem.Host, logItem.Service, true)
+		// After the files are gone, so the worker's last flush finds nothing to recreate.
+		statistics.StopWorker(logItem.Host, logItem.Service)
+	}()
 	ok(w)
 }
 
