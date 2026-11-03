@@ -59,8 +59,13 @@ main(async () => {
   const broom = rules.filter((r) => r.selector === "#top-line .clearLogsButtonContainer");
   const displayAt = (media) => broom.findLast((r) => r.media === media)?.style.display;
   assert.equal(displayAt(""), "none", "the toolbar broom is not kept off the desktop toolbar");
+  // The broom takes the room of "recent at bottom", so the title keeps one line.
+  const subtitleHidden = rules
+    .filter((r) => r.selector === "#top-line p" && r.style.left === "-99999px")
+    .map((r) => r.media);
   for (const media of panelHidden) {
     assert.equal(displayAt(media), "block", `no Clear logs entry at ${media}`);
+    assert.ok(subtitleHidden.includes(media), `"recent at bottom" still shown beside the broom at ${media}`);
   }
 
   bundle.lastChosenHost.set(HOST);

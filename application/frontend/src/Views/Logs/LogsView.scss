@@ -17,6 +17,9 @@
     .clearLogsButtonContainer {
       display: block;
     }
+    p {
+      @include hide;
+    }
   }
   @include for-mobile {
     .clearLogsButtonContainer {
