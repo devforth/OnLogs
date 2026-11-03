@@ -523,7 +523,7 @@ func TestPausingAnHourDoesNotHandBackTheWholeAllowance(t *testing.T) {
 	for i := 0; i < 15; i++ {
 		limiter.fail(keys...)
 	}
-	ageLoginAttempts(limiter, loginAttemptTTL+time.Minute)
+	ageLoginAttempts(limiter, time.Hour+time.Minute)
 
 	guessed := 0
 	for limiter.allow(keys...) {
@@ -535,28 +535,131 @@ func TestPausingAnHourDoesNotHandBackTheWholeAllowance(t *testing.T) {
 	}
 }
 
-func TestAnAbandonedTypoFadesWithinHours(t *testing.T) {
+func TestFailuresLeakOnePerInterval(t *testing.T) {
 	limiter := &loginAttempts{entries: map[string]*loginAttempt{}}
 	keys := []string{"ip:198.51.100.70", "pair:" + loginKey("198.51.100.70", "someone")}
 	for i := 0; i < 3; i++ {
 		limiter.fail(keys...)
 	}
 
-	// Someone else's failures prune; twice, to show one quiet hour halves once.
-	ageLoginAttempts(limiter, loginAttemptTTL+time.Minute)
-	limiter.fail("ip:192.0.2.99")
+	// Someone else's failures prune.
+	ageLoginAttempts(limiter, leakInterval+time.Minute)
 	limiter.fail("ip:192.0.2.99")
 	for _, key := range keys {
-		if entry := limiter.entries[key]; entry == nil || entry.failures != 1 {
-			t.Fatalf("%s: an hour on, three failures should have halved to one, got %+v", key, entry)
+		if entry := limiter.entries[key]; entry == nil || entry.failures != 2 {
+			t.Fatalf("%s: one interval on, three failures should have leaked to two, got %+v", key, entry)
 		}
 	}
 
-	ageLoginAttempts(limiter, loginAttemptTTL+time.Minute)
+	ageLoginAttempts(limiter, 2*leakInterval)
 	limiter.fail("ip:192.0.2.99")
 	for _, key := range keys {
 		if entry, ok := limiter.entries[key]; ok {
-			t.Errorf("%s still holds %d failures two quiet hours on", key, entry.failures)
+			t.Errorf("%s still holds %d failures three intervals on", key, entry.failures)
+		}
+	}
+}
+
+// A client with a stale password fails every 20 minutes all day behind an
+// office's address, and is fixed in the evening.
+func TestAStaleClientDoesNotLockOutItsAddress(t *testing.T) {
+	limiter := &loginAttempts{entries: map[string]*loginAttempt{}}
+	addr := "198.51.100.90"
+	ip := "ip:" + addr
+	stale := "pair:" + loginKey(addr, "stale-script")
+	colleague := "pair:" + loginKey(addr, "colleague")
+	for round := 1; round <= 24; round++ {
+		if limiter.allow(ip, stale) {
+			limiter.fail(ip, stale)
+		}
+		ageLoginAttempts(limiter, time.Minute)
+		if !limiter.allow(ip, colleague) {
+			t.Fatalf("round %d: a colleague logging in a minute after the stale client failed was refused", round)
+		}
+		limiter.succeed(ip, colleague)
+		ageLoginAttempts(limiter, 19*time.Minute)
+	}
+
+	ageLoginAttempts(limiter, 16*time.Hour)
+	typist := "pair:" + loginKey(addr, "typist")
+	limiter.allow(ip, typist)
+	limiter.fail(ip, typist)
+	if !limiter.allow(ip, typist) {
+		t.Fatal("the next morning, one typo held up the correct password")
+	}
+	limiter.succeed(ip, typist)
+	admitted := 0
+	for i := 0; i < 10; i++ {
+		if limiter.allow(ip, "pair:"+loginKey(addr, "office-"+strconv.Itoa(i))) {
+			admitted++
+		}
+	}
+	if admitted != freeLoginAttempts+1 {
+		t.Fatalf("the next morning %d of 10 overlapping logins got through; from a clean address %d do", admitted, freeLoginAttempts+1)
+	}
+}
+
+// Every 30 minutes someone mistypes once and retypes; every hour someone else
+// mistypes three times and logs in only after lunch, 90 minutes later.
+func TestTyposForgivenHoursLaterDoNotBuildUp(t *testing.T) {
+	limiter := &loginAttempts{entries: map[string]*loginAttempt{}}
+	addr := "198.51.100.95"
+	ip := "ip:" + addr
+	late := map[int]string{}
+	for event := 1; event <= 16; event++ {
+		typist := "pair:" + loginKey(addr, "typist-"+strconv.Itoa(event%4))
+		if limiter.allow(ip, typist) {
+			limiter.fail(ip, typist)
+		}
+		ageLoginAttempts(limiter, 5*time.Second)
+		if !limiter.allow(ip, typist) {
+			t.Fatalf("event %d: the correct retry five seconds after one typo was refused", event)
+		}
+		limiter.succeed(ip, typist)
+
+		if event%2 == 1 {
+			late[event+3] = "pair:" + loginKey(addr, "late-"+strconv.Itoa(event))
+			for i := 0; i < 3; i++ {
+				if limiter.allow(ip, late[event+3]) {
+					limiter.fail(ip, late[event+3])
+				}
+			}
+		}
+		if pair, ok := late[event]; ok {
+			if !limiter.allow(ip, pair) {
+				t.Fatalf("event %d: a user back from lunch was refused", event)
+			}
+			limiter.succeed(ip, pair)
+		}
+		ageLoginAttempts(limiter, 30*time.Minute)
+	}
+}
+
+// One address guessing at one account for a day, greedily or in bursts with
+// an hour's pause after each.
+func TestALoneAttackerGetsOneGuessPerLeakInterval(t *testing.T) {
+	for _, burst := range []int{0, 6, 10, 15} {
+		limiter := &loginAttempts{entries: map[string]*loginAttempt{}}
+		keys := []string{"ip:203.0.113.50", "pair:" + loginKey("203.0.113.50", "admin")}
+		guesses, inBurst, idle := 0, 0, time.Duration(0)
+		for elapsed := time.Duration(0); elapsed < 24*time.Hour; elapsed += time.Second {
+			if idle > 0 {
+				idle -= time.Second
+			} else {
+				for limiter.allow(keys...) {
+					limiter.fail(keys...)
+					guesses++
+					if inBurst++; inBurst == burst {
+						inBurst, idle = 0, time.Hour+time.Minute
+						break
+					}
+				}
+			}
+			ageLoginAttempts(limiter, time.Second)
+		}
+		// 16 guesses reach the 15-minute block; after that, one per leak.
+		if limit := 16 + int(24*time.Hour/leakInterval) - 1; guesses > limit {
+			t.Errorf("bursts of %d: %d guesses in a day, more than %d", burst, guesses, limit)
 		}
 	}
 }

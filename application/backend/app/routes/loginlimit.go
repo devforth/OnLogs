@@ -15,7 +15,7 @@ import (
 const (
 	freeLoginAttempts = 5
 	maxLoginBackoff   = 15 * time.Minute
-	loginAttemptTTL   = time.Hour
+	leakInterval      = 15 * time.Minute
 	maxLoginEntries   = 4096
 )
 
@@ -24,8 +24,7 @@ type loginAttempts struct {
 	entries map[string]*loginAttempt
 }
 
-// seen moves on creation, failure and decay only, so successful logins cannot
-// keep old failures alive.
+// Failures drain one per leakInterval, counted from seen.
 type loginAttempt struct {
 	failures int
 	pending  int
@@ -33,14 +32,11 @@ type loginAttempt struct {
 	seen     time.Time
 }
 
-// An idle hour halves the failures rather than forgetting them, so waiting out
-// the TTL does not hand back the whole allowance. Reports whether none are left.
-func (a *loginAttempt) decay(now time.Time) bool {
-	if a.pending == 0 && now.Sub(a.seen) > loginAttemptTTL && now.After(a.blocked) {
-		a.failures /= 2
-		a.seen = now
+func (a *loginAttempt) leak(now time.Time) {
+	if n := min(int(now.Sub(a.seen)/leakInterval), a.failures); n > 0 {
+		a.failures -= n
+		a.seen = a.seen.Add(time.Duration(n) * leakInterval)
 	}
-	return a.failures == 0 && a.pending == 0
 }
 
 var loginLimiter = &loginAttempts{entries: map[string]*loginAttempt{}}
@@ -72,18 +68,18 @@ func (l *loginAttempts) allow(keys ...string) bool {
 
 	for _, key := range keys {
 		entry, ok := l.entries[key]
-		if ok && entry.decay(now) {
-			delete(l.entries, key)
+		if !ok {
 			continue
 		}
-		if ok && (now.Before(entry.blocked) || entry.pending > 0 && backoffFor(entry.failures+entry.pending) > 0) {
+		entry.leak(now)
+		if now.Before(entry.blocked) || entry.pending > 0 && backoffFor(entry.failures+entry.pending) > 0 {
 			return false
 		}
 	}
 	for _, key := range keys {
 		entry, ok := l.entries[key]
 		if !ok {
-			entry = &loginAttempt{seen: now}
+			entry = &loginAttempt{}
 			l.entries[key] = entry
 		}
 		entry.pending++
@@ -107,8 +103,12 @@ func (l *loginAttempts) fail(keys ...string) {
 		if entry.pending > 0 {
 			entry.pending--
 		}
+		entry.leak(now)
+		// Only an empty bucket restarts the clock, or a trickle of failures never drains.
+		if entry.failures == 0 {
+			entry.seen = now
+		}
 		entry.failures++
-		entry.seen = now
 		if backoff := backoffFor(entry.failures); backoff > 0 {
 			entry.blocked = now.Add(backoff)
 		}
@@ -118,14 +118,18 @@ func (l *loginAttempts) fail(keys ...string) {
 // The address forgets only this account's own typos, or one valid account
 // would let it guess at every other account for free.
 func (l *loginAttempts) succeed(addrKey, pairKey string) {
+	now := time.Now()
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	own := 0
 	if pair, ok := l.entries[pairKey]; ok {
+		pair.leak(now)
 		own = pair.failures
 		delete(l.entries, pairKey)
 	}
 	if entry, ok := l.entries[addrKey]; ok {
+		entry.leak(now)
 		if entry.pending > 0 {
 			entry.pending--
 		}
@@ -143,7 +147,8 @@ func (l *loginAttempts) succeed(addrKey, pairKey string) {
 // rather than paid on every login.
 func (l *loginAttempts) prune(now time.Time) {
 	for key, entry := range l.entries {
-		if entry.decay(now) {
+		entry.leak(now)
+		if entry.failures == 0 && entry.pending == 0 && now.After(entry.blocked) {
 			delete(l.entries, key)
 		}
 	}
