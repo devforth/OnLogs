@@ -19,10 +19,8 @@ jobs:
         go-version: 1.26.x
         cache-dependency-path: application/backend/go.sum
 
-    - name: Get coverage tool
+    - name: Get branch name
       run: |
-        cd application/backend
-        go get golang.org/x/tools/cmd/cover
         REF=${{ github.ref }}
         IFS='/' read -ra PATHS <<< "$REF"
         BRANCH_NAME="${PATHS[1]}_${PATHS[2]}"
