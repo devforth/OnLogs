@@ -778,15 +778,13 @@
         // Any rows at all, not a full page: the oldest page is almost always a
         // partial one, and requiring a whole page threw the start of history away.
         if (total_logs.length) {
-          let numberOfNewLogs = total_logs.length;
           const newest = allLogs.at(-1);
-          const logsToPrevious = visibleLogs.splice(0, numberOfNewLogs);
-          const logsToVisible = newLogs.splice(0, numberOfNewLogs);
-          previousLogs.splice(0, numberOfNewLogs);
-          newLogs = [...total_logs, ...newLogs];
-          visibleLogs = [...logsToVisible, ...visibleLogs];
-          previousLogs = [...logsToPrevious, ...previousLogs];
-          allLogs = dedupeLogs([...newLogs, ...visibleLogs, ...previousLogs]);
+          // Same split as getFullLogsSet; shifting rows between the segments
+          // interleaved them whenever the page was shorter than a full one.
+          allLogs = dedupeLogs([...total_logs, ...allLogs]).slice(0, 3 * limit);
+          newLogs = allLogs.slice(0, limit);
+          visibleLogs = allLogs.slice(limit, 2 * limit);
+          previousLogs = allLogs.slice(2 * limit);
           windowAtHead &&= sameRow(allLogs.at(-1), newest);
         }
         fetchedData = total_logs;
