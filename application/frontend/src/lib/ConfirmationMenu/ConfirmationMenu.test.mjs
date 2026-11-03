@@ -123,28 +123,67 @@ main(async () => {
   // A running container's Docker log cannot be cleared, and the dialog says why.
   const hostsWith = (running) => [{ host: HOST, services: [{ serviceName: SERVICE, isDisabled: !running }] }];
   const toggle = () => document.querySelector(".deleteModalContainer .checkboxContainer");
-  bundle.store.update((s) => ({ ...s, deleteFromDocker: true }));
-  bundle.confirmationObj.set({ action: null, message: "", isVisible: true });
-  const runningMenu = bundle.mount(bundle.ConfirmationMenu, { target: document.body, props: { hosts: hostsWith(true) } });
-  await settle(5);
+  const dialogText = () => document.querySelector(".deleteModalContainer").textContent;
+  const openMenu = async (props) => {
+    bundle.confirmationObj.set({ action: null, message: "", isVisible: true });
+    const menu = bundle.mount(bundle.ConfirmationMenu, { target: document.body, props });
+    await settle(5);
+    return menu;
+  };
+
+  // Saved preference OFF: the switch cannot be turned on, Delete clears OnLogs.
+  bundle.store.update((s) => ({ ...s, deleteFromDocker: false }));
+  let runningMenu = await openMenu({ hosts: hostsWith(true) });
   assert.ok(toggle().classList.contains("disabled"), "the Docker switch is usable for a running container");
-  assert.ok(toggle().classList.contains("inactive"), "the disabled Docker switch shows as on");
-  assert.match(document.querySelector(".deleteModalContainer").textContent, /running/, "no reason for the disabled switch");
+  assert.match(dialogText(), /Not available while the\s+container is running/);
   toggle().click();
   await settle(2);
   assert.ok(toggle().classList.contains("inactive"), "a click turned the disabled switch on");
   requested.length = 0;
   deleteButton().click();
   await settle(20);
-  assert.deepEqual(requested.filter((n) => n.startsWith("delete")), ["deleteContainerLogs"], "a running container's Docker log was requested");
+  assert.deepEqual(requested.filter((n) => n.startsWith("delete")), ["deleteContainerLogs"]);
   bundle.unmount(runningMenu);
 
+  // Saved preference ON: never silently switched to an OnLogs clear.
+  bundle.store.update((s) => ({ ...s, deleteFromDocker: true }));
+  runningMenu = await openMenu({ hosts: hostsWith(true) });
+  assert.ok(toggle().classList.contains("active"), "the saved Docker choice is not shown");
+  assert.match(dialogText(), /from:\s*Docker/, "the dialog names the wrong target");
+  assert.match(dialogText(), /turn this\s+off/);
+  assert.ok(deleteButton().disabled, "Delete is offered for a running container's Docker log");
+  requested.length = 0;
+  deleteButton().click();
+  await settle(20);
+  assert.deepEqual(requested.filter((n) => n.startsWith("delete")), [], "a running container's logs were deleted");
+  toggle().click();
+  await settle(5);
+  assert.ok(toggle().classList.contains("disabled"), "the switch can be turned back on");
+  assert.match(dialogText(), /from:\s*OnLogs/);
+  assert.ok(!deleteButton().disabled);
+  bundle.unmount(runningMenu);
+
+  // The running state is read when the dialog opens, not on every refresh.
+  bundle.store.update((s) => ({ ...s, deleteFromDocker: true }));
+  const live = bundle.reactiveProps({ hosts: hostsWith(false) });
   bundle.confirmationObj.set({ action: null, message: "", isVisible: true });
-  const stoppedMenu = bundle.mount(bundle.ConfirmationMenu, { target: document.body, props: { hosts: hostsWith(false) } });
+  const stoppedMenu = bundle.mount(bundle.ConfirmationMenu, { target: document.body, props: live });
   await settle(5);
   assert.ok(!toggle().classList.contains("disabled"), "the Docker switch is disabled for a stopped container");
   assert.ok(toggle().classList.contains("active"));
+  live.hosts = hostsWith(true);
+  await settle(5);
+  assert.ok(!deleteButton().disabled, "the open dialog changed its target on a host refresh");
+  assert.match(dialogText(), /from:\s*Docker/);
   bundle.unmount(stoppedMenu);
+
+  // Deleting a service is not about Docker logs at all.
+  bundle.confirmationObj.set({ action: async () => {}, message: "You want to delete host service.", isVisible: true });
+  const serviceMenu = bundle.mount(bundle.ConfirmationMenu, { target: document.body, props: { hosts: hostsWith(true) } });
+  await settle(5);
+  assert.equal(toggle(), null, "the Delete service dialog offers the Docker switch");
+  assert.doesNotMatch(dialogText(), /Stop the container first/);
+  bundle.unmount(serviceMenu);
   bundle.store.update((s) => ({ ...s, deleteFromDocker: false }));
   bundle.unmount(view);
   console.log("ConfirmationMenu tests passed");

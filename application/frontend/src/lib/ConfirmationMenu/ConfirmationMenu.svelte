@@ -16,12 +16,16 @@
   import fetchApi from "../../utils/fetch.js";
 
   let { hosts = [] } = $props();
-  // Docker stops sending a running container's new lines once its log is cleared.
-  let running = $derived(
-    !!hosts
-      .find((h) => h.host === $lastChosenHost)
-      ?.services?.some((s) => s.serviceName === $lastChosenService && !s.isDisabled)
+  // Docker stops sending a running container's new lines once its log is
+  // cleared. Read once: a host refresh must not change what Delete does.
+  const running = untrack(
+    () =>
+      !!hosts
+        .find((h) => h.host === $lastChosenHost)
+        ?.services?.some((s) => s.serviceName === $lastChosenService && !s.isDisabled)
   );
+  // A saved Docker choice is never quietly turned into an OnLogs clear.
+  let dockerBlocked = $derived(running && $store.deleteFromDocker);
 
   let confirmationWord = "I understand that logs will be lost";
   let tipsIsVisible = $state(false);
@@ -42,7 +46,10 @@
 
   async function deletelogs() {
     let data;
-    const fromDocker = $store.deleteFromDocker && !running;
+    const fromDocker = $store.deleteFromDocker;
+    if (fromDocker && running) {
+      return;
+    }
     try {
       if (fromDocker) {
         data = await apiFetch.cleanDockerLogs(
@@ -91,7 +98,7 @@
   // brings its own. changeMessage writes confirmationObj, so the read of it
   // stays untracked or the effect would retrigger itself forever.
   $effect(() => {
-    const deleteFromDocker = $store.deleteFromDocker && !running;
+    const deleteFromDocker = $store.deleteFromDocker;
     untrack(() => {
       if (!$confirmationObj.action) {
         changeMessage(deleteFromDocker);
@@ -109,7 +116,7 @@
 </script>
 
 <div class="deleteModalContainer">
-  <div class="tipsContainer">
+  {#if !$confirmationObj.action}<div class="tipsContainer">
     <i
       class="log log-Tips"
       onmouseenter={() => {
@@ -137,14 +144,21 @@
     <div class="optionBox">
       <p>Delete Docker logs</p>
       <div class="checkboxContainerThumb">
-        <Checkbox storeValue={"deleteFromDocker"} disabled={running} />
+        <Checkbox
+          storeValue={"deleteFromDocker"}
+          disabled={running && !$store.deleteFromDocker}
+        />
       </div>
     </div>
-    {#if running}<p class="optionNote">
+    {#if dockerBlocked}<p class="optionNote">
+        Docker logs can't be cleared while the container is running: Docker
+        would stop sending its new lines. Stop the container first, or turn this
+        off to clear only the logs stored in OnLogs.
+      </p>{:else if running}<p class="optionNote">
         Not available while the container is running: Docker would stop sending
         its new lines. Stop the container first.
       </p>{/if}
-  </div>
+  </div>{/if}
   <div class="attentionZone">
     <p>
       {`Host: ${
@@ -166,6 +180,7 @@
     <Button
       title={"Delete"}
       highlighted={true}
+      disabled={!$confirmationObj.action && dockerBlocked}
       CB={() => {
         confirm();
       }}
