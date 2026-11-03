@@ -257,7 +257,7 @@ func TestInFlightLoginAttemptsCountAgainstTheLimit(t *testing.T) {
 	if limiter.allow(keys...) {
 		t.Fatal("a second attempt ran alongside the one the expired block allows")
 	}
-	limiter.succeed(keys...)
+	limiter.succeed(keys[0], keys[1])
 	if !limiter.allow(keys...) {
 		t.Fatal("a successful login did not clear the limit")
 	}
@@ -294,5 +294,85 @@ func TestConcurrentWrongLoginsGetNoMoreChecksThanSerialOnes(t *testing.T) {
 
 	if got := reached.Load(); got > freeLoginAttempts+1 {
 		t.Fatalf("%d concurrent wrong passwords were checked, serially only %d would be", got, freeLoginAttempts+1)
+	}
+}
+
+// Simulates d passing for every entry.
+func ageLoginAttempts(d time.Duration) {
+	loginLimiter.mu.Lock()
+	defer loginLimiter.mu.Unlock()
+	for _, entry := range loginLimiter.entries {
+		entry.seen = entry.seen.Add(-d)
+		entry.blocked = entry.blocked.Add(-d)
+	}
+}
+
+func TestLoggingIntoYourOwnAccountDoesNotResetTheAddressLimit(t *testing.T) {
+	userdb.CreateUser("sprayowner", "own-password")
+	t.Cleanup(func() { userdb.DeleteUser("sprayowner") })
+
+	loginLimiter.mu.Lock()
+	loginLimiter.entries = map[string]*loginAttempt{}
+	loginLimiter.mu.Unlock()
+
+	attempt := func(login, password string) int {
+		body, _ := json.Marshal(map[string]string{"Login": login, "Password": password})
+		req := jsonRequest("POST", "/api/v1/login", body)
+		req.RemoteAddr = "203.0.113.20:40000"
+		rr := httptest.NewRecorder()
+		http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
+		return rr.Code
+	}
+
+	// Guesses at other accounts, each round followed by a login to one the
+	// attacker holds.
+	guessed := 0
+	for round := 0; round < 4; round++ {
+		for i := 0; i < freeLoginAttempts; i++ {
+			if attempt("target-"+strconv.Itoa(round*freeLoginAttempts+i), "guess") != http.StatusTooManyRequests {
+				guessed++
+			}
+		}
+		attempt("sprayowner", "own-password")
+	}
+	if guessed > freeLoginAttempts+1 {
+		t.Fatalf("%d guesses got through from one address; without the logins in between only %d would", guessed, freeLoginAttempts+1)
+	}
+}
+
+func TestTyposBeforeALoginDoNotPileUpAcrossVisits(t *testing.T) {
+	userdb.CreateUser("typouser", "the-real-password")
+	t.Cleanup(func() { userdb.DeleteUser("typouser") })
+
+	loginLimiter.mu.Lock()
+	loginLimiter.entries = map[string]*loginAttempt{}
+	loginLimiter.mu.Unlock()
+
+	attempt := func(password string) (int, bool) {
+		body, _ := json.Marshal(map[string]string{"Login": "typouser", "Password": password})
+		req := jsonRequest("POST", "/api/v1/login", body)
+		req.RemoteAddr = "198.51.100.20:40000"
+		rr := httptest.NewRecorder()
+		http.HandlerFunc(testCtrl.Login).ServeHTTP(rr, req)
+		return rr.Code, len(rr.Result().Cookies()) > 0
+	}
+
+	// Each visit stays inside the free allowance and starts more than an hour
+	// after the last typo, though a login in between keeps the address busy.
+	for visit := 1; visit <= 3; visit++ {
+		loggedIn := func(when string) {
+			t.Helper()
+			if code, ok := attempt("the-real-password"); !ok {
+				t.Fatalf("visit %d, %s: the correct password was refused: status %d", visit, when, code)
+			}
+		}
+		for i := 0; i < freeLoginAttempts-2; i++ {
+			attempt("typo-" + strconv.Itoa(i))
+		}
+		loggedIn("after the typos")
+		loggedIn("logging in again straight away")
+		ageLoginAttempts(40 * time.Minute)
+		loggedIn("a later login from the same address")
+		ageLoginAttempts(40 * time.Minute)
 	}
 }

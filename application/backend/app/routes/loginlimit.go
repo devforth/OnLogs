@@ -24,11 +24,17 @@ type loginAttempts struct {
 	entries map[string]*loginAttempt
 }
 
+// seen moves on creation and on failure only, so successful logins cannot keep
+// old failures alive.
 type loginAttempt struct {
 	failures int
 	pending  int
 	blocked  time.Time
 	seen     time.Time
+}
+
+func (a *loginAttempt) expired(now time.Time) bool {
+	return now.Sub(a.seen) > loginAttemptTTL && now.After(a.blocked)
 }
 
 var loginLimiter = &loginAttempts{entries: map[string]*loginAttempt{}}
@@ -60,6 +66,10 @@ func (l *loginAttempts) allow(keys ...string) bool {
 
 	for _, key := range keys {
 		entry, ok := l.entries[key]
+		if ok && entry.pending == 0 && entry.expired(now) {
+			delete(l.entries, key)
+			continue
+		}
 		if ok && (now.Before(entry.blocked) || entry.pending > 0 && backoffFor(entry.failures+entry.pending) > 0) {
 			return false
 		}
@@ -67,11 +77,10 @@ func (l *loginAttempts) allow(keys ...string) bool {
 	for _, key := range keys {
 		entry, ok := l.entries[key]
 		if !ok {
-			entry = &loginAttempt{}
+			entry = &loginAttempt{seen: now}
 			l.entries[key] = entry
 		}
 		entry.pending++
-		entry.seen = now
 	}
 	return true
 }
@@ -100,11 +109,19 @@ func (l *loginAttempts) fail(keys ...string) {
 	}
 }
 
-func (l *loginAttempts) succeed(keys ...string) {
+// The address keeps its failures, or one valid account would let it guess at
+// every other account for free.
+func (l *loginAttempts) succeed(addrKey, pairKey string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	for _, key := range keys {
-		delete(l.entries, key)
+	delete(l.entries, pairKey)
+	if entry, ok := l.entries[addrKey]; ok {
+		if entry.pending > 0 {
+			entry.pending--
+		}
+		if entry.failures == 0 && entry.pending == 0 {
+			delete(l.entries, addrKey)
+		}
 	}
 }
 
@@ -112,7 +129,7 @@ func (l *loginAttempts) succeed(keys ...string) {
 // rather than paid on every login.
 func (l *loginAttempts) prune(now time.Time) {
 	for key, entry := range l.entries {
-		if now.Sub(entry.seen) > loginAttemptTTL && now.After(entry.blocked) {
+		if entry.expired(now) {
 			delete(l.entries, key)
 		}
 	}
