@@ -154,6 +154,9 @@
           status={getLogLineStatus(row?.at(1))}
           statusFilterable={false}
           sharedLinkCallBack={shareLink ? () => shareLink(row) : null}
+          search={searchText}
+          {caseSens}
+          onToggle={highlightSearch}
         />
       {/each}
 
@@ -164,6 +167,9 @@
           status={getLogLineStatus(anchor?.at(1))}
           statusFilterable={false}
           sharedLinkCallBack={shareLink ? () => shareLink(anchor) : null}
+          search={searchText}
+          {caseSens}
+          onToggle={highlightSearch}
         />
       </div>
 
@@ -174,6 +180,9 @@
           status={getLogLineStatus(row?.at(1))}
           statusFilterable={false}
           sharedLinkCallBack={shareLink ? () => shareLink(row) : null}
+          search={searchText}
+          {caseSens}
+          onToggle={highlightSearch}
         />
       {/each}
 

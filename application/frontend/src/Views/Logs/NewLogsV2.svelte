@@ -1219,6 +1219,9 @@
                   contextAnchor = logItem;
                 }}
                 sharedLinkCallBack={() => copyLinkToLog(logItem)}
+                search={searchText}
+                caseSens={!$store.caseInSensitive}
+                onToggle={highlightSearchText}
               />
             </div>
             <IntersectionObserver

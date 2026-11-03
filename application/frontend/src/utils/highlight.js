@@ -1,5 +1,17 @@
 const highlightStateByNode = new WeakMap();
 
+const escapeRegExp = (str = "") => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// Whitespace in the term matches any whitespace run: ANSI node boundaries split
+// it into \n, \t or several spaces. Null for an empty term.
+export const searchRegex = (searchText, caseSens) => {
+  const term = typeof searchText === "string" ? searchText.trim() : "";
+  if (!term) {
+    return null;
+  }
+  return new RegExp(escapeRegExp(term).replace(/\s+/g, "\\s+"), caseSens ? "g" : "gi");
+};
+
 export const findSearchTextInLogs = (sel, searchText, caseSens) => {
   const normalizedSearchText =
     typeof searchText === "string" ? searchText.trim() : "";
@@ -11,14 +23,7 @@ export const findSearchTextInLogs = (sel, searchText, caseSens) => {
     return;
   }
 
-  const escapeRegExp = (str = "") => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const buildSearchPattern = (str = "") => {
-    // Make whitespace robust against ANSI-driven node boundaries (\n, \t, multi-space).
-    return escapeRegExp(str).replace(/\s+/g, "\\s+");
-  };
-  const regex = caseSens
-    ? new RegExp(buildSearchPattern(normalizedSearchText), "g")
-    : new RegExp(buildSearchPattern(normalizedSearchText), "gi");
+  const regex = searchRegex(normalizedSearchText, caseSens);
   const queryKey = `${caseSens ? "1" : "0"}:${normalizedSearchText}`;
 
   const unwrapHighlights = (root, hadHighlights) => {

@@ -1,6 +1,8 @@
 <script>
+  import { tick } from "svelte";
   import { tryToParseLogString } from "../../utils/functions";
-  import { toAnsiHtml } from "../../utils/ansi";
+  import { toAnsiHtml, stripAnsi } from "../../utils/ansi";
+  import { searchRegex } from "../../utils/highlight";
   import { chosenStatus } from "../../Stores/stores";
   import { store } from "../../Stores/stores.js";
   let {
@@ -13,18 +15,41 @@
     sharedLinkCallBack = null,
     showContextCallBack = null,
     statusFilterable = true,
+    // The active search: a long line whose matches are all past the preview
+    // opens whole. onToggle re-applies the highlight the new text lost.
+    search = "",
+    caseSens = false,
+    onToggle = null,
   } = $props();
 
   // A page of 128 KiB lines froze the view; the rest is one click away.
   const PREVIEW_CHARS = 5000;
-  let expanded = $state(false);
   let text = $derived(message ?? "");
   let isLong = $derived(text.length > PREVIEW_CHARS);
-  let collapsed = $derived(isLong && !expanded);
   // The cut must not leave half an escape sequence behind.
-  let shown = $derived(
-    collapsed ? text.slice(0, PREVIEW_CHARS).replace(/[\u001B\u009B][^A-Za-z]*$/, "") : text
+  let preview = $derived(
+    isLong ? text.slice(0, PREVIEW_CHARS).replace(/[\u001B\u009B][^A-Za-z]*$/, "") : text
   );
+  let matchHidden = $derived.by(() => {
+    const regex = isLong ? searchRegex(search, caseSens) : null;
+    if (!regex) {
+      return false;
+    }
+    const inPreview = regex.test(stripAnsi(preview));
+    regex.lastIndex = 0;
+    return !inPreview && regex.test(stripAnsi(text));
+  });
+  // Null until the reader toggles; until then a hidden match decides.
+  let userExpanded = $state(null);
+  let expanded = $derived(userExpanded ?? matchHidden);
+  let collapsed = $derived(isLong && !expanded);
+  let shown = $derived(collapsed ? preview : text);
+
+  async function toggle() {
+    userExpanded = !expanded;
+    await tick();
+    onToggle?.();
+  }
   let parsedStr = $derived(collapsed ? null : tryToParseLogString(text));
   let messageHtml = $derived(toAnsiHtml(shown));
 </script>
@@ -87,7 +112,7 @@
     {:else}<p>
         {@html messageHtml}
       </p>{/if}
-    {#if isLong}<button class="showAll" onclick={() => (expanded = !expanded)}
+    {#if isLong}<button class="showAll" onclick={toggle}
         >{expanded
           ? "Show less"
           : `Show all (${Math.ceil((text.length - PREVIEW_CHARS) / 1024)} KB more)`}</button
