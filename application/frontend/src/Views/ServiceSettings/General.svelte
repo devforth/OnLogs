@@ -55,8 +55,7 @@
           });
         }
       },
-      message:
-        "You want to delete host service. This data will be lost. This action cannot be undone.",
+      message: "OnLogs (the service and all its logs).",
 
       isVisible: true,
     });

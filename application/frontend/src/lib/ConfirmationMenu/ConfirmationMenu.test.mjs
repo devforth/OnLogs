@@ -178,9 +178,11 @@ main(async () => {
   bundle.unmount(stoppedMenu);
 
   // Deleting a service is not about Docker logs at all.
-  bundle.confirmationObj.set({ action: async () => {}, message: "You want to delete host service.", isVisible: true });
+  bundle.confirmationObj.set({ action: async () => {}, message: "OnLogs (the service and all its logs).", isVisible: true });
   const serviceMenu = bundle.mount(bundle.ConfirmationMenu, { target: document.body, props: { hosts: hostsWith(true) } });
   await settle(5);
+  assert.match(dialogText(), /from:\s*OnLogs \(the service and all its logs\)\./);
+  assert.equal(dialogText().match(/will be lost/g).length, 1, "the warning shows more than once");
   assert.equal(toggle(), null, "the Delete service dialog offers the Docker switch");
   assert.doesNotMatch(dialogText(), /Stop the container first/);
   bundle.unmount(serviceMenu);
