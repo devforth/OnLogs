@@ -10,12 +10,11 @@
     "test:ansi": "node src/utils/ansi.test.mjs",
     "test:highlight": "node src/Views/Logs/highlight.test.mjs",
     "preview": "vite preview",
-    "buildfont": "node generate_font.js",
+    "buildfont": "npm install --no-save @vusion/webfonts-generator@0.8.0 && node generate_font.js",
     "debug": "vite build --base=/ONLOGS_PREFIX_ENV_VARIABLE_THAT_SHOULD_BE_REPLACED_ON_BACKEND_INITIALIZATION && node startDebug.js"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
-    "@vusion/webfonts-generator": "^0.8.0",
     "esbuild": "^0.28.1",
     "fs-extra": "^11.4.0",
     "jsdom": "^30.0.1",
@@ -30,5 +29,9 @@
     "svelte-chartjs": "^4.0.1",
     "svelte-loading-spinners": "^0.3.6",
     "svelte-routing": "^2.13.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "@parcel/watcher@2.6.0": true
   }
 }
