@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -108,6 +111,32 @@ func TestSendInitRequestStopsWithItsContext(t *testing.T) {
 
 	if err := waitInit(t, done, 500*time.Millisecond); !errors.Is(err, context.Canceled) {
 		t.Fatalf("got %v, want context.Canceled", err)
+	}
+}
+
+func TestRegistrationWarningHidesTheHostPassword(t *testing.T) {
+	var calls atomic.Int32
+	master := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if calls.Add(1) == 1 {
+			w.WriteHeader(http.StatusBadGateway)
+		}
+	}))
+	t.Cleanup(master.Close)
+	t.Setenv("HOST", strings.Replace(master.URL, "http://", "http://agent:s3cret-pw@", 1))
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout := os.Stdout
+	os.Stdout = w
+	err = SendInitRequest(context.Background(), noServices)
+	os.Stdout = stdout
+	w.Close()
+	printed, _ := io.ReadAll(r)
+	r.Close()
+	if out := string(printed); err != nil || !strings.Contains(out, "502") || strings.Contains(out, "s3cret-pw") {
+		t.Fatalf("got %v, want a 502 warning without the password: %q", err, out)
 	}
 }
 

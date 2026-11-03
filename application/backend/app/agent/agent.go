@@ -52,7 +52,7 @@ func SendInitRequest(ctx context.Context, services func() []string) error {
 			case http.StatusUnauthorized, http.StatusForbidden:
 				return fmt.Errorf("%w (%s)", ErrTokenRejected, resp.Status)
 			}
-			err = fmt.Errorf("Post %q: %s", resp.Request.URL, resp.Status)
+			err = fmt.Errorf("Post %q: %s", resp.Request.URL.Redacted(), resp.Status)
 		}
 		fmt.Printf("WARN: can't register with the master, retrying in %s: %v\n", delay, err)
 		select {
