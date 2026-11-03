@@ -1,13 +1,11 @@
 <script>
   import { onMount, onDestroy } from "svelte";
-  let initialValue = true;
   import { store } from "../../Stores/stores.js";
   let { active = $bindable(true), storeValue = "", disabled = false } = $props();
   let unsubscribe = () => {};
 
   onMount(() => {
-    unsubscribe = store.subscribe((v) => (initialValue = v[storeValue]));
-    active = initialValue;
+    unsubscribe = store.subscribe((v) => (active = v[storeValue]));
   });
   onDestroy(() => unsubscribe());
 

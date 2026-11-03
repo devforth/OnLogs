@@ -17,6 +17,8 @@
     lastChosenHost,
     lastChosenService,
     listScrollIsVisible,
+    toast,
+    toastIsVisible,
   } from "../../Stores/stores.js";
   import FetchApi from "../../utils/fetch.js";
   import { changeKey } from "../../utils/changeKey.js";
@@ -98,21 +100,39 @@
     }
   });
 
+  // The server flips the star per request, so one request per heart at a time.
+  const favoritesInFlight = new Set();
+  const findService = (host, service) =>
+    listData.find((h) => h.host === host)?.services.find((s) => s.serviceName === service);
+
   async function favoriteToggle(host, service) {
-    $lastChosenHost, $lastChosenService;
-
-    const hostIndex = listData.findIndex((h) => h.host === host);
-    const serviceIndex = listData[hostIndex].services.findIndex((s) => {
-      return s.serviceName === service;
-    });
-    if (hostIndex !== -1) {
-      if (listData[hostIndex].services[serviceIndex]) {
-        listData[hostIndex].services[serviceIndex].isFavorite =
-          !listData[hostIndex].services[serviceIndex].isFavorite;
-      }
+    const key = `${host}/${service}`;
+    const entry = findService(host, service);
+    if (!entry || favoritesInFlight.has(key)) {
+      return;
     }
+    favoritesInFlight.add(key);
+    const before = entry.isFavorite;
+    entry.isFavorite = !before;
 
-    const data = await fetchApi.changeFavorite(host, service);
+    let data;
+    try {
+      data = await fetchApi.changeFavorite(host, service);
+    } catch {
+      data = { error: "Something went wrong. Please try again later" };
+    }
+    favoritesInFlight.delete(key);
+    // null: the session ended and the app is already on the login page.
+    if (!data?.error) {
+      return;
+    }
+    // A host refresh may have replaced the list while the request was out.
+    const current = findService(host, service);
+    if (current) {
+      current.isFavorite = before;
+    }
+    toast.set({ tittle: "Error", message: data.error, position: "", status: "Error" });
+    toastIsVisible.set(true);
   }
 
   function toggleSublistVisible(host) {

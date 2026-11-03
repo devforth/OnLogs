@@ -1,17 +1,39 @@
 <script>
   import { onMount } from "svelte";
-  import { store } from "../../Stores/stores";
+  import { store, toast, toastIsVisible } from "../../Stores/stores";
   import fetchApi from "../../utils/fetch";
 
   const apiFetch = new fetchApi();
+  // Last settings the server accepted; setting them back skips the save, so no loop.
+  let saved = $store;
+  let latest = 0;
   async function saveSettings() {
-    if (initialSettingsGetted) {
-      const data = await apiFetch.updateSettings($store);
+    const sent = $store;
+    if (!initialSettingsGetted || sent === saved) {
+      return;
     }
+    const mine = ++latest;
+    let data;
+    try {
+      data = await apiFetch.updateSettings(sent);
+    } catch {
+      data = { error: "Something went wrong. Please try again later" };
+    }
+    if (data && !data.error) {
+      saved = sent;
+    }
+    // null: the session ended; a newer change has its own answer coming.
+    if (!data?.error || mine !== latest) {
+      return;
+    }
+    store.set(saved);
+    toast.set({ tittle: "Error", message: data.error, position: "", status: "Error" });
+    toastIsVisible.set(true);
   }
   async function getSettings() {
     const data = await apiFetch.getUserSettings();
     if (data) {
+      saved = data;
       store.set(data);
     }
   }

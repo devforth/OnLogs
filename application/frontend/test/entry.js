@@ -23,3 +23,5 @@ export { default as LogsSize } from "../src/lib/LogsSize/LogsSize.svelte";
 export { default as HostAliasModal } from "../src/lib/HostAliasModal/HostAliasModal.svelte";
 export { default as Stats } from "../src/lib/Stats/Stats.svelte";
 export { default as LogsString } from "../src/lib/LogsString/LogsString.svelte";
+export { default as SettingsController } from "../src/Views/Main/SettingsController.svelte";
+export { default as Checkbox } from "../src/lib/CheckBox/Checkbox.svelte";
